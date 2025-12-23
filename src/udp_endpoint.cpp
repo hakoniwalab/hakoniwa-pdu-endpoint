@@ -5,7 +5,7 @@
 #include <cstring>
 #include <fcntl.h>
 #include <fstream>
-#include <netdb.h>
+#include "hakoniwa/pdu/socket_utils.hpp"
 #include <nlohmann/json.hpp>
 #include <sys/socket.h>
 #include <sys/types.h>
@@ -16,46 +16,7 @@ namespace hakoniwa {
 namespace pdu {
 
 namespace {
-
-HakoPduErrorType map_errno_to_error(int error_number) noexcept
-{
-    if (error_number == EAGAIN || error_number == EWOULDBLOCK) {
-        return HAKO_PDU_ERR_TIMEOUT;
-    }
-    return HAKO_PDU_ERR_IO_ERROR;
-}
-
-HakoPduEndpointDirectionType parse_direction(const std::string& direction)
-{
-    if (direction == "in") {
-        return HAKO_PDU_ENDPOINT_DIRECTION_IN;
-    }
-    if (direction == "out") {
-        return HAKO_PDU_ENDPOINT_DIRECTION_OUT;
-    }
-    return HAKO_PDU_ENDPOINT_DIRECTION_INOUT;
-}
-
-HakoPduErrorType resolve_address(const nlohmann::json& endpoint_json, addrinfo** res)
-{
-    if (!endpoint_json.contains("address") || !endpoint_json.contains("port")) {
-        return HAKO_PDU_ERR_INVALID_ARGUMENT;
-    }
-    const std::string address = endpoint_json.at("address").get<std::string>();
-    const int port = endpoint_json.at("port").get<int>();
-    const std::string port_str = std::to_string(port);
-
-    addrinfo hints{};
-    hints.ai_family = AF_UNSPEC;
-    hints.ai_socktype = SOCK_DGRAM;
-    hints.ai_flags = AI_NUMERICHOST | AI_PASSIVE; 
-
-    if (getaddrinfo(address.c_str(), port_str.c_str(), &hints, res) != 0 || *res == nullptr) {
-        return HAKO_PDU_ERR_INVALID_ARGUMENT;
-    }
-    return HAKO_PDU_ERR_OK;
-}
-
+constexpr int kUdpSocketType = SOCK_DGRAM;
 }  // namespace
 
 UdpEndpoint::UdpEndpoint(const std::string& name, HakoPduEndpointDirectionType type)
@@ -94,17 +55,17 @@ HakoPduErrorType UdpEndpoint::open(const std::string& config_path)
 
     if (config_direction_ == HAKO_PDU_ENDPOINT_DIRECTION_IN || config_direction_ == HAKO_PDU_ENDPOINT_DIRECTION_INOUT) {
         if (!config_json.contains("local")) return HAKO_PDU_ERR_INVALID_ARGUMENT;
-        if (resolve_address(config_json.at("local"), &local_addr_info) != HAKO_PDU_ERR_OK) {
+        if (resolve_address(config_json.at("local"), kUdpSocketType, &local_addr_info) != HAKO_PDU_ERR_OK) {
             return HAKO_PDU_ERR_INVALID_ARGUMENT;
         }
     }
     if (config_direction_ == HAKO_PDU_ENDPOINT_DIRECTION_OUT) {
         if (!config_json.contains("remote")) return HAKO_PDU_ERR_INVALID_ARGUMENT;
-        if (resolve_address(config_json.at("remote"), &remote_addr_info) != HAKO_PDU_ERR_OK) {
+        if (resolve_address(config_json.at("remote"), kUdpSocketType, &remote_addr_info) != HAKO_PDU_ERR_OK) {
             return HAKO_PDU_ERR_INVALID_ARGUMENT;
         }
     } else if (config_direction_ == HAKO_PDU_ENDPOINT_DIRECTION_INOUT && config_json.contains("remote")) {
-        if (resolve_address(config_json.at("remote"), &remote_addr_info) != HAKO_PDU_ERR_OK) {
+        if (resolve_address(config_json.at("remote"), kUdpSocketType, &remote_addr_info) != HAKO_PDU_ERR_OK) {
             return HAKO_PDU_ERR_INVALID_ARGUMENT;
         }
         has_fixed_remote_ = true;

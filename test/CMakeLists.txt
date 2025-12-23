@@ -17,3 +17,15 @@ target_link_libraries(udp_endpoint_test
 
 # add_test を使ってテスト実行ファイルを登録
 add_test(NAME udp_endpoint_test COMMAND udp_endpoint_test)
+
+add_executable(tcp_endpoint_test
+  tcp_endpoint_test.cpp
+)
+
+target_link_libraries(tcp_endpoint_test
+  PRIVATE
+    hakoniwa_pdu_endpoint
+    GTest::gtest_main
+)
+
+add_test(NAME tcp_endpoint_test COMMAND tcp_endpoint_test)
