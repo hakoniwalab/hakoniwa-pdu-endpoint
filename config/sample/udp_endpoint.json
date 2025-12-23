@@ -1,0 +1,93 @@
+// ========================================
+// 例1: シンプルな送信用エンドポイント
+// ========================================
+{
+  "protocol": "udp",
+  "name": "sensor_sender",
+  "direction": "out",
+  "address": "192.168.1.100",
+  "port": 8080
+}
+
+// ========================================
+// 例2: 受信用エンドポイント（詳細設定）
+// ========================================
+{
+  "protocol": "udp",
+  "name": "sensor_receiver",
+  "direction": "in",
+  "address": "0.0.0.0",
+  "port": 9000,
+  "options": {
+    "buffer_size": 16384,
+    "timeout_ms": 5000,
+    "blocking": true,
+    "reuse_address": true
+  }
+}
+
+// ========================================
+// 例3: 双方向エンドポイント
+// ========================================
+{
+  "protocol": "udp",
+  "name": "command_control",
+  "direction": "inout",
+  "address": "192.168.1.50",
+  "port": 7777,
+  "options": {
+    "buffer_size": 8192,
+    "timeout_ms": 1000,
+    "blocking": false
+  }
+}
+
+// ========================================
+// 例4: マルチキャスト受信
+// ========================================
+{
+  "protocol": "udp",
+  "name": "multicast_receiver",
+  "direction": "in",
+  "address": "0.0.0.0",
+  "port": 5000,
+  "options": {
+    "buffer_size": 8192,
+    "reuse_address": true,
+    "multicast": {
+      "enabled": true,
+      "group": "239.255.0.1",
+      "interface": "0.0.0.0"
+    }
+  }
+}
+
+// ========================================
+// 例5: ブロードキャスト送信
+// ========================================
+{
+  "protocol": "udp",
+  "name": "broadcast_sender",
+  "direction": "out",
+  "address": "255.255.255.255",
+  "port": 8888,
+  "options": {
+    "broadcast": true
+  }
+}
+
+// ========================================
+// 例6: ローカルホスト通信（テスト用）
+// ========================================
+{
+  "protocol": "udp",
+  "name": "localhost_test",
+  "direction": "inout",
+  "address": "127.0.0.1",
+  "port": 12345,
+  "options": {
+    "buffer_size": 4096,
+    "timeout_ms": 500,
+    "blocking": true
+  }
+}
