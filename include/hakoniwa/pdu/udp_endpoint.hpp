@@ -40,6 +40,9 @@ private:
     bool running_ = false;
     sockaddr_storage dest_addr_{};
     socklen_t dest_addr_len_ = 0;
+    bool has_fixed_remote_ = false;
+    sockaddr_storage last_client_addr_{};
+    socklen_t last_client_addr_len_ = 0;
     HakoPduEndpointDirectionType config_direction_ = HAKO_PDU_ENDPOINT_DIRECTION_INOUT;
 };
 

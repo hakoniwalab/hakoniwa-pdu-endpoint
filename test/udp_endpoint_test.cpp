@@ -1,101 +1,161 @@
 #include "hakoniwa/pdu/udp_endpoint.hpp"
-
-#include <arpa/inet.h>
-#include <cassert>
-#include <cstring>
+#include <gtest/gtest.h>
 #include <fstream>
-#include <netinet/in.h>
-#include <sstream>
-#include <string>
-#include <sys/socket.h>
 #include <unistd.h>
+#include <string>
+#include <vector>
+#include <thread>
+#include <chrono>
 
-namespace {
-
-int find_available_port()
-{
-    int socket_fd = ::socket(AF_INET, SOCK_DGRAM, 0);
-    assert(socket_fd >= 0);
+// Helper to find an available port
+int find_available_port() {
+    int sock = socket(AF_INET, SOCK_DGRAM, 0);
+    if (sock < 0) return -1;
 
     sockaddr_in addr{};
     addr.sin_family = AF_INET;
-    addr.sin_addr.s_addr = htonl(INADDR_LOOPBACK);
-    addr.sin_port = htons(0);
+    addr.sin_addr.s_addr = INADDR_ANY;
+    addr.sin_port = 0;
 
-    int result = ::bind(socket_fd, reinterpret_cast<sockaddr*>(&addr), sizeof(addr));
-    assert(result == 0);
+    if (bind(sock, (struct sockaddr*)&addr, sizeof(addr)) < 0) {
+        close(sock);
+        return -1;
+    }
 
     socklen_t addr_len = sizeof(addr);
-    result = ::getsockname(socket_fd, reinterpret_cast<sockaddr*>(&addr), &addr_len);
-    assert(result == 0);
+    if (getsockname(sock, (struct sockaddr*)&addr, &addr_len) < 0) {
+        close(sock);
+        return -1;
+    }
 
     int port = ntohs(addr.sin_port);
-    ::close(socket_fd);
+    close(sock);
     return port;
 }
 
-std::string write_config(const std::string& filename, const std::string& content)
-{
-    std::ofstream config_stream(filename);
-    assert(config_stream.good());
-    config_stream << content;
-    config_stream.close();
-    return filename;
+// Helper to create a temporary config file
+void create_config_file(const std::string& filepath, const std::string& content) {
+    std::ofstream file(filepath);
+    file << content;
+    file.close();
 }
 
-}  // namespace
+class UdpEndpointTest : public ::testing::Test {
+protected:
+    std::string server_config_path = "server_config.json";
+    std::string client_config_path = "client_config.json";
+    int server_port = -1;
+    int client_port = -1;
 
-int main()
-{
-    const int port = find_available_port();
-    const std::string receiver_config_path = "udp_receiver_config.json";
-    const std::string sender_config_path = "udp_sender_config.json";
+    void SetUp() override {
+        server_port = find_available_port();
+        client_port = find_available_port();
+        ASSERT_NE(server_port, -1);
+        ASSERT_NE(client_port, -1);
+        ASSERT_NE(server_port, client_port);
+    }
 
-    std::ostringstream receiver_config;
-    receiver_config << "{"
-                    << "\"protocol\":\"udp\","
-                    << "\"name\":\"receiver\","
-                    << "\"direction\":\"in\","
-                    << "\"address\":\"127.0.0.1\","
-                    << "\"port\":" << port << ","
-                    << "\"options\":{\"timeout_ms\":1000}"
-                    << "}";
-    write_config(receiver_config_path, receiver_config.str());
+    void TearDown() override {
+        unlink(server_config_path.c_str());
+        unlink(client_config_path.c_str());
+    }
+};
 
-    std::ostringstream sender_config;
-    sender_config << "{"
-                  << "\"protocol\":\"udp\","
-                  << "\"name\":\"sender\","
-                  << "\"direction\":\"out\","
-                  << "\"address\":\"127.0.0.1\","
-                  << "\"port\":" << port
-                  << "}";
-    write_config(sender_config_path, sender_config.str());
+TEST_F(UdpEndpointTest, InOutCommunication) {
+    // Server (inout, no fixed remote)
+    std::string server_config = R"({
+        "protocol": "udp",
+        "name": "server",
+        "direction": "inout",
+        "local": { "address": "127.0.0.1", "port": )" + std::to_string(server_port) + R"( },
+        "options": { "timeout_ms": 100, "blocking": true }
+    })";
+    create_config_file(server_config_path, server_config);
+
+    // Client (inout, with fixed remote)
+    std::string client_config = R"({
+        "protocol": "udp",
+        "name": "client",
+        "direction": "inout",
+        "local": { "address": "127.0.0.1", "port": )" + std::to_string(client_port) + R"( },
+        "remote": { "address": "127.0.0.1", "port": )" + std::to_string(server_port) + R"( },
+        "options": { "timeout_ms": 100, "blocking": true }
+    })";
+    create_config_file(client_config_path, client_config);
+
+    hakoniwa::pdu::UdpEndpoint server("server", HAKO_PDU_ENDPOINT_DIRECTION_INOUT);
+    hakoniwa::pdu::UdpEndpoint client("client", HAKO_PDU_ENDPOINT_DIRECTION_INOUT);
+
+    ASSERT_EQ(server.open(server_config_path), HAKO_PDU_ERR_OK);
+    ASSERT_EQ(client.open(client_config_path), HAKO_PDU_ERR_OK);
+    ASSERT_EQ(server.start(), HAKO_PDU_ERR_OK);
+    ASSERT_EQ(client.start(), HAKO_PDU_ERR_OK);
+
+    // Client sends "ping" to server
+    const std::string ping = "ping";
+    ASSERT_EQ(client.send(ping.c_str(), ping.length()), HAKO_PDU_ERR_OK);
+
+    // Server receives "ping"
+    char server_buffer[16] = {};
+    size_t server_received_size = 0;
+    ASSERT_EQ(server.recv(server_buffer, sizeof(server_buffer), server_received_size), HAKO_PDU_ERR_OK);
+    ASSERT_EQ(server_received_size, ping.length());
+    ASSERT_EQ(std::string(server_buffer, server_received_size), ping);
+
+    // Server sends "pong" back to client
+    const std::string pong = "pong";
+    ASSERT_EQ(server.send(pong.c_str(), pong.length()), HAKO_PDU_ERR_OK);
+
+    // Client receives "pong"
+    char client_buffer[16] = {};
+    size_t client_received_size = 0;
+    ASSERT_EQ(client.recv(client_buffer, sizeof(client_buffer), client_received_size), HAKO_PDU_ERR_OK);
+    ASSERT_EQ(client_received_size, pong.length());
+    ASSERT_EQ(std::string(client_buffer, client_received_size), pong);
+
+    ASSERT_EQ(server.stop(), HAKO_PDU_ERR_OK);
+    ASSERT_EQ(client.stop(), HAKO_PDU_ERR_OK);
+    ASSERT_EQ(server.close(), HAKO_PDU_ERR_OK);
+    ASSERT_EQ(client.close(), HAKO_PDU_ERR_OK);
+}
+
+TEST_F(UdpEndpointTest, OutInCommunication) {
+    // Receiver (in)
+    std::string receiver_config = R"({
+        "protocol": "udp",
+        "name": "receiver",
+        "direction": "in",
+        "local": { "address": "127.0.0.1", "port": )" + std::to_string(server_port) + R"( },
+        "options": { "timeout_ms": 100 }
+    })";
+    create_config_file(server_config_path, receiver_config);
+
+    // Sender (out)
+    std::string sender_config = R"({
+        "protocol": "udp",
+        "name": "sender",
+        "direction": "out",
+        "remote": { "address": "127.0.0.1", "port": )" + std::to_string(server_port) + R"( }
+    })";
+    create_config_file(client_config_path, sender_config);
 
     hakoniwa::pdu::UdpEndpoint receiver("receiver", HAKO_PDU_ENDPOINT_DIRECTION_IN);
     hakoniwa::pdu::UdpEndpoint sender("sender", HAKO_PDU_ENDPOINT_DIRECTION_OUT);
 
-    assert(receiver.open(receiver_config_path) == HAKO_PDU_ERR_OK);
-    assert(sender.open(sender_config_path) == HAKO_PDU_ERR_OK);
-    assert(receiver.start() == HAKO_PDU_ERR_OK);
-    assert(sender.start() == HAKO_PDU_ERR_OK);
+    ASSERT_EQ(receiver.open(server_config_path), HAKO_PDU_ERR_OK);
+    ASSERT_EQ(sender.open(client_config_path), HAKO_PDU_ERR_OK);
+    ASSERT_EQ(receiver.start(), HAKO_PDU_ERR_OK);
+    ASSERT_EQ(sender.start(), HAKO_PDU_ERR_OK);
 
-    const char payload[] = "ping";
-    assert(sender.send(payload, sizeof(payload)) == HAKO_PDU_ERR_OK);
+    const std::string data = "test_data";
+    ASSERT_EQ(sender.send(data.c_str(), data.length()), HAKO_PDU_ERR_OK);
 
-    char buffer[16] = {};
+    char buffer[32] = {};
     size_t received_size = 0;
-    assert(receiver.recv(buffer, sizeof(buffer), received_size) == HAKO_PDU_ERR_OK);
-    assert(received_size == sizeof(payload));
-    assert(std::memcmp(buffer, payload, sizeof(payload)) == 0);
+    ASSERT_EQ(receiver.recv(buffer, sizeof(buffer), received_size), HAKO_PDU_ERR_OK);
+    ASSERT_EQ(received_size, data.length());
+    ASSERT_EQ(std::string(buffer, received_size), data);
 
-    assert(receiver.stop() == HAKO_PDU_ERR_OK);
-    assert(sender.stop() == HAKO_PDU_ERR_OK);
-    assert(receiver.close() == HAKO_PDU_ERR_OK);
-    assert(sender.close() == HAKO_PDU_ERR_OK);
-
-    ::unlink(receiver_config_path.c_str());
-    ::unlink(sender_config_path.c_str());
-
-    return 0;
+    ASSERT_EQ(receiver.close(), HAKO_PDU_ERR_OK);
+    ASSERT_EQ(sender.close(), HAKO_PDU_ERR_OK);
 }

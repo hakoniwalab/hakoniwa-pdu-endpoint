@@ -3,7 +3,7 @@
   "title": "UDP Endpoint Configuration",
   "description": "UDP通信エンドポイントの設定",
   "type": "object",
-  "required": ["protocol", "name", "direction", "address", "port"],
+  "required": ["protocol", "name", "direction"],
   "properties": {
     "protocol": {
       "type": "string",
@@ -22,27 +22,13 @@
       "enum": ["in", "out", "inout"],
       "description": "通信方向"
     },
-    "address": {
-      "type": "string",
-      "description": "IPアドレス（IPv4またはIPv6）",
-      "oneOf": [
-        {
-          "format": "ipv4",
-          "examples": ["192.168.1.100", "127.0.0.1"]
-        },
-        {
-          "format": "ipv6",
-          "examples": ["::1", "fe80::1"]
-        }
-      ]
+
+    "local": { "$ref": "#/$defs/endpoint" },
+    "remote": { 
+      "$ref": "#/$defs/endpoint",
+      "description": "送信先。inout の場合、指定されていれば常にこのアドレスに送信する。省略時は直近に受信した相手に送信する。"
     },
-    "port": {
-      "type": "integer",
-      "description": "ポート番号",
-      "minimum": 1,
-      "maximum": 65535,
-      "examples": [8080, 9000]
-    },
+
     "options": {
       "type": "object",
       "description": "オプション設定",
@@ -105,14 +91,47 @@
             }
           },
           "required": ["enabled"],
-          "if": {
-            "properties": {
-              "enabled": {"const": true}
-            }
-          },
-          "then": {
-            "required": ["group"]
-          }
+          "if": { "properties": { "enabled": { "const": true } } },
+          "then": { "required": ["group"] }
+        }
+      }
+    }
+  },
+
+  "allOf": [
+    {
+      "if": { "properties": { "direction": { "const": "in" } } },
+      "then": { "required": ["local"] }
+    },
+    {
+      "if": { "properties": { "direction": { "const": "out" } } },
+      "then": { "required": ["remote"] }
+    },
+    {
+      "if": { "properties": { "direction": { "const": "inout" } } },
+      "then": { "required": ["local"] }
+    }
+  ],
+
+  "$defs": {
+    "endpoint": {
+      "type": "object",
+      "required": ["address", "port"],
+      "properties": {
+        "address": {
+          "type": "string",
+          "description": "IPアドレス（IPv4またはIPv6）",
+          "oneOf": [
+            { "format": "ipv4", "examples": ["192.168.1.100", "127.0.0.1"] },
+            { "format": "ipv6", "examples": ["::1", "fe80::1"] }
+          ]
+        },
+        "port": {
+          "type": "integer",
+          "description": "ポート番号",
+          "minimum": 1,
+          "maximum": 65535,
+          "examples": [8080, 9000]
         }
       }
     }

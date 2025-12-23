@@ -10,14 +10,12 @@
 #include <sys/socket.h>
 #include <sys/types.h>
 #include <unistd.h>
+#include <iostream>
 
 namespace hakoniwa {
 namespace pdu {
 
 namespace {
-
-constexpr int kDefaultBufferSize = 8192;
-constexpr int kDefaultTimeoutMs = 1000;
 
 HakoPduErrorType map_errno_to_error(int error_number) noexcept
 {
@@ -38,22 +36,30 @@ HakoPduEndpointDirectionType parse_direction(const std::string& direction)
     return HAKO_PDU_ENDPOINT_DIRECTION_INOUT;
 }
 
-bool is_direction_compatible(HakoPduEndpointDirectionType configured,
-                             HakoPduEndpointDirectionType requested)
+HakoPduErrorType resolve_address(const nlohmann::json& endpoint_json, addrinfo** res)
 {
-    if (configured == requested) {
-        return true;
+    if (!endpoint_json.contains("address") || !endpoint_json.contains("port")) {
+        return HAKO_PDU_ERR_INVALID_ARGUMENT;
     }
-    return configured == HAKO_PDU_ENDPOINT_DIRECTION_INOUT
-        || requested == HAKO_PDU_ENDPOINT_DIRECTION_INOUT;
+    const std::string address = endpoint_json.at("address").get<std::string>();
+    const int port = endpoint_json.at("port").get<int>();
+    const std::string port_str = std::to_string(port);
+
+    addrinfo hints{};
+    hints.ai_family = AF_UNSPEC;
+    hints.ai_socktype = SOCK_DGRAM;
+    hints.ai_flags = AI_NUMERICHOST | AI_PASSIVE; 
+
+    if (getaddrinfo(address.c_str(), port_str.c_str(), &hints, res) != 0 || *res == nullptr) {
+        return HAKO_PDU_ERR_INVALID_ARGUMENT;
+    }
+    return HAKO_PDU_ERR_OK;
 }
 
 }  // namespace
 
 UdpEndpoint::UdpEndpoint(const std::string& name, HakoPduEndpointDirectionType type)
-    : Endpoint(name, type)
-{
-}
+    : Endpoint(name, type) {}
 
 HakoPduErrorType UdpEndpoint::open(const std::string& config_path)
 {
@@ -69,103 +75,94 @@ HakoPduErrorType UdpEndpoint::open(const std::string& config_path)
     nlohmann::json config_json;
     try {
         config_stream >> config_json;
-    } catch (const nlohmann::json::exception&) {
+    } catch (const nlohmann::json::exception& e) {
+        // std::cerr << "JSON parsing error: " << e.what() << std::endl;
         return HAKO_PDU_ERR_INVALID_ARGUMENT;
     }
 
     if (!config_json.contains("protocol") || config_json.at("protocol").get<std::string>() != "udp") {
         return HAKO_PDU_ERR_INVALID_ARGUMENT;
     }
-
-    if (!config_json.contains("direction") || !config_json.contains("address") || !config_json.contains("port")) {
+    if (!config_json.contains("direction")) {
         return HAKO_PDU_ERR_INVALID_ARGUMENT;
     }
 
-    const std::string direction_string = config_json.at("direction").get<std::string>();
-    config_direction_ = parse_direction(direction_string);
-    if (!is_direction_compatible(config_direction_, type_)) {
-        return HAKO_PDU_ERR_INVALID_ARGUMENT;
+    config_direction_ = parse_direction(config_json.at("direction").get<std::string>());
+
+    addrinfo* local_addr_info = nullptr;
+    addrinfo* remote_addr_info = nullptr;
+
+    if (config_direction_ == HAKO_PDU_ENDPOINT_DIRECTION_IN || config_direction_ == HAKO_PDU_ENDPOINT_DIRECTION_INOUT) {
+        if (!config_json.contains("local")) return HAKO_PDU_ERR_INVALID_ARGUMENT;
+        if (resolve_address(config_json.at("local"), &local_addr_info) != HAKO_PDU_ERR_OK) {
+            return HAKO_PDU_ERR_INVALID_ARGUMENT;
+        }
+    }
+    if (config_direction_ == HAKO_PDU_ENDPOINT_DIRECTION_OUT) {
+        if (!config_json.contains("remote")) return HAKO_PDU_ERR_INVALID_ARGUMENT;
+        if (resolve_address(config_json.at("remote"), &remote_addr_info) != HAKO_PDU_ERR_OK) {
+            return HAKO_PDU_ERR_INVALID_ARGUMENT;
+        }
+    } else if (config_direction_ == HAKO_PDU_ENDPOINT_DIRECTION_INOUT && config_json.contains("remote")) {
+        if (resolve_address(config_json.at("remote"), &remote_addr_info) != HAKO_PDU_ERR_OK) {
+            return HAKO_PDU_ERR_INVALID_ARGUMENT;
+        }
+        has_fixed_remote_ = true;
     }
 
-    const std::string address = config_json.at("address").get<std::string>();
-    const int port = config_json.at("port").get<int>();
+    addrinfo* initial_addr = local_addr_info ? local_addr_info : remote_addr_info;
+    if (!initial_addr) {
+        return HAKO_PDU_ERR_INVALID_ARGUMENT;
+    }
+    
+    socket_fd_ = ::socket(initial_addr->ai_family, initial_addr->ai_socktype, initial_addr->ai_protocol);
+    if (socket_fd_ < 0) {
+        if(local_addr_info) freeaddrinfo(local_addr_info);
+        if(remote_addr_info) freeaddrinfo(remote_addr_info);
+        return HAKO_PDU_ERR_IO_ERROR;
+    }
 
     Options options;
-    options.buffer_size = kDefaultBufferSize;
-    options.timeout_ms = kDefaultTimeoutMs;
-
     if (config_json.contains("options")) {
         const auto& opts = config_json.at("options");
-        if (opts.contains("buffer_size")) {
-            options.buffer_size = opts.at("buffer_size").get<int>();
-        }
-        if (opts.contains("timeout_ms")) {
-            options.timeout_ms = opts.at("timeout_ms").get<int>();
-        }
-        if (opts.contains("blocking")) {
-            options.blocking = opts.at("blocking").get<bool>();
-        }
-        if (opts.contains("reuse_address")) {
-            options.reuse_address = opts.at("reuse_address").get<bool>();
-        }
-        if (opts.contains("broadcast")) {
-            options.broadcast = opts.at("broadcast").get<bool>();
-        }
+        options.buffer_size = opts.value("buffer_size", 8192);
+        options.timeout_ms = opts.value("timeout_ms", 1000);
+        options.blocking = opts.value("blocking", true);
+        options.reuse_address = opts.value("reuse_address", true);
+        options.broadcast = opts.value("broadcast", false);
         if (opts.contains("multicast")) {
             const auto& mc = opts.at("multicast");
-            if (mc.contains("enabled")) {
-                options.multicast_enabled = mc.at("enabled").get<bool>();
-            }
-            if (mc.contains("group")) {
-                options.multicast_group = mc.at("group").get<std::string>();
-            }
-            if (mc.contains("interface")) {
-                options.multicast_interface = mc.at("interface").get<std::string>();
-            }
-            if (mc.contains("ttl")) {
-                options.multicast_ttl = mc.at("ttl").get<int>();
+            options.multicast_enabled = mc.value("enabled", false);
+            if(options.multicast_enabled) {
+                options.multicast_group = mc.value("group", "");
+                options.multicast_interface = mc.value("interface", "0.0.0.0");
+                options.multicast_ttl = mc.value("ttl", 1);
             }
         }
-    }
-
-    addrinfo hints{};
-    hints.ai_family = AF_UNSPEC;
-    hints.ai_socktype = SOCK_DGRAM;
-    hints.ai_flags = AI_NUMERICHOST;
-
-    addrinfo* result = nullptr;
-    const std::string port_str = std::to_string(port);
-    if (getaddrinfo(address.c_str(), port_str.c_str(), &hints, &result) != 0 || result == nullptr) {
-        return HAKO_PDU_ERR_INVALID_ARGUMENT;
-    }
-
-    socket_fd_ = ::socket(result->ai_family, result->ai_socktype, result->ai_protocol);
-    if (socket_fd_ < 0) {
-        freeaddrinfo(result);
-        return HAKO_PDU_ERR_IO_ERROR;
     }
 
     HakoPduErrorType option_result = configure_socket_options(options);
     if (option_result != HAKO_PDU_ERR_OK) {
-        freeaddrinfo(result);
         close();
         return option_result;
     }
 
-    if (config_direction_ == HAKO_PDU_ENDPOINT_DIRECTION_IN ||
-        config_direction_ == HAKO_PDU_ENDPOINT_DIRECTION_INOUT) {
-        if (::bind(socket_fd_, result->ai_addr, result->ai_addrlen) != 0) {
-            freeaddrinfo(result);
+    if (local_addr_info) {
+        if (::bind(socket_fd_, local_addr_info->ai_addr, local_addr_info->ai_addrlen) != 0) {
+            freeaddrinfo(local_addr_info);
+            if(remote_addr_info) freeaddrinfo(remote_addr_info);
             close();
             return HAKO_PDU_ERR_IO_ERROR;
         }
     }
 
-    dest_addr_len_ = static_cast<socklen_t>(result->ai_addrlen);
-    std::memset(&dest_addr_, 0, sizeof(dest_addr_));
-    std::memcpy(&dest_addr_, result->ai_addr, result->ai_addrlen);
+    if (remote_addr_info) {
+        std::memcpy(&dest_addr_, remote_addr_info->ai_addr, remote_addr_info->ai_addrlen);
+        dest_addr_len_ = remote_addr_info->ai_addrlen;
+    }
 
-    freeaddrinfo(result);
+    if (local_addr_info) freeaddrinfo(local_addr_info);
+    if (remote_addr_info) freeaddrinfo(remote_addr_info);
 
     if (options.multicast_enabled) {
         HakoPduErrorType multicast_result = configure_multicast(options);
@@ -186,6 +183,9 @@ HakoPduErrorType UdpEndpoint::close() noexcept
         ::close(socket_fd_);
         socket_fd_ = -1;
     }
+    has_fixed_remote_ = false;
+    dest_addr_len_ = 0;
+    last_client_addr_len_ = 0;
     return HAKO_PDU_ERR_OK;
 }
 
@@ -212,15 +212,36 @@ HakoPduErrorType UdpEndpoint::is_running(bool& running) noexcept
 
 HakoPduErrorType UdpEndpoint::send(const void* data, size_t size) noexcept
 {
-    if (socket_fd_ < 0 || data == nullptr) {
+    if (socket_fd_ < 0 || data == nullptr || size == 0) {
         return HAKO_PDU_ERR_INVALID_ARGUMENT;
     }
-    if (type_ == HAKO_PDU_ENDPOINT_DIRECTION_IN) {
+    if (config_direction_ == HAKO_PDU_ENDPOINT_DIRECTION_IN) {
         return HAKO_PDU_ERR_INVALID_ARGUMENT;
     }
 
-    ssize_t sent = ::sendto(socket_fd_, data, size, 0,
-                            reinterpret_cast<const sockaddr*>(&dest_addr_), dest_addr_len_);
+    const sockaddr* target_addr = nullptr;
+    socklen_t target_addr_len = 0;
+
+    if (has_fixed_remote_) {
+        target_addr = reinterpret_cast<const sockaddr*>(&dest_addr_);
+        target_addr_len = dest_addr_len_;
+    } else if (config_direction_ == HAKO_PDU_ENDPOINT_DIRECTION_INOUT) {
+        target_addr = reinterpret_cast<const sockaddr*>(&last_client_addr_);
+        target_addr_len = last_client_addr_len_;
+        if (target_addr_len == 0) {
+            // Not received yet, can't send
+            return HAKO_PDU_ERR_IO_ERROR; 
+        }
+    } else { // OUT
+        target_addr = reinterpret_cast<const sockaddr*>(&dest_addr_);
+        target_addr_len = dest_addr_len_;
+    }
+
+    if (target_addr == nullptr || target_addr_len == 0) {
+        return HAKO_PDU_ERR_INVALID_ARGUMENT;
+    }
+
+    ssize_t sent = ::sendto(socket_fd_, data, size, 0, target_addr, target_addr_len);
     if (sent < 0) {
         return map_errno_to_error(errno);
     }
@@ -233,7 +254,7 @@ HakoPduErrorType UdpEndpoint::recv(void* data, size_t buffer_size, size_t& recei
     if (socket_fd_ < 0 || data == nullptr) {
         return HAKO_PDU_ERR_INVALID_ARGUMENT;
     }
-    if (type_ == HAKO_PDU_ENDPOINT_DIRECTION_OUT) {
+    if (config_direction_ == HAKO_PDU_ENDPOINT_DIRECTION_OUT) {
         return HAKO_PDU_ERR_INVALID_ARGUMENT;
     }
 
@@ -241,9 +262,16 @@ HakoPduErrorType UdpEndpoint::recv(void* data, size_t buffer_size, size_t& recei
     socklen_t from_len = sizeof(from);
     ssize_t received = ::recvfrom(socket_fd_, data, buffer_size, 0,
                                   reinterpret_cast<sockaddr*>(&from), &from_len);
+
     if (received < 0) {
         return map_errno_to_error(errno);
     }
+    
+    if (config_direction_ == HAKO_PDU_ENDPOINT_DIRECTION_INOUT && !has_fixed_remote_) {
+        std::memcpy(&last_client_addr_, &from, from_len);
+        last_client_addr_len_ = from_len;
+    }
+
     received_size = static_cast<size_t>(received);
     return HAKO_PDU_ERR_OK;
 }
@@ -265,8 +293,7 @@ HakoPduErrorType UdpEndpoint::configure_socket_options(const Options& options) n
     }
 
     if (options.buffer_size > 0) {
-        int buffer_size = options.buffer_size;
-        if (setsockopt(socket_fd_, SOL_SOCKET, SO_RCVBUF, &buffer_size, sizeof(buffer_size)) != 0) {
+        if (setsockopt(socket_fd_, SOL_SOCKET, SO_RCVBUF, &options.buffer_size, sizeof(options.buffer_size)) != 0) {
             return HAKO_PDU_ERR_IO_ERROR;
         }
     }
@@ -298,32 +325,26 @@ HakoPduErrorType UdpEndpoint::configure_multicast(const Options& options) noexce
     if (options.multicast_group.empty()) {
         return HAKO_PDU_ERR_INVALID_ARGUMENT;
     }
-
-    sockaddr_storage local_addr{};
-    socklen_t local_len = sizeof(local_addr);
-    if (getsockname(socket_fd_, reinterpret_cast<sockaddr*>(&local_addr), &local_len) != 0) {
-        return HAKO_PDU_ERR_IO_ERROR;
+    
+    // Membership is for IN endpoints
+    if (config_direction_ == HAKO_PDU_ENDPOINT_DIRECTION_IN || config_direction_ == HAKO_PDU_ENDPOINT_DIRECTION_INOUT) {
+        ip_mreq mreq{};
+        if (inet_pton(AF_INET, options.multicast_group.c_str(), &mreq.imr_multiaddr) != 1) {
+            return HAKO_PDU_ERR_INVALID_ARGUMENT;
+        }
+        if (inet_pton(AF_INET, options.multicast_interface.c_str(), &mreq.imr_interface) != 1) {
+            return HAKO_PDU_ERR_INVALID_ARGUMENT;
+        }
+        if (setsockopt(socket_fd_, IPPROTO_IP, IP_ADD_MEMBERSHIP, &mreq, sizeof(mreq)) != 0) {
+            return HAKO_PDU_ERR_IO_ERROR;
+        }
     }
-
-    if (local_addr.ss_family != AF_INET) {
-        return HAKO_PDU_ERR_INVALID_ARGUMENT;
-    }
-
-    ip_mreq mreq{};
-    if (inet_pton(AF_INET, options.multicast_group.c_str(), &mreq.imr_multiaddr) != 1) {
-        return HAKO_PDU_ERR_INVALID_ARGUMENT;
-    }
-    if (inet_pton(AF_INET, options.multicast_interface.c_str(), &mreq.imr_interface) != 1) {
-        return HAKO_PDU_ERR_INVALID_ARGUMENT;
-    }
-
-    if (setsockopt(socket_fd_, IPPROTO_IP, IP_ADD_MEMBERSHIP, &mreq, sizeof(mreq)) != 0) {
-        return HAKO_PDU_ERR_IO_ERROR;
-    }
-
-    if (setsockopt(socket_fd_, IPPROTO_IP, IP_MULTICAST_TTL, &options.multicast_ttl,
-                   sizeof(options.multicast_ttl)) != 0) {
-        return HAKO_PDU_ERR_IO_ERROR;
+    
+    // TTL is for OUT endpoints
+    if (config_direction_ == HAKO_PDU_ENDPOINT_DIRECTION_OUT || config_direction_ == HAKO_PDU_ENDPOINT_DIRECTION_INOUT) {
+        if (setsockopt(socket_fd_, IPPROTO_IP, IP_MULTICAST_TTL, &options.multicast_ttl, sizeof(options.multicast_ttl)) != 0) {
+            return HAKO_PDU_ERR_IO_ERROR;
+        }
     }
 
     return HAKO_PDU_ERR_OK;

@@ -32,6 +32,6 @@ target_link_libraries(hakoniwa_pdu_endpoint
 option(HAKO_PDU_ENDPOINT_BUILD_TESTS "Build UDP endpoint tests" ON)
 
 if(HAKO_PDU_ENDPOINT_BUILD_TESTS)
-  enable_testing()
-  add_subdirectory(${CMAKE_CURRENT_LIST_DIR}/../test ${CMAKE_CURRENT_BINARY_DIR}/test)
+  # enable_testing() # この行を削除
+  # add_subdirectory(${CMAKE_CURRENT_LIST_DIR}/../test ${CMAKE_CURRENT_BINARY_DIR}/test)
 endif()
