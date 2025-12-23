@@ -1,6 +1,6 @@
 #pragma once
 
-#include "hakoniwa/pdu/endpoint.hpp"
+#include "hakoniwa/pdu/raw_endpoint.hpp"
 #include <netdb.h>
 #include <netinet/in.h>
 #include <string>
@@ -8,7 +8,7 @@
 namespace hakoniwa {
 namespace pdu {
 
-class TcpEndpoint final : public Endpoint
+class TcpEndpoint final : public RawEndpoint
 {
 public:
     TcpEndpoint(const std::string& name, HakoPduEndpointDirectionType type);

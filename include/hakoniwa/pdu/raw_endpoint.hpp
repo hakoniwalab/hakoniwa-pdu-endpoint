@@ -14,7 +14,7 @@ namespace pdu
  * 各プロトコル実装はこのインターフェースを継承して
  * 具体的な通信処理を実装します。
  */
-class Endpoint
+class RawEndpoint
 {
 public:
     /**
@@ -22,16 +22,16 @@ public:
      * @param name エンドポイント名
      * @param type エンドポイントの方向（IN/OUT/INOUT）
      */
-    Endpoint(const std::string& name, HakoPduEndpointDirectionType type) 
+    RawEndpoint(const std::string& name, HakoPduEndpointDirectionType type) 
         : name_(name), type_(type) {}
     
-    virtual ~Endpoint() = default;
+    virtual ~RawEndpoint() = default;
     
     // コピー・ムーブ禁止（ポリモーフィックな基底クラス）
-    Endpoint(const Endpoint&) = delete;
-    Endpoint(Endpoint&&) = delete;
-    Endpoint& operator=(const Endpoint&) = delete;
-    Endpoint& operator=(Endpoint&&) = delete;
+    RawEndpoint(const RawEndpoint&) = delete;
+    RawEndpoint(RawEndpoint&&) = delete;
+    RawEndpoint& operator=(const RawEndpoint&) = delete;
+    RawEndpoint& operator=(RawEndpoint&&) = delete;
     
     /**
      * @brief エンドポイントを開く

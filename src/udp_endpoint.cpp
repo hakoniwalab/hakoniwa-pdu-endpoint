@@ -20,7 +20,7 @@ constexpr int kUdpSocketType = SOCK_DGRAM;
 }  // namespace
 
 UdpEndpoint::UdpEndpoint(const std::string& name, HakoPduEndpointDirectionType type)
-    : Endpoint(name, type) {}
+    : RawEndpoint(name, type) {}
 
 HakoPduErrorType UdpEndpoint::open(const std::string& config_path)
 {

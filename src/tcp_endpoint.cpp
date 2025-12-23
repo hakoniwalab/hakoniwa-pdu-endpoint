@@ -21,7 +21,7 @@ constexpr int kTcpSocketType = SOCK_STREAM;
 }  // namespace
 
 TcpEndpoint::TcpEndpoint(const std::string& name, HakoPduEndpointDirectionType type)
-    : Endpoint(name, type) {}
+    : RawEndpoint(name, type) {}
 
 HakoPduErrorType TcpEndpoint::open(const std::string& config_path)
 {

@@ -1,13 +1,13 @@
 #pragma once
 
-#include "hakoniwa/pdu/endpoint.hpp"
+#include "hakoniwa/pdu/raw_endpoint.hpp"
 #include <netinet/in.h>
 #include <string>
 
 namespace hakoniwa {
 namespace pdu {
 
-class UdpEndpoint final : public Endpoint
+class UdpEndpoint final : public RawEndpoint
 {
 public:
     UdpEndpoint(const std::string& name, HakoPduEndpointDirectionType type);
