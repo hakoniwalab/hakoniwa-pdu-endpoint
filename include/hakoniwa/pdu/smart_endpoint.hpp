@@ -159,7 +159,7 @@ class SmartCommEndpoint {
 public:
   SmartCommEndpoint() = default;
 
-  void attach_raw(std::shared_ptr<Endpoint> raw) { raw_ = std::move(raw); }
+  void attach_raw(std::shared_ptr<RawEndpoint> raw) { raw_ = std::move(raw); }
   void attach_smart_root(std::shared_ptr<SmartEndpoint> root) { smart_root_ = std::move(root); }
 
   // raw->recv() を回して decode し、smart_root_->on_frame() に渡す
@@ -167,7 +167,8 @@ public:
     if (!raw_ || !smart_root_) return HAKO_PDU_ERR_INVALID_ARGUMENT;
 
     std::vector<std::byte> bytes;
-    auto err = raw_->recv(bytes);
+    size_t received_size = 0;
+    auto err = raw_->recv(bytes, received_size);
     if (err != HAKO_PDU_ERR_OK) return err;
     if (bytes.empty()) return HAKO_PDU_ERR_OK;
 

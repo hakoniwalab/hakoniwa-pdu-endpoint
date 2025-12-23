@@ -3,6 +3,8 @@
 
 #include "hakoniwa/pdu/endpoint_types.h"
 #include <string>
+#include <span>
+#include <cstddef>
 
 namespace hakoniwa {
 namespace pdu
@@ -95,6 +97,14 @@ public:
      * @return 方向タイプ
      */
     HakoPduEndpointDirectionType get_type() const { return type_; }
+
+    HakoPduErrorType send(std::span<const std::byte> bytes) noexcept {
+        return send(bytes.data(), bytes.size());
+    }
+
+    HakoPduErrorType recv(std::span<std::byte> buf, size_t& received_size) noexcept {
+        return recv(buf.data(), buf.size(), received_size);
+    }
 
 protected:
     std::string                  name_;
