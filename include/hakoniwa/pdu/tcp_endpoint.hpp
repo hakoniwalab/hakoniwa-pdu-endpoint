@@ -1,6 +1,7 @@
 #pragma once
 
 #include "hakoniwa/pdu/endpoint.hpp"
+#include <netdb.h>
 #include <netinet/in.h>
 #include <string>
 
