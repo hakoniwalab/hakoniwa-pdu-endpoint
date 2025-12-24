@@ -1,0 +1,55 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Buffer Smart Endpoint Configuration",
+  "description": "PDUを内部に保持し、read/writeで提供するSmart Endpoint設定",
+  "type": "object",
+  "required": ["type", "name", "store"],
+
+  "properties": {
+    "type": {
+      "type": "string",
+      "enum": ["buffer"],
+      "description": "Smart Endpoint種別（buffer固定）"
+    },
+
+    "name": {
+      "type": "string",
+      "description": "Smart Endpoint名",
+      "minLength": 1,
+      "maxLength": 256,
+      "examples": ["state_buffer", "event_queue"]
+    },
+
+    "store": {
+      "type": "object",
+      "description": "バッファ方式の設定",
+      "required": ["mode"],
+      "properties": {
+        "mode": {
+          "type": "string",
+          "enum": ["latest", "queue"],
+          "description": "保存モード（状態 or イベント）"
+        },
+
+        "depth": {
+          "type": "integer",
+          "description": "キュー長（mode=queue の場合）",
+          "minimum": 1,
+          "maximum": 1024,
+          "default": 1
+        }
+      },
+
+      "allOf": [
+        {
+          "if": {
+            "properties": { "mode": { "const": "queue" } }
+          },
+          "then": {
+            "required": ["depth"]
+          }
+        }
+      ]
+    }
+  }
+}

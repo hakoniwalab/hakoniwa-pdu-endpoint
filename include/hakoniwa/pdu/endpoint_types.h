@@ -28,6 +28,7 @@ typedef enum
     HAKO_PDU_ERR_NO_SPACE = 4,          /**< 空き容量不足 */
     HAKO_PDU_ERR_BUSY = 5,              /**< リソース使用中 */
     HAKO_PDU_ERR_TIMEOUT = 6,           /**< タイムアウト */
+    HAKO_PDU_ERR_NO_ENTRY = 7,          /**< エントリなし */
 } HakoPduErrorType;
 
 /**

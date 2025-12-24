@@ -129,24 +129,28 @@ protected:
 
 
 // ========== SmartStoreEndpoint (2nd layer) ==========
-// 「状態を保持して read/write で提供する」Smart。
-// BufferSmartEndpoint / ShmSmartEndpoint などはこれを実装する。
-class SmartStoreEndpoint : public SmartEndpoint {
-public:
-  SmartStoreEndpoint() = default;
-  ~SmartStoreEndpoint() override = default;
 
-  // bodyは「PDU payload 部分」（meta/body_len で示される部分）
+class ISmartStoreEndpoint {
+public:
+  virtual ~ISmartStoreEndpoint() = default;
+  virtual HakoPduErrorType store_frame(const PduFrameView& frame) noexcept = 0;
   virtual HakoPduErrorType write(const std::string& robot_name,
                                  hako_pdu_uint32_t channel_id,
                                  std::span<const std::byte> body) noexcept = 0;
 
-  // 呼び出し側が buffer を用意し、そこへコピーする方式
-  // body_len は in/out：入力は最大、出力は実サイズ
   virtual HakoPduErrorType read(std::string& robot_name,
                                 hako_pdu_uint32_t& channel_id,
                                 std::span<std::byte> body_buf,
                                 hako_pdu_uint32_t& body_len) noexcept = 0;
+};
+
+// 「状態を保持して read/write で提供する」Smart。
+// BufferSmartEndpoint / ShmSmartEndpoint などはこれを実装する。
+class SmartStoreEndpoint : public SmartEndpoint, public ISmartStoreEndpoint {
+public:
+  SmartStoreEndpoint() = default;
+  ~SmartStoreEndpoint() override = default;
+
 };
 
 
@@ -201,5 +205,23 @@ private:
   std::shared_ptr<RawEndpoint>    raw_;
   std::shared_ptr<SmartEndpoint> smart_root_;
 };
+
+struct PduKey {
+  std::string robot;
+  hako_pdu_uint32_t channel_id;
+
+  bool operator==(const PduKey& other) const {
+    return robot == other.robot && channel_id == other.channel_id;
+  }
+};
+
+struct PduKeyHash {
+  std::size_t operator()(const PduKey& k) const noexcept {
+    std::size_t h1 = std::hash<std::string>{}(k.robot);
+    std::size_t h2 = std::hash<hako_pdu_uint32_t>{}(k.channel_id);
+    return h1 ^ (h2 << 1);
+  }
+};
+
 
 } // namespace hakoniwa::pdu
