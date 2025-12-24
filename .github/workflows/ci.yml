@@ -12,6 +12,8 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install -y g++-12
+      - name: Install Google Test
+        run: sudo apt-get update && sudo apt-get install -y libgtest-dev cmake          
       - name: Update Compiler Alternatives
         run: |
           sudo update-alternatives --install /usr/bin/g++ g++ /usr/bin/g++-12 12
