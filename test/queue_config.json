@@ -1,0 +1,8 @@
+{
+  "type": "buffer",
+  "name": "test_queue_buffer",
+  "store": {
+    "mode": "queue",
+    "depth": 3
+  }
+}
