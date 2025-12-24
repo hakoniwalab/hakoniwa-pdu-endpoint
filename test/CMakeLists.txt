@@ -40,16 +40,5 @@ target_link_libraries(buffer_smart_endpoint_test
     GTest::gtest_main
 )
 
-# 設定ファイルをテスト実行時にワーキングディレクトリにコピー
-add_custom_command(TARGET buffer_smart_endpoint_test POST_BUILD
-                   COMMAND ${CMAKE_COMMAND} -E copy
-                           ${CMAKE_CURRENT_SOURCE_DIR}/latest_config.json
-                           $<TARGET_FILE_DIR:buffer_smart_endpoint_test>/latest_config.json
-                   COMMAND ${CMAKE_COMMAND} -E copy
-                           ${CMAKE_CURRENT_SOURCE_DIR}/queue_config.json
-                           $<TARGET_FILE_DIR:buffer_smart_endpoint_test>/queue_config.json
-                   COMMAND ${CMAKE_COMMAND} -E copy
-                           ${CMAKE_CURRENT_SOURCE_DIR}/CMakeLists.txt
-                           $<TARGET_FILE_DIR:buffer_smart_endpoint_test>/CMakeLists.txt
-)
 add_test(NAME buffer_smart_endpoint_test COMMAND buffer_smart_endpoint_test)
+set_tests_properties(buffer_smart_endpoint_test PROPERTIES WORKING_DIRECTORY "${PROJECT_SOURCE_DIR}")
