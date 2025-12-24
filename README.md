@@ -4,14 +4,15 @@
 
 ## Features
 
-- **JSON-based Configuration**: Easily configure UDP/TCP endpoints, including IP addresses, ports, and various socket options.
-- **Multiple Communication Directions**: Supports `in` (receive-only), `out` (send-only), and `inout` (bidirectional) communication modes.
-- **Dynamic Replies**: In `inout` mode, the endpoint can dynamically reply to the last received client, enabling simple request/response patterns.
-- **Cross-platform**: Built with standard C++ and CMake, making it portable across different operating systems.
+-   **JSON-based Endpoint Configuration**: Both Raw Endpoints (for network communication) and Smart Endpoints (for in-memory PDU processing) are easily configured via JSON files, allowing detailed setup of communication parameters and internal logic.
+-   **Flexible PDU Handling**: Supports various PDU handling strategies, including direct network communication (UDP/TCP) through Raw Endpoints and advanced in-memory management (e.g., state caching, event queuing) via Smart Endpoints.
+-   **Multiple Communication Directions**: Supports `in` (receive-only), `out` (send-only), and `inout` (bidirectional) communication modes.
+-   **Dynamic Replies**: In `inout` mode, the endpoint can dynamically reply to the last received client, enabling simple request/response patterns.
+-   **Cross-platform**: Built with standard C++ and CMake, making it portable across different operating systems.
 
 ## Requirements
 
-- C++17 compatible compiler (e.g., GCC, Clang, MSVC)
+- C++20 compatible compiler (e.g., GCC, Clang, MSVC)
 - CMake (version 3.16 or later)
 - GoogleTest (for running tests, automatically fetched by CMake)
 
@@ -49,21 +50,22 @@ ctest --test-dir build/test --output-on-failure
 
 You should see output indicating that all tests have passed.
 
-## Configuration Example
+## Endpoint Configuration
 
-Configuration is done via a JSON file. The schemas can be found in:
+This library supports two main types of endpoints: **Raw Endpoints** for direct network I/O and **Smart Endpoints** for in-memory PDU processing and storage. Configuration is done via a JSON file, and the available schemas can be found in `config/schema/`:
 
-- UDP: `config/schema/udp_endpoint_schema.json`
-- TCP: `config/schema/tcp_endpoint_schema.json`
+- `udp_endpoint_schema.json`
+- `tcp_endpoint_schema.json`
+- `buffer_smart_endpoint_schema.json`
 
-TCP configurations require a `role` that indicates connection behavior:
+### Raw Endpoints (Network I/O)
 
-- `client`: actively connects to `remote`
-- `server`: listens on `local` and accepts connections
+Raw Endpoints are used for low-level network communication over UDP or TCP. They are responsible for sending and receiving raw byte streams.
 
-Here is an example of a bidirectional (`inout`) endpoint that listens on port `7000` and can dynamically reply to any client that sends it a message:
+#### UDP Endpoint Example
+Here is an example of a bidirectional (`inout`) UDP endpoint that listens on port `7000` and can dynamically reply to any client that sends it a message.
 
-**`my_config.json`**
+**`udp_config.json`**
 ```json
 {
   "protocol": "udp",
@@ -80,12 +82,10 @@ Here is an example of a bidirectional (`inout`) endpoint that listens on port `7
   }
 }
 ```
+For more details, refer to `config/sample/udp_endpoint.json`.
 
-For more examples, please refer to `config/sample/udp_endpoint.json`.
-
-## TCP Configuration Example
-
-Here is an example of a bidirectional TCP client that connects to a server:
+#### TCP Endpoint Example
+TCP configurations require a `role` (`server` or `client`). Here is an example of a TCP client that connects to a server.
 
 **`tcp_config.json`**
 ```json
@@ -106,5 +106,42 @@ Here is an example of a bidirectional TCP client that connects to a server:
   }
 }
 ```
+For more details, refer to `config/sample/tcp_endpoint.json`.
 
-For more examples, please refer to `config/sample/tcp_endpoint.json`.
+### Smart Endpoints (In-Memory Processing)
+
+Smart Endpoints work with structured PDU data rather than raw bytes. They provide higher-level functionalities like caching, queueing, and filtering, and can be chained together to form processing pipelines.
+
+#### Buffer Smart Endpoint
+The `BufferSmartEndpoint` is an in-memory storage endpoint that can operate in two modes.
+
+**1. "latest" Mode (State Cache)**
+This mode stores only the most recent PDU for each channel, making it ideal for caching state information where only the current value matters.
+
+**`latest_mode_config.json`**
+```json
+{
+  "type": "buffer",
+  "name": "vehicle_state_buffer",
+  "store": {
+    "mode": "latest"
+  }
+}
+```
+
+**2. "queue" Mode (Event Queue)**
+This mode maintains a FIFO (First-In, First-Out) queue of PDUs up to a specified `depth`. It is suitable for handling events where every PDU must be processed in order.
+
+**`queue_mode_config.json`**
+```json
+{
+  "type": "buffer",
+  "name": "collision_event_queue",
+  "store": {
+    "mode": "queue",
+    "depth": 8
+  }
+}
+```
+
+For more examples, please refer to `config/sample/buffer_smart_endpoint.json`.
