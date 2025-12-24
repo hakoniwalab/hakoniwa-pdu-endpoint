@@ -8,6 +8,13 @@ jobs:
   build-and-test:
     runs-on: ubuntu-latest
     steps:
+      - name: Install Latest GCC
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y g++-12
+      - name: Update Compiler Alternatives
+        run: |
+          sudo update-alternatives --install /usr/bin/g++ g++ /usr/bin/g++-12 12
       - name: Checkout
         uses: actions/checkout@v4
 
