@@ -2,6 +2,7 @@
 
 #include "hakoniwa/pdu/endpoint_types.hpp"
 #include <span>
+#include <functional>
 
 namespace hakoniwa {
 namespace pdu {
