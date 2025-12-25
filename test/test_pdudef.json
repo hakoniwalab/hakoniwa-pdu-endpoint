@@ -1,0 +1,17 @@
+{
+    "robots": [
+        {
+            "name": "TestRobot",
+            "shm_pdu_readers": [
+                {
+                    "type": "test_msgs/TestMessage",
+                    "org_name": "TestPDU",
+                    "name": "TestRobot_TestPDU",
+                    "channel_id": 123,
+                    "pdu_size": 8,
+                    "method_type": "SHM"
+                }
+            ]
+        }
+    ]
+}

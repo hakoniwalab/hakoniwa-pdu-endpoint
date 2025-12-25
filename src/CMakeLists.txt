@@ -17,6 +17,8 @@ add_library(hakoniwa_pdu_endpoint
   comm_udp.cpp
   comm_tcp.cpp
   pdu_factory.cpp
+  comm_shm.cpp 
+  pdu_definition.cpp
 )
 
 target_include_directories(hakoniwa_pdu_endpoint
@@ -28,6 +30,19 @@ target_link_libraries(hakoniwa_pdu_endpoint
   PUBLIC
     nlohmann_json::nlohmann_json
 )
+
+# Add OS-specific logic for Hakoniwa core library
+if(APPLE)
+  target_include_directories(hakoniwa_pdu_endpoint
+    PUBLIC
+      /usr/local/hakoniwa/include/hakoniwa
+  )
+  target_link_libraries(hakoniwa_pdu_endpoint
+    PUBLIC
+      /usr/local/hakoniwa/lib/libassets.dylib
+  )
+endif()
+
 
 option(HAKO_PDU_ENDPOINT_BUILD_TESTS "Build UDP endpoint tests" ON)
 

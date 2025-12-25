@@ -1,0 +1,6 @@
+{
+    "name": "test_pdu_def_endpoint",
+    "pdu_def_path": "test/test_pdudef.json",
+    "cache": "config/sample/cache/buffer.json",
+    "comm": null
+}

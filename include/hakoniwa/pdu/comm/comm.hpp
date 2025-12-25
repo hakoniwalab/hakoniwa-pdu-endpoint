@@ -1,6 +1,8 @@
 #pragma once
 
 #include "hakoniwa/pdu/endpoint_types.hpp"
+#include "hakoniwa/pdu/pdu_definition.hpp" 
+#include <memory> 
 #include <span>
 #include <functional>
 
@@ -37,7 +39,12 @@ public:
         on_recv_callback_ = callback;
         return HAKO_PDU_ERR_OK;
     }
+    
+    // Set PDU definition and store it in the protected member
+    virtual void set_pdu_definition(std::shared_ptr<PduDefinition> pdu_def) { pdu_def_ = pdu_def; }
+
 protected:
+    std::shared_ptr<PduDefinition>  pdu_def_; // Moved to base class
     //callbacks can be added here
     std::function<void(const PduResolvedKey&, std::span<const std::byte>)> on_recv_callback_;
 };

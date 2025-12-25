@@ -33,7 +33,8 @@ typedef enum
     HAKO_PDU_ERR_INVALID_JSON = 9,      /**< JSONフォーマットが不正 */
     HAKO_PDU_ERR_INVALID_CONFIG = 10,   /**< 設定が不正 */
     HAKO_PDU_ERR_NOT_RUNNING = 11,      /**< エンドポイントが起動していない */
-    HAKO_PDU_ERR_UNSUPPORTED = 12       /**< サポートされていない操作 */
+    HAKO_PDU_ERR_UNSUPPORTED = 12,      /**< サポートされていない操作 */
+    HAKO_PDU_ERR_INVALID_PDU_KEY = 13   /**< PDUキーが不正 */
 } HakoPduErrorType;
 
 /**

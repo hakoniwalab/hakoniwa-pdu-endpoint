@@ -132,6 +132,34 @@ TEST_F(EndpointTest, QueueModeTest) {
     ASSERT_EQ(endpoint.close(), HAKO_PDU_ERR_OK);
 }
 
+TEST_F(EndpointTest, PduDefinitionTest) {
+    hakoniwa::pdu::Endpoint endpoint("pdu_def_test", HAKO_PDU_ENDPOINT_DIRECTION_INOUT);
+    ASSERT_EQ(endpoint.open("test/test_pdu_def_endpoint.json"), HAKO_PDU_ERR_OK);
+    ASSERT_EQ(endpoint.start(), HAKO_PDU_ERR_OK);
+
+    hakoniwa::pdu::PduKey key;
+    key.robot = "TestRobot";
+    key.pdu = "TestPDU";
+
+    std::vector<std::byte> send_data = {
+        std::byte(0xDE), std::byte(0xAD), std::byte(0xBE), std::byte(0xEF),
+        std::byte(0xCA), std::byte(0xFE), std::byte(0xBA), std::byte(0xBE)
+    };
+    ASSERT_EQ(endpoint.send(key, send_data), HAKO_PDU_ERR_OK);
+
+    std::vector<std::byte> recv_buffer(10);
+    size_t received_size = 0;
+    ASSERT_EQ(endpoint.recv(key, recv_buffer, received_size), HAKO_PDU_ERR_OK);
+
+    ASSERT_EQ(received_size, send_data.size());
+    for (size_t i = 0; i < received_size; ++i) {
+        EXPECT_EQ(recv_buffer[i], send_data[i]);
+    }
+
+    ASSERT_EQ(endpoint.stop(), HAKO_PDU_ERR_OK);
+    ASSERT_EQ(endpoint.close(), HAKO_PDU_ERR_OK);
+}
+
 TEST_F(EndpointTest, TcpCommunicationTest) {
     int server_port = find_available_port(SOCK_STREAM);
     ASSERT_GT(server_port, 0);

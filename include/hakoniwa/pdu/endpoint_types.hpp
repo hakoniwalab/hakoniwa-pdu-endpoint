@@ -1,6 +1,7 @@
 #pragma once
 
 #include "hakoniwa/pdu/endpoint_types.h"
+#include "hako_primitive_types.h" // Added
 #include <string>
 
 
@@ -13,7 +14,7 @@ struct PduKey {
 };
 struct PduResolvedKey {
     std::string robot;
-    hako_pdu_uint32_t channel_id;
+    HakoPduChannelIdType channel_id; // Changed
 };
 
 // Common hash function and equality operator for PduResolvedKey
@@ -21,7 +22,7 @@ struct PduResolvedKey {
 struct PduResolvedKeyHash {
   std::size_t operator()(const PduResolvedKey &k) const {
     return std::hash<std::string>()(k.robot) ^
-           (std::hash<hako_pdu_uint32_t>()(k.channel_id) << 1);
+           (std::hash<HakoPduChannelIdType>()(k.channel_id) << 1); // Changed
   }
 };
 
