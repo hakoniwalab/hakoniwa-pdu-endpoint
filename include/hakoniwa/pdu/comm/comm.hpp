@@ -12,6 +12,7 @@ namespace pdu {
 class PduComm
 {
 public:
+    PduComm() = default;
     virtual ~PduComm() = default;
     // コピー・ムーブ禁止（ポリモーフィックな基底クラス）
     PduComm(const PduComm&) = delete;
