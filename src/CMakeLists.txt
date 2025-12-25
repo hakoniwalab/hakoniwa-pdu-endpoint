@@ -41,6 +41,15 @@ if(APPLE)
     PUBLIC
       /usr/local/hakoniwa/lib/libassets.dylib
   )
+elseif(UNIX) # Add this block for Linux
+  target_include_directories(hakoniwa_pdu_endpoint
+    PUBLIC
+      /usr/include/hakoniwa
+  )
+  target_link_libraries(hakoniwa_pdu_endpoint
+    PUBLIC
+      /usr/lib/x86_64-linux-gnu/libassets.so
+  )
 endif()
 
 
