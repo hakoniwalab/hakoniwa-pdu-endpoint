@@ -1,0 +1,12 @@
+{
+  "protocol": "udp",
+  "name": "broadcast_sender",
+  "direction": "out",
+  "remote": {
+    "address": "255.255.255.255",
+    "port": 8888
+  },
+  "options": {
+    "broadcast": true
+  }
+}

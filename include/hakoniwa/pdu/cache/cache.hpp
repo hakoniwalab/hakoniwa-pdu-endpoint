@@ -14,6 +14,7 @@ namespace pdu {
 class PduCache
 {
 public:
+    PduCache() = default;
     virtual ~PduCache() = default;
     // コピー・ムーブ禁止（ポリモーフィックな基底クラス）
     PduCache(const PduCache&) = delete;

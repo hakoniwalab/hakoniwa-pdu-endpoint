@@ -1,0 +1,10 @@
+{
+  "protocol": "udp",
+  "name": "udp_client_for_test",
+  "direction": "out",
+  "pdu_key": { "robot": "TestRobo", "channel_id": 0 },
+  "remote": {
+    "address": "127.0.0.1",
+    "port": 7777
+  }
+}

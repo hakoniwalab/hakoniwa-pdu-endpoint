@@ -1,0 +1,77 @@
+// ========================================
+// Sample Endpoint Configuration File
+// ========================================
+
+// TCP Server エンドポイントのサンプル設定
+{
+    "name": "tcp_server_buffer_endpoint",
+    "cache": "cache/buffer.json",
+    "comm": "comm/tcp_server_inout_comm.json"
+}
+// TCP Client エンドポイントのサンプル設定
+{
+    "name": "tcp_client_buffer_endpoint",
+    "cache": "cache/buffer.json",
+    "comm": "comm/tcp_client_inout_comm.json"
+}
+// UDP 双方向エンドポイントのサンプル設定
+{
+    "name": "udp_inout_buffer_endpoint",
+    "cache": "cache/queue.json",
+    "comm": "comm/udp_inout_comm.json"
+}
+
+// 内部バッファエンドポイントのサンプル設定
+{
+    "name": "internal_buffer_endpoint",
+    "cache": "cache/internal_buffer.json",
+    "comm": null
+}
+// 内部キューエンドポイントのサンプル設定
+{
+    "name": "internal_queue_endpoint",
+    "cache": "cache/internal_queue.json",
+    "comm": null
+}
+// TCP Client (out-only)
+{
+    "name": "tcp_client_out_endpoint",
+    "cache": "cache/buffer.json",
+    "comm": "comm/tcp_client_out_comm.json"
+}
+// TCP Server (in-only)
+{
+    "name": "tcp_server_in_endpoint",
+    "cache": "cache/queue.json",
+    "comm": "comm/tcp_server_in_comm.json"
+}
+// UDP Client (out-only)
+{
+    "name": "udp_client_out_endpoint",
+    "cache": "cache/buffer.json",
+    "comm": "comm/udp_client_out_comm.json"
+}
+// UDP Server (in-only)
+{
+    "name": "udp_server_in_endpoint",
+    "cache": "cache/queue.json",
+    "comm": "comm/udp_server_in_comm.json"
+}
+// UDP in/out with fixed remote
+{
+    "name": "udp_inout_remote_endpoint",
+    "cache": "cache/queue.json",
+    "comm": "comm/udp_inout_remote_comm.json"
+}
+// UDP Multicast receiver
+{
+    "name": "udp_mcast_in_endpoint",
+    "cache": "cache/queue.json",
+    "comm": "comm/udp_mcast_in_comm.json"
+}
+// UDP Broadcast sender
+{
+    "name": "udp_bcast_out_endpoint",
+    "cache": "cache/buffer.json",
+    "comm": "comm/udp_bcast_out_comm.json"
+}

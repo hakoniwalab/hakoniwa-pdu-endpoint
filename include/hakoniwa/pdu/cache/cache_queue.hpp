@@ -9,21 +9,10 @@
 #include <string>
 #include <unordered_map>
 #include <vector>
+#include <iostream>
 
 namespace hakoniwa {
 namespace pdu {
-
-// PduResolvedKey のためのハッシュ関数と等価比較
-struct PduResolvedKeyHash {
-  std::size_t operator()(const PduResolvedKey &k) const {
-    return std::hash<std::string>()(k.robot) ^
-           (std::hash<hako_pdu_uint32_t>()(k.channel_id) << 1);
-  }
-};
-
-inline bool operator==(const PduResolvedKey &a, const PduResolvedKey &b) {
-  return a.robot == b.robot && a.channel_id == b.channel_id;
-}
 
 class PduLatestQueue : public PduCache {
 private:
@@ -37,7 +26,6 @@ private:
   bool is_running_ = false;
 
 public:
-  // コピー・ムーブコンストラクタと代入演算子をデフォルトに
   PduLatestQueue() = default;
   ~PduLatestQueue() override = default;
   PduLatestQueue(const PduLatestQueue &) = delete;
@@ -53,8 +41,8 @@ public:
     nlohmann::json json_config;
     try {
       ifs >> json_config;
-      if (json_config.contains("depth")) {
-        depth_ = json_config.at("depth").get<int>();
+      if (json_config.contains("store") && json_config["store"].contains("depth")) {
+        depth_ = json_config["store"]["depth"].get<int>();
       }
     } catch (const nlohmann::json::parse_error &e) {
       return HAKO_PDU_ERR_INVALID_JSON;
@@ -97,6 +85,7 @@ public:
     std::lock_guard<std::mutex> lock(mtx_);
     auto &q = queues_[pdu_key].queue;
     q.emplace_back(data.begin(), data.end());
+
     if (q.size() > depth_) {
       q.pop_front();
     }
@@ -117,7 +106,7 @@ public:
     }
 
     auto &q = it->second.queue;
-    const auto &src = q.front();
+    const auto &src = q.front(); 
 
     if (data.size() < src.size()) {
       received_size = src.size();
@@ -127,7 +116,7 @@ public:
     std::copy(src.begin(), src.end(), data.begin());
     received_size = src.size();
 
-    q.pop_front(); // consume on read
+    q.pop_front();
 
     return HAKO_PDU_ERR_OK;
   }

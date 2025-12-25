@@ -14,10 +14,9 @@ FetchContent_MakeAvailable(nlohmann_json)
 
 add_library(hakoniwa_pdu_endpoint
   socket_utils.cpp
-  udp_endpoint.cpp
-  tcp_endpoint.cpp
   comm_udp.cpp
   comm_tcp.cpp
+  pdu_factory.cpp
 )
 
 target_include_directories(hakoniwa_pdu_endpoint

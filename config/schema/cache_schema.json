@@ -1,7 +1,7 @@
 {
   "$schema": "http://json-schema.org/draft-07/schema#",
-  "title": "Buffer Smart Endpoint Configuration",
-  "description": "PDUを内部に保持し、read/writeで提供するSmart Endpoint設定",
+  "title": "Cache Configuration",
+  "description": "Schema for cache endpoint configurations (e.g., latest, queue).",
   "type": "object",
   "required": ["type", "name", "store"],
 
@@ -9,31 +9,31 @@
     "type": {
       "type": "string",
       "enum": ["buffer"],
-      "description": "Smart Endpoint種別（buffer固定）"
+      "description": "Endpoint type (fixed to 'buffer')."
     },
 
     "name": {
       "type": "string",
-      "description": "Smart Endpoint名",
+      "description": "Name of the cache endpoint.",
       "minLength": 1,
       "maxLength": 256,
-      "examples": ["state_buffer", "event_queue"]
+      "examples": ["vehicle_state_buffer", "collision_event_queue"]
     },
 
     "store": {
       "type": "object",
-      "description": "バッファ方式の設定",
+      "description": "Buffer storage settings.",
       "required": ["mode"],
       "properties": {
         "mode": {
           "type": "string",
           "enum": ["latest", "queue"],
-          "description": "保存モード（状態 or イベント）"
+          "description": "Storage mode ('latest' for state, 'queue' for events)."
         },
 
         "depth": {
           "type": "integer",
-          "description": "キュー長（mode=queue の場合）",
+          "description": "Queue depth (required if mode is 'queue').",
           "minimum": 1,
           "maximum": 1024,
           "default": 1

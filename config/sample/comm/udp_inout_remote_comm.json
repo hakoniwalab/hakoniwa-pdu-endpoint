@@ -1,0 +1,13 @@
+{
+  "protocol": "udp",
+  "name": "udp_inout_remote",
+  "direction": "inout",
+  "local": {
+    "address": "0.0.0.0",
+    "port": 7001
+  },
+  "remote": {
+    "address": "192.168.1.50",
+    "port": 7777
+  }
+}

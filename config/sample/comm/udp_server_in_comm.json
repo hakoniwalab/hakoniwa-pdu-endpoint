@@ -1,0 +1,9 @@
+{
+  "protocol": "udp",
+  "name": "udp_server_in",
+  "direction": "in",
+  "local": {
+    "address": "0.0.0.0",
+    "port": 9000
+  }
+}

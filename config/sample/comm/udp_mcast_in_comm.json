@@ -1,0 +1,17 @@
+{
+  "protocol": "udp",
+  "name": "multicast_receiver",
+  "direction": "in",
+  "local": {
+    "address": "0.0.0.0",
+    "port": 5000
+  },
+  "options": {
+    "reuse_address": true,
+    "multicast": {
+      "enabled": true,
+      "group": "239.255.0.1",
+      "interface": "0.0.0.0"
+    }
+  }
+}

@@ -7,22 +7,11 @@
 #include <string>
 #include <unordered_map>
 #include <vector>
+#include <nlohmann/json.hpp>
+#include <iostream>
 
 namespace hakoniwa {
 namespace pdu {
-
-// PduResolvedKey のためのハッシュ関数と等価比較
-// note: cache_queue.hppにも同じ定義があるため、将来的には共通ヘッダに移動することが望ましい
-struct PduResolvedKeyHash {
-  std::size_t operator()(const PduResolvedKey &k) const {
-    return std::hash<std::string>()(k.robot) ^
-           (std::hash<hako_pdu_uint32_t>()(k.channel_id) << 1);
-  }
-};
-
-inline bool operator==(const PduResolvedKey &a, const PduResolvedKey &b) {
-  return a.robot == b.robot && a.channel_id == b.channel_id;
-}
 
 class PduLatestBuffer : public PduCache {
 private:
@@ -44,8 +33,22 @@ public:
   PduLatestBuffer &operator=(PduLatestBuffer &&) = delete;
 
   HakoPduErrorType open(const std::string &config_path) override {
-    // この実装では設定ファイルは不要
-    (void)config_path; //未使用引数警告を抑制
+    std::ifstream ifs(config_path);
+    if (!ifs.is_open()) {
+      return HAKO_PDU_ERR_FILE_NOT_FOUND;
+    }
+    nlohmann::json json_config;
+    try {
+      ifs >> json_config;
+      if (!json_config.contains("type") || json_config["type"] != "buffer") {
+        return HAKO_PDU_ERR_INVALID_CONFIG;
+      }
+      if (!json_config.contains("store") || !json_config["store"].contains("mode") || json_config["store"]["mode"] != "latest") {
+        return HAKO_PDU_ERR_INVALID_CONFIG;
+      }
+    } catch (const nlohmann::json::exception&) {
+      return HAKO_PDU_ERR_INVALID_JSON;
+    }
     return HAKO_PDU_ERR_OK;
   }
 

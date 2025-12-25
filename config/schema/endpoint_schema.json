@@ -1,0 +1,25 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Endpoint Configuration",
+  "description": "Schema for a single endpoint entry, linking a name to cache and communication configurations.",
+  "type": "object",
+  "required": ["name", "cache", "comm"],
+  "properties": {
+    "name": {
+      "type": "string",
+      "description": "Unique name for the endpoint configuration.",
+      "minLength": 1,
+      "maxLength": 256
+    },
+    "cache": {
+      "type": ["string", "null"],
+      "description": "Path to the cache configuration file, or null if no cache is used.",
+      "pattern": "^(cache\/)?.*\.json$"
+    },
+    "comm": {
+      "type": ["string", "null"],
+      "description": "Path to the communication configuration file, or null if no communication is used (e.g., for internal endpoints).",
+      "pattern": "^(comm\/)?.*\.json$"
+    }
+  }
+}

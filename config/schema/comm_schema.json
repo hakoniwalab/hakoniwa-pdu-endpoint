@@ -1,0 +1,130 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Communication Endpoint Configuration",
+  "description": "Schema for communication endpoints (TCP or UDP).",
+  "type": "object",
+  "required": ["protocol", "name", "direction"],
+  "properties": {
+    "protocol": {
+      "type": "string",
+      "enum": ["tcp", "udp"],
+      "description": "Protocol type."
+    },
+    "name": {
+      "type": "string",
+      "description": "Endpoint name.",
+      "minLength": 1,
+      "maxLength": 256
+    },
+    "direction": {
+      "type": "string",
+      "enum": ["in", "out", "inout"],
+      "description": "Communication direction."
+    },
+    "role": {
+      "type": "string",
+      "enum": ["client", "server"],
+      "description": "TCP role (client: connects, server: listens)."
+    },
+    "local": { "$ref": "#/$defs/endpoint" },
+    "remote": { "$ref": "#/$defs/endpoint" },
+    "options": {
+      "type": "object",
+      "description": "Socket and protocol options.",
+      "properties": {
+        "backlog": { "type": "integer", "description": "TCP server listen backlog." },
+        "connect_timeout_ms": { "type": "integer", "description": "TCP connect timeout (ms)." },
+        "read_timeout_ms": { "type": "integer", "description": "TCP read timeout (ms)." },
+        "write_timeout_ms": { "type": "integer", "description": "TCP write timeout (ms)." },
+        "blocking": { "type": "boolean", "description": "Blocking mode." },
+        "reuse_address": { "type": "boolean", "description": "SO_REUSEADDR option." },
+        "keepalive": { "type": "boolean", "description": "TCP keepalive." },
+        "no_delay": { "type": "boolean", "description": "TCP_NODELAY (Nagle algorithm)." },
+        "recv_buffer_size": { "type": "integer", "description": "Receive buffer size (bytes)." },
+        "send_buffer_size": { "type": "integer", "description": "Send buffer size (bytes)." },
+        "linger": {
+          "type": "object",
+          "properties": {
+            "enabled": { "type": "boolean" },
+            "timeout_sec": { "type": "integer" }
+          },
+          "required": ["enabled"]
+        },
+        "buffer_size": { "type": "integer", "description": "UDP buffer size (bytes)." },
+        "timeout_ms": { "type": "integer", "description": "UDP timeout (ms)." },
+        "broadcast": { "type": "boolean", "description": "UDP broadcast permission." },
+        "multicast": {
+          "type": "object",
+          "properties": {
+            "enabled": { "type": "boolean" },
+            "group": { "type": "string", "format": "ipv4" },
+            "interface": { "type": "string", "format": "ipv4" },
+            "ttl": { "type": "integer" }
+          },
+          "required": ["enabled"],
+          "if": { "properties": { "enabled": { "const": true } } },
+          "then": { "required": ["group"] }
+        }
+      }
+    }
+  },
+  "allOf": [
+    {
+      "if": { "properties": { "protocol": { "const": "tcp" } } },
+      "then": {
+        "anyOf": [
+          {
+            "if": { "properties": { "direction": { "const": "in" } } },
+            "then": { "required": ["local"], "properties": { "role": { "const": "server" } } }
+          },
+          {
+            "if": { "properties": { "direction": { "const": "out" } } },
+            "then": { "required": ["remote"], "properties": { "role": { "const": "client" } } }
+          },
+          {
+            "if": { "properties": { "direction": { "const": "inout" } } },
+            "then": {
+              "required": ["role"],
+              "anyOf": [
+                { "if": { "properties": { "role": { "const": "server" } } }, "then": { "required": ["local"] } },
+                { "if": { "properties": { "role": { "const": "client" } } }, "then": { "required": ["remote"] } }
+              ]
+            }
+          }
+        ]
+      }
+    },
+    {
+      "if": { "properties": { "protocol": { "const": "udp" } } },
+      "then": {
+        "anyOf": [
+          { "if": { "properties": { "direction": { "const": "in" } } }, "then": { "required": ["local"] } },
+          { "if": { "properties": { "direction": { "const": "out" } } }, "then": { "required": ["remote"] } },
+          { "if": { "properties": { "direction": { "const": "inout" } } }, "then": { "required": ["local"] } }
+        ]
+      }
+    }
+  ],
+  "$defs": {
+    "endpoint": {
+      "type": "object",
+      "required": ["address", "port"],
+      "properties": {
+        "address": {
+          "type": "string",
+          "description": "IP address (IPv4 or IPv6).",
+          "oneOf": [
+            { "format": "ipv4" },
+            { "format": "ipv6" }
+          ]
+        },
+        "port": {
+          "type": "integer",
+          "description": "Port number.",
+          "minimum": 1,
+          "maximum": 65535
+        }
+      }
+    }
+  }
+}

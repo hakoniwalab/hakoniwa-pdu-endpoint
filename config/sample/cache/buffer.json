@@ -1,6 +1,6 @@
 {
   "type": "buffer",
-  "name": "test_latest_buffer",
+  "name": "default_latest_buffer",
   "store": {
     "mode": "latest"
   }

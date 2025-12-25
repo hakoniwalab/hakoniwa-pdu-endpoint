@@ -1,0 +1,1 @@
+{ "name": "test_udp_server", "cache": "config/sample/cache/queue.json", "comm": "config/sample/comm/udp_inout_comm.json" }

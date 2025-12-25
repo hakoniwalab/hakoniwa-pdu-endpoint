@@ -1,0 +1,8 @@
+// Sample for an internal 'latest' mode buffer
+{
+  "type": "buffer",
+  "name": "internal_latest_buffer",
+  "store": {
+    "mode": "latest"
+  }
+}
