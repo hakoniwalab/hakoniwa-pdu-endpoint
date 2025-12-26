@@ -43,3 +43,6 @@ build
 
 # debug information files
 *.dwo
+
+# CMake Testing directory
+Testing/
