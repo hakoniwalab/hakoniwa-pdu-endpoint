@@ -1,0 +1,18 @@
+{
+    "protocol": "websocket",
+    "role": "client",
+    "direction": "out",
+    "remote": {
+        "host": "127.0.0.1",
+        "port": 8080,
+        "path": "/ws",
+        "secure": false
+    },
+    "options": {
+        "connect_timeout_ms": 5000,
+        "read_timeout_ms": 5000,
+        "write_timeout_ms": 5000,
+        "ping_interval_sec": 30,
+        "handshake_timeout_ms": 5000
+    }
+}
