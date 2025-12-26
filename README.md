@@ -13,7 +13,8 @@
 -   **Multiple Communication Protocols**:
     -   **TCP**: Client and Server roles for reliable, stream-based communication.
     -   **UDP**: Unicast, Broadcast, and Multicast for connectionless communication.
-    -   **Shared Memory**: Event-driven communication for high-performance, local IPC with Hakoniwa assets.
+    -   **Shared Memory (SHM)**: Event-driven communication for high-performance, local IPC with Hakoniwa assets.
+    -   **WebSocket**: Client and Server roles for stream-based communication over WebSocket.
 -   **Cross-platform**: Built with standard C++20 and CMake, making it portable across different operating systems.
 
 ## Requirements
@@ -61,6 +62,7 @@ The schemas for these can be found in `config/schema/`:
 - `endpoint_schema.json`
 - `cache_schema.json`
 - `comm_schema.json`
+- `pdu_def_schema.json`
 
 ### 1. Endpoint Configuration
 
@@ -100,11 +102,12 @@ These files define the in-memory storage strategy (e.g., `latest` mode or `queue
 
 ### 3. Communication (Comm) Configuration
 
-These files define the network protocol and parameters. See `config/sample/comm/` for examples for TCP, UDP, and SHM.
+These files define the network protocol and parameters. See `config/sample/comm/` for examples for TCP, UDP, SHM, and WebSocket.
 
 ### 4. PDU Definition File (Optional)
 
 This file maps human-readable PDU names to their channel IDs, sizes, and types. Providing this file in the endpoint configuration enables the high-level, name-based API.
+When using SHM communication, a PDU definition file is required so the shared-memory channel IDs can be resolved.
 
 **`pdudef.json` (Excerpt):**
 ```json
@@ -241,6 +244,7 @@ classDiagram
     class PduCommShm
     class TcpComm
     class UdpComm
+    class WebSocketComm
 
     Endpoint "1" o-- "0..1" PduDefinition : owns
     Endpoint "1" o-- "1" PduCache : owns
@@ -250,8 +254,9 @@ classDiagram
     PduComm <|-- PduCommShm
     PduComm <|-- TcpComm
     PduComm <|-- UdpComm
+    PduComm <|-- WebSocketComm
     
-    note for PduComm "Concrete implementations (TcpComm, UdpComm, PduCommShm)"
+    note for PduComm "Concrete implementations (TcpComm, UdpComm, WebSocketComm, PduCommShm)"
 
 ```
 
@@ -261,7 +266,7 @@ classDiagram
     -   **`Endpoint`**: The user-facing orchestrator. It composes the other modules and provides two API levels (name-based and ID-based).
     -   **`PduDefinition`**: (Optional) Manages the mapping between PDU string names and their technical details (channel ID, size), loaded from a JSON file.
     -   **`PduCache`**: An interface for in-memory data storage. Concrete implementations provide different caching strategies.
-    -   **`PduComm`**: An interface for communication modules. Concrete implementations (`TcpComm`, `UdpComm`, `PduCommShm`) handle the specifics of each protocol.
+    -   **`PduComm`**: An interface for communication modules. Concrete implementations (`TcpComm`, `UdpComm`, `WebSocketComm`, `PduCommShm`) handle the specifics of each protocol.
 
 2.  **Extensibility**: The design makes it easy to add new functionality without modifying existing core logic.
     -   **Adding a new protocol**: You would simply create a new class that inherits from `PduComm` (e.g., `WebSocketComm`) and implement its methods. The `Endpoint` class would not need any changes.
