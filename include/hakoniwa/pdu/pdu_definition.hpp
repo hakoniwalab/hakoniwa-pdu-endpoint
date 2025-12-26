@@ -15,8 +15,10 @@ namespace pdu {
 struct PduDef {
     std::string type;
     std::string org_name;
+    std::string name;
     HakoPduChannelIdType channel_id;
     size_t pdu_size;
+    std::string method_type;
 };
 
 // Manages the loading and resolving of PDU definitions from a JSON file.
@@ -56,6 +58,14 @@ public:
      * @return The size of the PDU, or 0 if not found.
      */
     size_t get_pdu_size(const std::string& robot_name, const std::string& pdu_org_name) const;
+
+    /**
+     * @brief Gets the channel ID for a given robot and PDU original name.
+     * @param robot_name The name of the robot.
+     * @param pdu_org_name The original name of the PDU.
+     * @return The channel ID, or -1 if not found.
+     */
+    HakoPduChannelIdType get_pdu_channel_id(const std::string& robot_name, const std::string& pdu_org_name) const;
 
 //private: //TODO
     // A nested map to store PDU definitions:

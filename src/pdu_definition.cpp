@@ -99,5 +99,13 @@ size_t PduDefinition::get_pdu_size(const std::string& robot_name, const std::str
     return 0; // Not found
 }
 
+HakoPduChannelIdType PduDefinition::get_pdu_channel_id(const std::string& robot_name, const std::string& pdu_org_name) const {
+    PduDef def;
+    if (resolve(robot_name, pdu_org_name, def)) {
+        return def.channel_id;
+    }
+    return -1; // Not found
+}
+
 } // namespace pdu
 } // namespace hakoniwa

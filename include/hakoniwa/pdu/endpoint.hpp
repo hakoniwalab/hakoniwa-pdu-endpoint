@@ -159,7 +159,8 @@ public:
                 running = false;
                 return err;
             }
-        } else {
+        }
+        else {
             comm_running = true; // No comm module, so it doesn't prevent running status
         }
 
@@ -207,6 +208,30 @@ public:
     virtual HakoPduErrorType recv(const PduResolvedKey& pdu_key, std::span<std::byte> data, size_t& received_size) noexcept
     {
         return cache_->read(pdu_key, data, received_size);
+    }
+
+    /**
+     * @brief Get the PDU size for a given PduKey.
+     * @param pdu_key The name-based PDU key.
+     * @return The size of the PDU, or 0 if PDU definition is not loaded or PDU is not found.
+     */
+    size_t get_pdu_size(const PduKey& pdu_key) const {
+        if (!pdu_def_) {
+            return 0; // PDU definition not loaded
+        }
+        return pdu_def_->get_pdu_size(pdu_key.robot, pdu_key.pdu);
+    }
+
+    /**
+     * @brief Get the PDU channel ID for a given PduKey.
+     * @param pdu_key The name-based PDU key.
+     * @return The channel ID, or -1 if PDU definition is not loaded or PDU is not found.
+     */
+    HakoPduChannelIdType get_pdu_channel_id(const PduKey& pdu_key) const {
+        if (!pdu_def_) {
+            return -1; // PDU definition not loaded, or -1 is an invalid channel ID
+        }
+        return pdu_def_->get_pdu_channel_id(pdu_key.robot, pdu_key.pdu);
     }
 
     const std::string& get_name() const { return name_; }

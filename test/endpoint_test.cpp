@@ -64,7 +64,7 @@ namespace {
 
 class EndpointTest : public ::testing::Test {
 protected:
-    hakoniwa::pdu::PduResolvedKey create_key(const std::string& robot_name, hako_pdu_uint32_t channel_id) {
+    hakoniwa::pdu::PduResolvedKey create_key(const std::string& robot_name, HakoPduChannelIdType channel_id) {
         hakoniwa::pdu::PduResolvedKey key;
         key.robot = robot_name;
         key.channel_id = channel_id;
@@ -141,6 +141,18 @@ TEST_F(EndpointTest, PduDefinitionTest) {
     key.robot = "TestRobot";
     key.pdu = "TestPDU";
 
+    // Test getter methods
+    EXPECT_EQ(endpoint.get_pdu_size(key), 8);
+    EXPECT_EQ(endpoint.get_pdu_channel_id(key), 123);
+
+    // Test non-existent PDU
+    hakoniwa::pdu::PduKey bad_key;
+    bad_key.robot = "TestRobot";
+    bad_key.pdu = "NonExistentPDU";
+    EXPECT_EQ(endpoint.get_pdu_size(bad_key), 0);
+    EXPECT_EQ(endpoint.get_pdu_channel_id(bad_key), -1);
+
+    // Test send/recv cycle
     std::vector<std::byte> send_data = {
         std::byte(0xDE), std::byte(0xAD), std::byte(0xBE), std::byte(0xEF),
         std::byte(0xCA), std::byte(0xFE), std::byte(0xBA), std::byte(0xBE)
