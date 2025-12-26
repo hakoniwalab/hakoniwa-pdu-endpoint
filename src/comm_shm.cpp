@@ -34,12 +34,6 @@ HakoPduErrorType PduCommShm::open(const std::string& config_path) {
         return HAKO_PDU_ERR_FILE_NOT_FOUND;
     }
     
-    // Initialize hako_asset library
-    if (hako_initialize_for_external() != 0) {
-        std::cerr << "PduCommShm Error: Failed to initialize hako_asset for external." << std::endl;
-        return HAKO_PDU_ERR_INVALID_CONFIG;
-    }
-
     nlohmann::json shm_config;
     try {
         ifs >> shm_config;
@@ -116,11 +110,20 @@ HakoPduErrorType PduCommShm::send(const PduResolvedKey& pdu_key, std::span<const
 }
 
 HakoPduErrorType PduCommShm::recv(const PduResolvedKey& pdu_key, std::span<std::byte> data, size_t& received_size) noexcept {
-    // This method is not used in the event-driven SHM model
-    (void)pdu_key;
-    (void)data;
-    received_size = 0;
-    return HAKO_PDU_ERR_UNSUPPORTED;
+
+    PduDef def;
+    if (!pdu_def_->resolve(pdu_key.robot, pdu_key.channel_id, def)) { // Access inherited member
+        return HAKO_PDU_ERR_INVALID_CONFIG;
+    }
+    if (data.empty()) {
+        return HAKO_PDU_ERR_INVALID_ARGUMENT; // or OK, choose policy
+    }    
+    const size_t read_size = std::min(data.size(), def.pdu_size);
+    if (hako_asset_pdu_read(pdu_key.robot.c_str(), pdu_key.channel_id, reinterpret_cast<char*>(data.data()), read_size) == 0) {
+        received_size = read_size;
+        return HAKO_PDU_ERR_OK;
+    }
+    return HAKO_PDU_ERR_IO_ERROR;
 }
 
 void PduCommShm::shm_recv_callback(int recv_event_id) {

@@ -15,10 +15,8 @@ namespace pdu {
 struct PduDef {
     std::string type;
     std::string org_name;
-    std::string name;
     HakoPduChannelIdType channel_id;
     size_t pdu_size;
-    std::string method_type;
 };
 
 // Manages the loading and resolving of PDU definitions from a JSON file.

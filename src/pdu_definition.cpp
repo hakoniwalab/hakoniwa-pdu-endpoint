@@ -25,10 +25,8 @@ bool PduDefinition::load(const std::string& pdudef_path) {
                     PduDef def;
                     def.type = pdu_def_json.at("type").get<std::string>();
                     def.org_name = pdu_def_json.at("org_name").get<std::string>();
-                    def.name = pdu_def_json.at("name").get<std::string>();
                     def.channel_id = pdu_def_json.at("channel_id").get<HakoPduChannelIdType>();
                     def.pdu_size = pdu_def_json.at("pdu_size").get<size_t>();
-                    def.method_type = pdu_def_json.at("method_type").get<std::string>();
 
                     // Store the definition in the nested map
                     pdu_definitions_[robot_name][def.org_name] = def;
@@ -44,18 +42,15 @@ bool PduDefinition::load(const std::string& pdudef_path) {
                 for (const auto& pdu_def_json : writer_list) {
                     std::string org_name = pdu_def_json.at("org_name").get<std::string>();
                     if (pdu_definitions_[robot_name].find(org_name) == pdu_definitions_[robot_name].end()) {
-                         PduDef def;
+                        PduDef def;
                         def.type = pdu_def_json.at("type").get<std::string>();
                         def.org_name = org_name;
-                        def.name = pdu_def_json.at("name").get<std::string>();
                         def.channel_id = pdu_def_json.at("channel_id").get<HakoPduChannelIdType>();
                         def.pdu_size = pdu_def_json.at("pdu_size").get<size_t>();
-                        def.method_type = pdu_def_json.at("method_type").get<std::string>();
                         pdu_definitions_[robot_name][def.org_name] = def;
                     }
                 }
             }
-            //TODO: tcp, udp...
         }
     } catch (const nlohmann::json::exception& e) {
         std::cerr << "PduDefinition Error: JSON parsing failed for " << pdudef_path << ". Details: " << e.what() << std::endl;
