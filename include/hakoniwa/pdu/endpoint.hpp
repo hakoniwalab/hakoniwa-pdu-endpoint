@@ -15,9 +15,12 @@
 #include <span>
 #include <string>
 #include <vector>
+#include <functional>
+#include <mutex>
 
 namespace hakoniwa {
 namespace pdu {
+using OnRecvCallback = std::function<void(const PduResolvedKey&, std::span<const std::byte>)>;
 
 class Endpoint
 {
@@ -100,6 +103,7 @@ public:
     {
         HakoPduErrorType err = HAKO_PDU_ERR_OK;
         if (comm_) {
+            (void)comm_->set_on_recv_callback(nullptr);
             err = comm_->close();
         }
         if (cache_) {
@@ -233,7 +237,11 @@ public:
         }
         return pdu_def_->get_pdu_channel_id(pdu_key.robot, pdu_key.pdu);
     }
-
+    void set_on_recv_callback(OnRecvCallback cb) noexcept
+    {
+        std::lock_guard<std::mutex> lock(cb_mtx_);
+        on_recv_cb_ = std::move(cb);
+    }
     const std::string& get_name() const { return name_; }
     HakoPduEndpointDirectionType get_type() const { return type_; }
 
@@ -246,8 +254,21 @@ protected:
     std::shared_ptr<PduComm>        comm_;
 
 private:
-    void recv_callback_(const PduResolvedKey& pdu_key, std::span<const std::byte> data) noexcept {
+    mutable std::mutex cb_mtx_;
+    OnRecvCallback on_recv_cb_;
+    void recv_callback_(const PduResolvedKey& pdu_key, std::span<const std::byte> data) noexcept
+    {
+        if (!cache_) { return; }
         (void)cache_->write(pdu_key, data);
+
+        OnRecvCallback cb;
+        {
+            std::lock_guard<std::mutex> lock(cb_mtx_);
+            cb = on_recv_cb_; // コピーしてロックを短く
+        }
+        if (cb) {
+            cb(pdu_key, data);
+        }
     }
 
 };
