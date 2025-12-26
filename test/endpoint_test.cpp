@@ -314,7 +314,7 @@ TEST_F(EndpointTest, UdpCommunicationTest) {
     unlink(tmp_server_endpoint_path);
     unlink(tmp_client_endpoint_path);
 }
-#if false
+
 TEST_F(EndpointTest, WebSocketCommunicationTest) {
     int server_port = find_available_port(SOCK_STREAM);
     ASSERT_GT(server_port, 0);
@@ -398,4 +398,4 @@ TEST_F(EndpointTest, WebSocketCommunicationTest) {
     unlink(tmp_ws_server_endpoint_path);
     unlink(tmp_ws_client_endpoint_path);
 }
-#endif
+
