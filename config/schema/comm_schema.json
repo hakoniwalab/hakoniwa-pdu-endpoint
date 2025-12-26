@@ -1,13 +1,13 @@
 {
   "$schema": "http://json-schema.org/draft-07/schema#",
   "title": "Communication Endpoint Configuration",
-  "description": "Schema for communication endpoints (TCP or UDP).",
+  "description": "Schema for communication endpoints (TCP, UDP, SHM, WebSocket).",
   "type": "object",
-  "required": ["protocol", "name", "direction"],
+  "required": ["protocol", "direction"],
   "properties": {
     "protocol": {
       "type": "string",
-      "enum": ["tcp", "udp"],
+      "enum": ["tcp", "udp", "shm", "websocket"],
       "description": "Protocol type."
     },
     "name": {
@@ -24,18 +24,32 @@
     "role": {
       "type": "string",
       "enum": ["client", "server"],
-      "description": "TCP role (client: connects, server: listens)."
+      "description": "Client or server role (TCP/WebSocket)."
     },
-    "local": { "$ref": "#/$defs/endpoint" },
-    "remote": { "$ref": "#/$defs/endpoint" },
+    "local": {
+      "type": "object",
+      "description": "Local endpoint settings."
+    },
+    "remote": {
+      "type": "object",
+      "description": "Remote endpoint settings."
+    },
+    "pdu_config_path": {
+      "type": "string",
+      "description": "Optional PDU definition path for SHM configurations.",
+      "minLength": 1
+    },
+    "io": {
+      "$ref": "#/$defs/shm_io"
+    },
     "options": {
       "type": "object",
       "description": "Socket and protocol options.",
       "properties": {
         "backlog": { "type": "integer", "description": "TCP server listen backlog." },
-        "connect_timeout_ms": { "type": "integer", "description": "TCP connect timeout (ms)." },
-        "read_timeout_ms": { "type": "integer", "description": "TCP read timeout (ms)." },
-        "write_timeout_ms": { "type": "integer", "description": "TCP write timeout (ms)." },
+        "connect_timeout_ms": { "type": "integer", "description": "TCP/WebSocket connect timeout (ms)." },
+        "read_timeout_ms": { "type": "integer", "description": "TCP/WebSocket read timeout (ms)." },
+        "write_timeout_ms": { "type": "integer", "description": "TCP/WebSocket write timeout (ms)." },
         "blocking": { "type": "boolean", "description": "Blocking mode." },
         "reuse_address": { "type": "boolean", "description": "SO_REUSEADDR option." },
         "keepalive": { "type": "boolean", "description": "TCP keepalive." },
@@ -64,7 +78,9 @@
           "required": ["enabled"],
           "if": { "properties": { "enabled": { "const": true } } },
           "then": { "required": ["group"] }
-        }
+        },
+        "ping_interval_sec": { "type": "integer", "description": "WebSocket ping interval (seconds)." },
+        "handshake_timeout_ms": { "type": "integer", "description": "WebSocket handshake timeout (ms)." }
       }
     }
   },
@@ -72,6 +88,11 @@
     {
       "if": { "properties": { "protocol": { "const": "tcp" } } },
       "then": {
+        "required": ["name", "role"],
+        "properties": {
+          "local": { "$ref": "#/$defs/endpoint" },
+          "remote": { "$ref": "#/$defs/endpoint" }
+        },
         "anyOf": [
           {
             "if": { "properties": { "direction": { "const": "in" } } },
@@ -97,11 +118,55 @@
     {
       "if": { "properties": { "protocol": { "const": "udp" } } },
       "then": {
+        "required": ["name"],
+        "properties": {
+          "local": { "$ref": "#/$defs/endpoint" },
+          "remote": { "$ref": "#/$defs/endpoint" }
+        },
         "anyOf": [
           { "if": { "properties": { "direction": { "const": "in" } } }, "then": { "required": ["local"] } },
           { "if": { "properties": { "direction": { "const": "out" } } }, "then": { "required": ["remote"] } },
           { "if": { "properties": { "direction": { "const": "inout" } } }, "then": { "required": ["local"] } }
         ]
+      }
+    },
+    {
+      "if": { "properties": { "protocol": { "const": "websocket" } } },
+      "then": {
+        "required": ["role"],
+        "properties": {
+          "local": { "$ref": "#/$defs/ws_local" },
+          "remote": { "$ref": "#/$defs/ws_remote" }
+        },
+        "anyOf": [
+          {
+            "if": { "properties": { "direction": { "const": "in" } } },
+            "then": { "required": ["local"], "properties": { "role": { "const": "server" } } }
+          },
+          {
+            "if": { "properties": { "direction": { "const": "out" } } },
+            "then": { "required": ["remote"], "properties": { "role": { "const": "client" } } }
+          },
+          {
+            "if": { "properties": { "direction": { "const": "inout" } } },
+            "then": {
+              "required": ["role"],
+              "anyOf": [
+                { "if": { "properties": { "role": { "const": "server" } } }, "then": { "required": ["local"] } },
+                { "if": { "properties": { "role": { "const": "client" } } }, "then": { "required": ["remote"] } }
+              ]
+            }
+          }
+        ]
+      }
+    },
+    {
+      "if": { "properties": { "protocol": { "const": "shm" } } },
+      "then": {
+        "required": ["name", "io"],
+        "properties": {
+          "io": { "$ref": "#/$defs/shm_io" }
+        }
       }
     }
   ],
@@ -123,6 +188,84 @@
           "description": "Port number.",
           "minimum": 1,
           "maximum": 65535
+        }
+      }
+    },
+    "ws_local": {
+      "type": "object",
+      "required": ["port"],
+      "properties": {
+        "port": {
+          "type": "integer",
+          "description": "Listen port number.",
+          "minimum": 1,
+          "maximum": 65535
+        }
+      }
+    },
+    "ws_remote": {
+      "type": "object",
+      "required": ["host", "port"],
+      "properties": {
+        "host": {
+          "type": "string",
+          "description": "Remote host name or IP address.",
+          "minLength": 1
+        },
+        "port": {
+          "type": "integer",
+          "description": "Remote port number.",
+          "minimum": 1,
+          "maximum": 65535
+        },
+        "path": {
+          "type": "string",
+          "description": "WebSocket path.",
+          "minLength": 1,
+          "default": "/"
+        },
+        "secure": {
+          "type": "boolean",
+          "description": "Enable secure WebSocket (wss)."
+        }
+      }
+    },
+    "shm_io": {
+      "type": "object",
+      "required": ["robots"],
+      "properties": {
+        "robots": {
+          "type": "array",
+          "minItems": 1,
+          "items": { "$ref": "#/$defs/shm_robot" }
+        }
+      }
+    },
+    "shm_robot": {
+      "type": "object",
+      "required": ["name", "pdu"],
+      "properties": {
+        "name": {
+          "type": "string",
+          "minLength": 1
+        },
+        "pdu": {
+          "type": "array",
+          "minItems": 1,
+          "items": { "$ref": "#/$defs/shm_pdu" }
+        }
+      }
+    },
+    "shm_pdu": {
+      "type": "object",
+      "required": ["name", "notify_on_recv"],
+      "properties": {
+        "name": {
+          "type": "string",
+          "minLength": 1
+        },
+        "notify_on_recv": {
+          "type": "boolean"
         }
       }
     }
