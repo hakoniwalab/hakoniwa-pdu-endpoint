@@ -16,6 +16,8 @@ class WebSocketSession : public std::enable_shared_from_this<WebSocketSession> {
     std::weak_ptr<WebSocketComm> comm_parent_;
     std::vector<std::vector<std::byte>> write_queue_;
     std::atomic<bool> is_writing_{false};
+    std::atomic<bool> is_closing_{false};
+    tcp::resolver::results_type endpoints_;
 
 public:
     // Constructor for server-side sessions
@@ -28,8 +30,19 @@ public:
 
     // Gracefully close the WebSocket connection
     void close() {
-        beast::error_code ec;
-        ws_.close(websocket::close_code::normal, ec);
+        net::post(ws_.get_executor(), [self = shared_from_this()]() {
+            if (self->is_closing_.exchange(true)) {
+                return;
+            }
+            beast::error_code ec;
+            beast::get_lowest_layer(self->ws_).cancel(ec);
+            self->ws_.async_close(websocket::close_code::normal,
+                [self](beast::error_code close_ec) {
+                    if (close_ec && close_ec != websocket::error::closed) {
+                        std::cerr << "Session: Close error: " << close_ec.message() << std::endl;
+                    }
+                });
+        });
     }
 
     // Start the server-side session
@@ -43,9 +56,10 @@ public:
     }
     
     // Start the client-side session
-    void start_client_session(const std::string& host, const std::string& path, tcp::resolver::results_type& endpoints) {
+    void start_client_session(const std::string& host, const std::string& path, tcp::resolver::results_type endpoints) {
+        endpoints_ = std::move(endpoints);
         beast::get_lowest_layer(ws_).expires_after(std::chrono::seconds(30));
-        beast::get_lowest_layer(ws_).async_connect(endpoints, 
+        beast::get_lowest_layer(ws_).async_connect(endpoints_, 
             beast::bind_front_handler(&WebSocketSession::on_connect, shared_from_this()));
     }
 
@@ -111,21 +125,17 @@ public:
         boost::ignore_unused(bytes_transferred);
         if (ec == websocket::error::closed) {
             std::cout << "Session: Connection closed." << std::endl;
-            if (auto self = shared_from_this()) { // Capture self to ensure it's alive for close()
-                self->close(); // Explicitly close the session
-                if (auto parent = comm_parent_.lock()) {
-                    parent->remove_session(self);
-                }
+            if (auto parent = comm_parent_.lock()) {
+                parent->remove_session(shared_from_this());
             }
             return;
         }
         if (ec) {
             std::cerr << "Session: Read error: " << ec.message() << std::endl;
-            if (auto self = shared_from_this()) { // Capture self to ensure it's alive for close()
-                self->close(); // Explicitly close the session
-                if (auto parent = comm_parent_.lock()) {
-                    parent->remove_session(self);
-                }
+            if (auto parent = comm_parent_.lock()) {
+                parent->remove_session(shared_from_this());
+            } else {
+                close();
             }
             return;
         }
@@ -140,9 +150,7 @@ public:
             do_read();
         } else {
             std::cerr << "Session: Parent comm object is no longer valid during read completion. Terminating session." << std::endl;
-            if (auto self = shared_from_this()) {
-                self->close(); // Explicitly close the session
-            }
+            close();
         }
     }
 
@@ -196,11 +204,10 @@ private:
         boost::ignore_unused(bytes_transferred);
         if (ec) {
             std::cerr << "Session: Write error: " << ec.message() << std::endl;
-            if (auto self = shared_from_this()) { // Capture self to ensure it's alive for close()
-                self->close(); // Explicitly close the session
-                if (auto parent = comm_parent_.lock()) {
-                    parent->remove_session(self);
-                }
+            if (auto parent = comm_parent_.lock()) {
+                parent->remove_session(shared_from_this());
+            } else {
+                close();
             }
             return;
         }
@@ -283,13 +290,16 @@ HakoPduErrorType WebSocketComm::raw_stop() noexcept {
     
     // Clear sessions and ensure their resources are released.
     // This will cause sessions to destruct, which might implicitly cancel their handlers.
-    std::lock_guard<std::mutex> lock(sessions_mtx_);
-    for (auto& session : sessions_) {
+    std::vector<std::shared_ptr<WebSocketSession>> sessions_to_close;
+    {
+        std::lock_guard<std::mutex> lock(sessions_mtx_);
+        sessions_to_close.swap(sessions_);
+    }
+    for (auto& session : sessions_to_close) {
         if (session) {
             session->close();
         }
     }
-    sessions_.clear();
     
     // Reset the work_guard to allow the io_context to stop
     work_guard_.reset();
@@ -307,12 +317,16 @@ HakoPduErrorType WebSocketComm::raw_stop() noexcept {
 }
 
 void WebSocketComm::remove_session(std::shared_ptr<WebSocketSession> session_to_remove) {
-    std::lock_guard<std::mutex> lock(sessions_mtx_);
     if (session_to_remove) {
-        session_to_remove->close(); // Close the session being removed
+        session_to_remove->close();
     }
-    sessions_.erase(std::remove(sessions_.begin(), sessions_.end(), session_to_remove), sessions_.end());
-    std::cout << "Session removed. Current active sessions: " << sessions_.size() << std::endl;
+    size_t remaining = 0;
+    {
+        std::lock_guard<std::mutex> lock(sessions_mtx_);
+        sessions_.erase(std::remove(sessions_.begin(), sessions_.end(), session_to_remove), sessions_.end());
+        remaining = sessions_.size();
+    }
+    std::cout << "Session removed. Current active sessions: " << remaining << std::endl;
 }
 
 HakoPduErrorType WebSocketComm::raw_is_running(bool& running) noexcept {
@@ -346,7 +360,8 @@ void WebSocketComm::do_accept() {
 void WebSocketComm::on_accept(beast::error_code ec, tcp::socket socket) {
     if (ec) {
         std::cerr << "Comm: Accept error: " << ec.message() << std::endl;
-        // No return here, continue accepting new connections even if one fails
+        do_accept();
+        return;
     }
     std::cout << "Comm: Server connection accepted." << std::endl;
     std::lock_guard<std::mutex> lock(this->sessions_mtx_);
