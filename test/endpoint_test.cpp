@@ -39,7 +39,7 @@ namespace {
     }
 
     // Creates a temporary, dynamic config file for testing.
-    bool create_dynamic_config(const std::string& tmp_path, const std::string& template_path, int port, int remote_port = 0) {
+    bool create_dynamic_config(const std::string& tmp_path, const std::string& template_path, int port, int remote_port = 0, const std::string& remote_host = "127.0.0.1", const std::string& remote_path = "/") {
         std::ifstream ifs(template_path);
         if (!ifs.is_open()) return false;
         
@@ -49,8 +49,12 @@ namespace {
             if (config.contains("local") && config["local"].contains("port")) {
                 config["local"]["port"] = port;
             }
-            if (remote_port > 0 && config.contains("remote") && config["remote"].contains("port")) {
-                config["remote"]["port"] = remote_port;
+            if (config.contains("remote")) {
+                if (remote_port > 0) {
+                    config["remote"]["port"] = remote_port;
+                }
+                config["remote"]["host"] = remote_host;
+                config["remote"]["path"] = remote_path;
             }
             
             std::ofstream ofs(tmp_path);
@@ -310,3 +314,88 @@ TEST_F(EndpointTest, UdpCommunicationTest) {
     unlink(tmp_server_endpoint_path);
     unlink(tmp_client_endpoint_path);
 }
+#if false
+TEST_F(EndpointTest, WebSocketCommunicationTest) {
+    int server_port = find_available_port(SOCK_STREAM);
+    ASSERT_GT(server_port, 0);
+
+    const char* tmp_ws_server_comm_path = "temp_ws_server_comm.json";
+    const char* tmp_ws_client_comm_path = "temp_ws_client_comm.json";
+    const char* tmp_ws_server_endpoint_path = "temp_ws_server_endpoint.json";
+    const char* tmp_ws_client_endpoint_path = "temp_ws_client_endpoint.json";
+
+    // Create dynamic comm configs
+    ASSERT_TRUE(create_dynamic_config(tmp_ws_server_comm_path, "config/sample/comm/websocket_server_in_comm.json", server_port));
+    ASSERT_TRUE(create_dynamic_config(tmp_ws_client_comm_path, "config/sample/comm/websocket_client_out_comm.json", 0, server_port));
+    
+    // Create dynamic endpoint configs (referencing the dynamic comm configs)
+    create_dynamic_config(tmp_ws_server_endpoint_path, "test/test_endpoint_tcp_server.json", 0, 0); // Re-using existing endpoint template
+    create_dynamic_config(tmp_ws_client_endpoint_path, "test/test_endpoint_tcp_client.json", 0, 0); // Re-using existing endpoint template
+
+    hakoniwa::pdu::Endpoint server("ws_server", HAKO_PDU_ENDPOINT_DIRECTION_INOUT);
+    hakoniwa::pdu::Endpoint client("ws_client", HAKO_PDU_ENDPOINT_DIRECTION_INOUT);
+
+    // Minor hack to point to temp comm files for endpoints
+    {
+        std::ifstream ifs(tmp_ws_server_endpoint_path);
+        nlohmann::json j;
+        ifs >> j;
+        j["comm"] = tmp_ws_server_comm_path;
+        std::ofstream ofs(tmp_ws_server_endpoint_path);
+        ofs << j;
+    }
+    {
+        std::ifstream ifs(tmp_ws_client_endpoint_path);
+        nlohmann::json j;
+        ifs >> j;
+        j["comm"] = tmp_ws_client_comm_path;
+        std::ofstream ofs(tmp_ws_client_endpoint_path);
+        ofs << j;
+    }
+
+    ASSERT_EQ(server.open(tmp_ws_server_endpoint_path), HAKO_PDU_ERR_OK);
+    ASSERT_EQ(client.open(tmp_ws_client_endpoint_path), HAKO_PDU_ERR_OK);
+    
+    // Start server first, then client connects
+    ASSERT_EQ(server.start(), HAKO_PDU_ERR_OK);
+    std::this_thread::sleep_for(std::chrono::milliseconds(500)); // Give server time to start accepting
+
+    ASSERT_EQ(client.start(), HAKO_PDU_ERR_OK);
+    std::this_thread::sleep_for(std::chrono::milliseconds(500)); // Give client time to connect
+
+    auto key = create_key("robot_ws", 30);
+    std::vector<std::byte> client_msg = {(std::byte)'W', (std::byte)'e', (std::byte)'b', (std::byte)'S', (std::byte)'o', (std::byte)'c', (std::byte)'k', (std::byte)'e', (std::byte)'t'};
+
+    // Client sends message to server
+    ASSERT_EQ(client.send(key, client_msg), HAKO_PDU_ERR_OK);
+    std::this_thread::sleep_for(std::chrono::milliseconds(100));
+
+    std::vector<std::byte> server_buf(client_msg.size());
+    size_t server_len = 0;
+    ASSERT_EQ(server.recv(key, server_buf, server_len), HAKO_PDU_ERR_OK);
+    ASSERT_EQ(server_len, client_msg.size());
+    EXPECT_EQ(server_buf, client_msg);
+    
+    std::vector<std::byte> server_msg = {(std::byte)'H', (std::byte)'e', (std::byte)'l', (std::byte)'l', (std::byte)'o', (std::byte)' ', (std::byte)'C', (std::byte)'l', (std::byte)'i', (std::byte)'e', (std::byte)'n', (std::byte)'t'};
+
+    // Server sends message to client
+    ASSERT_EQ(server.send(key, server_msg), HAKO_PDU_ERR_OK);
+    std::this_thread::sleep_for(std::chrono::milliseconds(100));
+
+    std::vector<std::byte> client_buf(server_msg.size());
+    size_t client_len = 0;
+    ASSERT_EQ(client.recv(key, client_buf, client_len), HAKO_PDU_ERR_OK);
+    ASSERT_EQ(client_len, server_msg.size());
+    EXPECT_EQ(client_buf, server_msg);
+
+    ASSERT_EQ(server.stop(), HAKO_PDU_ERR_OK);
+    ASSERT_EQ(client.stop(), HAKO_PDU_ERR_OK);
+    ASSERT_EQ(server.close(), HAKO_PDU_ERR_OK);
+    ASSERT_EQ(client.close(), HAKO_PDU_ERR_OK);
+    
+    unlink(tmp_ws_server_comm_path);
+    unlink(tmp_ws_client_comm_path);
+    unlink(tmp_ws_server_endpoint_path);
+    unlink(tmp_ws_client_endpoint_path);
+}
+#endif

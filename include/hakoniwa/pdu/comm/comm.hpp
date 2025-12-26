@@ -12,7 +12,7 @@ namespace pdu {
 // callbacks for communication
 
 
-class PduComm
+class PduComm : public std::enable_shared_from_this<PduComm>
 {
 public:
     PduComm() = default;

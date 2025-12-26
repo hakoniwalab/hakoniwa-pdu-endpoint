@@ -4,6 +4,7 @@
 #include "hakoniwa/pdu/comm/comm_tcp.hpp"
 #include "hakoniwa/pdu/comm/comm_udp.hpp"
 #include "hakoniwa/pdu/comm/comm_shm.hpp" // Added
+#include "hakoniwa/pdu/comm/comm_websocket.hpp" // Added
 #include <nlohmann/json.hpp>
 #include <fstream>
 #include <iostream>
@@ -38,7 +39,7 @@ std::unique_ptr<PduCache> create_pdu_cache(const std::string& config_path) {
     }
 }
 
-std::unique_ptr<PduComm> create_pdu_comm(const std::string& config_path) {
+std::shared_ptr<PduComm> create_pdu_comm(const std::string& config_path) {
     std::ifstream ifs(config_path);
     if (!ifs.is_open()) {
         std::cerr << "PduComm Factory Error: Failed to open config file: " << config_path << std::endl;
@@ -51,11 +52,13 @@ std::unique_ptr<PduComm> create_pdu_comm(const std::string& config_path) {
         std::string protocol = config.at("protocol").get<std::string>();
 
         if (protocol == "tcp") {
-            return std::make_unique<comm::TcpComm>();
+            return std::make_shared<comm::TcpComm>();
         } else if (protocol == "udp") {
-            return std::make_unique<comm::UdpComm>();
+            return std::make_shared<comm::UdpComm>();
         } else if (protocol == "shm") { // Added
-            return std::make_unique<comm::PduCommShm>(); // Added
+            return std::make_shared<comm::PduCommShm>(); // Added
+        } else if (protocol == "websocket") {
+            return std::make_shared<comm::WebSocketComm>();
         } else {
             std::cerr << "PduComm Factory Error: Unknown protocol '" << protocol << "' in " << config_path << std::endl;
             return nullptr;

@@ -243,7 +243,7 @@ protected:
     HakoPduEndpointDirectionType    type_;
     std::shared_ptr<PduDefinition>  pdu_def_; // Changed
     std::unique_ptr<PduCache>       cache_;
-    std::unique_ptr<PduComm>        comm_;
+    std::shared_ptr<PduComm>        comm_;
 
 private:
     void recv_callback_(const PduResolvedKey& pdu_key, std::span<const std::byte> data) noexcept {

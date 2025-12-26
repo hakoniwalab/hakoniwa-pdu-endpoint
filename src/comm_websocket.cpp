@@ -16,8 +16,6 @@ class WebSocketSession : public std::enable_shared_from_this<WebSocketSession> {
     std::weak_ptr<WebSocketComm> comm_parent_;
     std::vector<std::vector<std::byte>> write_queue_;
     std::atomic<bool> is_writing_{false};
-    std::string remote_host_;
-    std::string remote_path_;
 
 public:
     // Constructor for server-side sessions
@@ -27,6 +25,12 @@ public:
     // Constructor for client-side sessions
     explicit WebSocketSession(net::io_context& ioc, std::shared_ptr<WebSocketComm> parent)
         : ws_(ioc), comm_parent_(parent) {}
+
+    // Gracefully close the WebSocket connection
+    void close() {
+        beast::error_code ec;
+        ws_.close(websocket::close_code::normal, ec);
+    }
 
     // Start the server-side session
     void start_server_session() {
@@ -40,8 +44,6 @@ public:
     
     // Start the client-side session
     void start_client_session(const std::string& host, const std::string& path, tcp::resolver::results_type& endpoints) {
-        remote_host_ = host;
-        remote_path_ = path;
         beast::get_lowest_layer(ws_).expires_after(std::chrono::seconds(30));
         beast::get_lowest_layer(ws_).async_connect(endpoints, 
             beast::bind_front_handler(&WebSocketSession::on_connect, shared_from_this()));
@@ -50,43 +52,81 @@ public:
     void on_connect(beast::error_code ec, tcp::resolver::results_type::endpoint_type) {
         if (ec) {
             std::cerr << "Session: Client connect error: " << ec.message() << std::endl;
+            if (auto parent = comm_parent_.lock()) {
+                parent->remove_session(shared_from_this());
+            }
             return;
         }
-        beast::get_lowest_layer(ws_).expires_never();
-        ws_.async_handshake(remote_host_, remote_path_,
-            beast::bind_front_handler(&WebSocketSession::on_handshake, shared_from_this()));
+        if (auto parent = comm_parent_.lock()) {
+            beast::get_lowest_layer(ws_).expires_never();
+            ws_.async_handshake(parent->remote_host_, parent->remote_path_,
+                beast::bind_front_handler(&WebSocketSession::on_handshake, shared_from_this()));
+        } else {
+            std::cerr << "Session: Parent comm object is no longer valid during connect. Terminating session." << std::endl;
+            // No need to call remove_session, as the parent is already gone.
+        }
     }
 
     void on_handshake(beast::error_code ec) {
         if(ec) {
             std::cerr << "Session: Client handshake error: " << ec.message() << std::endl;
+            if (auto parent = comm_parent_.lock()) {
+                parent->remove_session(shared_from_this());
+            }
             return;
         }
         std::cout << "Session: Client handshake successful." << std::endl;
-        do_read();
+        if (auto parent = comm_parent_.lock()) {
+            do_read();
+        } else {
+            std::cerr << "Session: Parent comm object is no longer valid during handshake completion. Terminating session." << std::endl;
+        }
     }
 
     void on_accept(beast::error_code ec) {
         if (ec) {
             std::cerr << "Session: Server accept error: " << ec.message() << std::endl;
+            if (auto parent = comm_parent_.lock()) {
+                parent->remove_session(shared_from_this());
+            }
             return;
         }
         std::cout << "Session: Server connection accepted." << std::endl;
-        do_read();
+        if (auto parent = comm_parent_.lock()) {
+            do_read();
+        } else {
+            std::cerr << "Session: Parent comm object is no longer valid after accept. Terminating session." << std::endl;
+        }
     }
 
     void do_read() {
-        ws_.async_read(buffer_, beast::bind_front_handler(&WebSocketSession::on_read, shared_from_this()));
+        if (auto parent = comm_parent_.lock()) {
+            ws_.async_read(buffer_, beast::bind_front_handler(&WebSocketSession::on_read, shared_from_this()));
+        } else {
+            std::cerr << "Session: Parent comm object is no longer valid during read initiation. Terminating session." << std::endl;
+        }
     }
 
     void on_read(beast::error_code ec, std::size_t bytes_transferred) {
         boost::ignore_unused(bytes_transferred);
         if (ec == websocket::error::closed) {
             std::cout << "Session: Connection closed." << std::endl;
+            if (auto self = shared_from_this()) { // Capture self to ensure it's alive for close()
+                self->close(); // Explicitly close the session
+                if (auto parent = comm_parent_.lock()) {
+                    parent->remove_session(self);
+                }
+            }
             return;
         }
         if (ec) {
             std::cerr << "Session: Read error: " << ec.message() << std::endl;
+            if (auto self = shared_from_this()) { // Capture self to ensure it's alive for close()
+                self->close(); // Explicitly close the session
+                if (auto parent = comm_parent_.lock()) {
+                    parent->remove_session(self);
+                }
+            }
             return;
         }
 
@@ -96,19 +136,38 @@ public:
                 static_cast<const std::byte*>(data.data()), 
                 static_cast<const std::byte*>(data.data()) + data.size());
             parent->on_session_data_received(received_data);
-        }
-        buffer_.consume(buffer_.size());
-        do_read();
-    }
-    
-    void do_write(const std::vector<std::byte>& data) {
-        net::post(ws_.get_executor(), [self = shared_from_this(), data](){
-            bool was_empty = self->write_queue_.empty();
-            self->write_queue_.push_back(data);
-            if (was_empty && !self->is_writing_) {
-                self->process_write_queue();
+            buffer_.consume(buffer_.size());
+            do_read();
+        } else {
+            std::cerr << "Session: Parent comm object is no longer valid during read completion. Terminating session." << std::endl;
+            if (auto self = shared_from_this()) {
+                self->close(); // Explicitly close the session
             }
-        });
+        }
+    }
+
+    void do_write(const std::vector<std::byte>& data) {
+        if (auto parent = comm_parent_.lock()) {
+            net::post(ws_.get_executor(), [self = shared_from_this(), data](){
+                if (auto p = self->comm_parent_.lock()) { // Check again inside the lambda
+                    bool was_empty = self->write_queue_.empty();
+                    self->write_queue_.push_back(data);
+                    if (was_empty && !self->is_writing_) {
+                        self->process_write_queue();
+                    }
+                } else {
+                    std::cerr << "Session: Parent comm object is no longer valid during write initiation lambda. Terminating write." << std::endl;
+                    if (auto self_inner = self) {
+                        self_inner->close(); // Explicitly close the session
+                    }
+                }
+            });
+        } else {
+            std::cerr << "Session: Parent comm object is no longer valid during write initiation. Terminating write." << std::endl;
+            if (auto self = shared_from_this()) {
+                self->close(); // Explicitly close the session
+            }
+        }
     }
 
 private:
@@ -117,10 +176,19 @@ private:
             is_writing_ = false;
             return;
         }
-        is_writing_ = true;
-        ws_.binary(true);
-        ws_.async_write(net::buffer(write_queue_.front()),
-            beast::bind_front_handler(&WebSocketSession::on_write, shared_from_this()));
+        if (auto parent = comm_parent_.lock()) { // Check parent before async_write
+            is_writing_ = true;
+            ws_.binary(true);
+            ws_.async_write(net::buffer(write_queue_.front()),
+                beast::bind_front_handler(&WebSocketSession::on_write, shared_from_this()));
+        } else {
+            std::cerr << "Session: Parent comm object is no longer valid during write queue processing. Terminating write." << std::endl;
+            is_writing_ = false; // Reset writing flag
+            write_queue_.clear(); // Clear pending writes
+            if (auto self = shared_from_this()) {
+                self->close(); // Explicitly close the session
+            }
+        }
     }
 
     void on_write(beast::error_code ec, std::size_t bytes_transferred) {
@@ -128,18 +196,32 @@ private:
         boost::ignore_unused(bytes_transferred);
         if (ec) {
             std::cerr << "Session: Write error: " << ec.message() << std::endl;
+            if (auto self = shared_from_this()) { // Capture self to ensure it's alive for close()
+                self->close(); // Explicitly close the session
+                if (auto parent = comm_parent_.lock()) {
+                    parent->remove_session(self);
+                }
+            }
             return;
         }
-        write_queue_.erase(write_queue_.begin());
-        if (!write_queue_.empty()) {
-            process_write_queue();
+        if (auto parent = comm_parent_.lock()) {
+            write_queue_.erase(write_queue_.begin());
+            if (!write_queue_.empty()) {
+                process_write_queue();
+            }
+        } else {
+            std::cerr << "Session: Parent comm object is no longer valid during write completion. Clearing write queue." << std::endl;
+            if (auto self = shared_from_this()) {
+                self->close(); // Explicitly close the session
+            }
+            write_queue_.clear(); // Clear pending writes
         }
     }
 };
 
 // WebSocketComm implementation
 WebSocketComm::WebSocketComm()
-    : acceptor_(ioc_), resolver_(ioc_) {}
+    : acceptor_(ioc_), resolver_(ioc_), work_guard_(std::in_place, ioc_.get_executor()) {}
 
 WebSocketComm::~WebSocketComm() {
     raw_close();
@@ -192,11 +274,45 @@ HakoPduErrorType WebSocketComm::raw_start() noexcept {
 HakoPduErrorType WebSocketComm::raw_stop() noexcept {
     if (!is_running_flag_) return HAKO_PDU_ERR_OK;
     is_running_flag_ = false;
-    if (!ioc_.stopped()) ioc_.stop();
-    if (comm_thread_.joinable()) comm_thread_.join();
-    ioc_.restart();
-    session_.reset();
+
+    // Close acceptor to stop accepting new connections
+    if (acceptor_.is_open()) {
+        acceptor_.cancel(); // Cancel any pending accept operations
+        acceptor_.close();
+    }
+    
+    // Clear sessions and ensure their resources are released.
+    // This will cause sessions to destruct, which might implicitly cancel their handlers.
+    std::lock_guard<std::mutex> lock(sessions_mtx_);
+    for (auto& session : sessions_) {
+        if (session) {
+            session->close();
+        }
+    }
+    sessions_.clear();
+    
+    // Reset the work_guard to allow the io_context to stop
+    work_guard_.reset();
+    
+    // Then stop the io_context
+    if (!ioc_.stopped()) {
+        ioc_.stop();
+    }
+    
+    if (comm_thread_.joinable()) comm_thread_.join(); // Wait for the communication thread to finish
+
+    ioc_.restart(); // Prepare for possible reuse
+    
     return HAKO_PDU_ERR_OK;
+}
+
+void WebSocketComm::remove_session(std::shared_ptr<WebSocketSession> session_to_remove) {
+    std::lock_guard<std::mutex> lock(sessions_mtx_);
+    if (session_to_remove) {
+        session_to_remove->close(); // Close the session being removed
+    }
+    sessions_.erase(std::remove(sessions_.begin(), sessions_.end(), session_to_remove), sessions_.end());
+    std::cout << "Session removed. Current active sessions: " << sessions_.size() << std::endl;
 }
 
 HakoPduErrorType WebSocketComm::raw_is_running(bool& running) noexcept {
@@ -205,8 +321,15 @@ HakoPduErrorType WebSocketComm::raw_is_running(bool& running) noexcept {
 }
 
 HakoPduErrorType WebSocketComm::raw_send(const std::vector<std::byte>& data) noexcept {
-    if (!is_running_flag_ || !session_) return HAKO_PDU_ERR_NOT_RUNNING;
-    session_->do_write(data);
+    if (!is_running_flag_) return HAKO_PDU_ERR_NOT_RUNNING;
+    std::lock_guard<std::mutex> lock(sessions_mtx_);
+    if (sessions_.empty()) return HAKO_PDU_ERR_NOT_RUNNING;
+
+    for (const auto& session : sessions_) {
+        if (session) {
+            session->do_write(data);
+        }
+    }
     return HAKO_PDU_ERR_OK;
 }
 
@@ -217,22 +340,25 @@ void WebSocketComm::on_session_data_received(const std::vector<std::byte>& data)
 void WebSocketComm::do_accept() {
     if (!acceptor_.is_open()) return;
     acceptor_.async_accept(net::make_strand(ioc_),
-        beast::bind_front_handler(&WebSocketComm::on_accept, shared_from_this()));
+        beast::bind_front_handler(&WebSocketComm::on_accept, std::static_pointer_cast<WebSocketComm>(shared_from_this())));
 }
 
 void WebSocketComm::on_accept(beast::error_code ec, tcp::socket socket) {
     if (ec) {
         std::cerr << "Comm: Accept error: " << ec.message() << std::endl;
-        return;
+        // No return here, continue accepting new connections even if one fails
     }
-    session_ = std::make_shared<WebSocketSession>(std::move(socket), shared_from_this());
-    session_->start_server_session();
-    do_accept(); // Continue accepting
+    std::cout << "Comm: Server connection accepted." << std::endl;
+    std::lock_guard<std::mutex> lock(this->sessions_mtx_);
+    auto session = std::make_shared<WebSocketSession>(std::move(socket), std::static_pointer_cast<WebSocketComm>(this->shared_from_this()));
+    this->sessions_.push_back(session);
+    session->start_server_session();
+    this->do_accept(); // Continue accepting
 }
 
 void WebSocketComm::do_connect() {
-    resolver_.async_resolve(remote_host_, remote_port_,
-        beast::bind_front_handler(&WebSocketComm::on_resolve, shared_from_this()));
+    this->resolver_.async_resolve(this->remote_host_, this->remote_port_,
+        beast::bind_front_handler(&WebSocketComm::on_resolve, std::static_pointer_cast<WebSocketComm>(shared_from_this())));
 }
 
 void WebSocketComm::on_resolve(beast::error_code ec, tcp::resolver::results_type results) {
@@ -240,8 +366,11 @@ void WebSocketComm::on_resolve(beast::error_code ec, tcp::resolver::results_type
         std::cerr << "Comm: Resolve error: " << ec.message() << std::endl;
         return;
     }
-    session_ = std::make_shared<WebSocketSession>(ioc_, shared_from_this());
-    session_->start_client_session(remote_host_, remote_path_, results);
+    std::lock_guard<std::mutex> lock(this->sessions_mtx_);
+    this->sessions_.clear(); // Ensure only one client session
+    auto session = std::make_shared<WebSocketSession>(this->ioc_, std::static_pointer_cast<WebSocketComm>(this->shared_from_this()));
+    this->sessions_.push_back(session);
+    session->start_client_session(this->remote_host_, this->remote_path_, results);
 }
 
 } // namespace comm

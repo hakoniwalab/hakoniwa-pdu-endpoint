@@ -20,7 +20,7 @@ std::unique_ptr<PduCache> create_pdu_cache(const std::string& config_path);
  * @param config_path Path to the communication configuration JSON file.
  * @return A unique_ptr to the created PduComm, or nullptr on failure.
  */
-std::unique_ptr<PduComm> create_pdu_comm(const std::string& config_path);
+std::shared_ptr<PduComm> create_pdu_comm(const std::string& config_path);
 
 } // namespace pdu
 } // namespace hakoniwa

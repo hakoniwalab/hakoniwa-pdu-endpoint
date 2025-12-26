@@ -24,8 +24,9 @@ using tcp = net::ip::tcp;
 // Forward declaration for the session class that handles a single WebSocket connection
 class WebSocketSession;
 
-class WebSocketComm final : public PduCommRaw, public std::enable_shared_from_this<WebSocketComm>
+class WebSocketComm final : public PduCommRaw
 {
+    friend class WebSocketSession;
 public:
     WebSocketComm();
     virtual ~WebSocketComm();
@@ -42,7 +43,7 @@ protected:
     HakoPduErrorType raw_is_running(bool& running) noexcept override;
     HakoPduErrorType raw_send(const std::vector<std::byte>& data) noexcept override;
 
-private:
+protected:
     enum class Role {
         Client,
         Server
@@ -66,6 +67,7 @@ private:
     net::io_context ioc_;
     std::thread comm_thread_;
     std::atomic<bool> is_running_flag_{false};
+    std::optional<net::executor_work_guard<net::io_context::executor_type>> work_guard_; // Only one declaration
 
     // Server-specific components
     tcp::acceptor acceptor_;
@@ -78,8 +80,12 @@ private:
     bool secure_ = false;
 
     // Session management
-    std::shared_ptr<WebSocketSession> session_; // For client and the single server session.
-                                                // TODO: Server needs to handle multiple sessions.
+    std::vector<std::shared_ptr<WebSocketSession>> sessions_; // For server: stores multiple sessions; for client: stores one session.
+    std::mutex sessions_mtx_;
+    
+public:
+    // Method for session to call back to when it's closed
+    void remove_session(std::shared_ptr<WebSocketSession> session_to_remove);
 };
 
 } // namespace comm
