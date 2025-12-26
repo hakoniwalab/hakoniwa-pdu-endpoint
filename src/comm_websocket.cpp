@@ -35,7 +35,7 @@ public:
                 return;
             }
             beast::error_code ec;
-            beast::get_lowest_layer(self->ws_).cancel(ec);
+            beast::get_lowest_layer(self->ws_).cancel();
             self->ws_.async_close(websocket::close_code::normal,
                 [self](beast::error_code close_ec) {
                     if (close_ec && close_ec != websocket::error::closed) {
