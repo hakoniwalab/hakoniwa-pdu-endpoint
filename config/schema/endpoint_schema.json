@@ -3,7 +3,7 @@
   "title": "Endpoint Configuration",
   "description": "Schema for a single endpoint entry, linking a name to cache and communication configurations.",
   "type": "object",
-  "required": ["name", "cache", "comm"],
+  "required": ["name", "cache"],
   "properties": {
     "name": {
       "type": "string",
@@ -20,6 +20,11 @@
       "type": ["string", "null"],
       "description": "Path to the communication configuration file, or null if no communication is used (e.g., for internal endpoints).",
       "pattern": "^(comm\/)?.*\.json$"
+    },
+    "pdu_def_path": {
+      "type": ["string", "null"],
+      "description": "Optional path to a PDU definition file for name-based resolution.",
+      "pattern": ".*\\.json$"
     }
   }
 }
