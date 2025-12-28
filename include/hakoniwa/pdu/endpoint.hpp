@@ -206,7 +206,22 @@ public:
             return comm_->send(pdu_key, data);
         }
         else {
-            return cache_->write(pdu_key, data);
+            auto ret = cache_->write(pdu_key, data);
+            if (ret != HAKO_PDU_ERR_OK) {
+                return ret;
+            }
+            OnRecvCallback cb;
+            {
+                std::lock_guard<std::mutex> lock(cb_mtx_);
+                cb = on_recv_cb_;
+            }
+            if (cb) {
+                /*
+                * call user callback
+                */
+                cb(pdu_key, data);
+            }
+            return HAKO_PDU_ERR_OK;
         }
     }
     virtual HakoPduErrorType recv(const PduResolvedKey& pdu_key, std::span<std::byte> data, size_t& received_size) noexcept
@@ -256,6 +271,10 @@ protected:
 private:
     mutable std::mutex cb_mtx_;
     OnRecvCallback on_recv_cb_;
+
+    /*
+     * call from comm when data is received
+     */
     void recv_callback_(const PduResolvedKey& pdu_key, std::span<const std::byte> data) noexcept
     {
         if (!cache_) { return; }
@@ -264,9 +283,12 @@ private:
         OnRecvCallback cb;
         {
             std::lock_guard<std::mutex> lock(cb_mtx_);
-            cb = on_recv_cb_; // コピーしてロックを短く
+            cb = on_recv_cb_;
         }
         if (cb) {
+            /*
+             * call user callback
+             */
             cb(pdu_key, data);
         }
     }
