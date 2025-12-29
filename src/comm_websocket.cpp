@@ -18,6 +18,7 @@ class WebSocketSession : public std::enable_shared_from_this<WebSocketSession> {
     std::atomic<bool> is_writing_{false};
     std::atomic<bool> is_closing_{false};
     tcp::resolver::results_type endpoints_;
+    std::atomic<bool> handshake_done_{false};
 
 public:
     // Constructor for server-side sessions
@@ -34,6 +35,7 @@ public:
             if (self->is_closing_.exchange(true)) {
                 return;
             }
+            self->handshake_done_.store(false);
             beast::error_code ec;
             beast::get_lowest_layer(self->ws_).cancel();
             self->ws_.async_close(websocket::close_code::normal,
@@ -43,6 +45,9 @@ public:
                     }
                 });
         });
+    }
+    bool is_connected() const {
+        return handshake_done_.load() && ws_.is_open() && !is_closing_.load();
     }
 
     // Start the server-side session
@@ -90,6 +95,7 @@ public:
             return;
         }
         std::cout << "Session: Client handshake successful." << std::endl;
+        handshake_done_.store(true);
         if (auto parent = comm_parent_.lock()) {
             do_read();
         } else {
@@ -106,6 +112,7 @@ public:
             return;
         }
         std::cout << "Session: Server connection accepted." << std::endl;
+        handshake_done_.store(true);
         if (auto parent = comm_parent_.lock()) {
             do_read();
         } else {
@@ -272,9 +279,13 @@ HakoPduErrorType WebSocketComm::raw_start() noexcept {
     
     comm_thread_ = std::thread([this]() { ioc_.run(); });
 
-    if (role_ == Role::Server) do_accept();
-    else do_connect();
-
+    if (role_ == Role::Server) {    
+        do_accept();
+    }
+    else 
+    {
+        do_connect();
+    }
     return HAKO_PDU_ERR_OK;
 }
 
@@ -330,7 +341,7 @@ void WebSocketComm::remove_session(std::shared_ptr<WebSocketSession> session_to_
 }
 
 HakoPduErrorType WebSocketComm::raw_is_running(bool& running) noexcept {
-    running = is_running_flag_;
+    running = is_running_flag_ && !sessions_.empty() && sessions_.front()->is_connected();
     return HAKO_PDU_ERR_OK;
 }
 

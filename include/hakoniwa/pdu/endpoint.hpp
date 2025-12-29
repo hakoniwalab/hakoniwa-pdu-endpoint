@@ -155,7 +155,7 @@ public:
     }
     
     virtual HakoPduErrorType is_running(bool& running) noexcept
-    {
+    {        
         bool cache_running = false;
         if (cache_) {
             HakoPduErrorType err = cache_->is_running(cache_running);
@@ -164,8 +164,8 @@ public:
                 return err;
             }
         } else {
-            running = false;
-            return HAKO_PDU_ERR_OK; // Or an error, since cache is mandatory
+            std::cerr << "PDU Cache module is not initialized. name=" << name_ << std::endl;
+            return HAKO_PDU_ERR_INVALID_JSON;
         }
 
         bool comm_running = false;

@@ -72,6 +72,8 @@ private:
     HakoPduEndpointDirectionType config_direction_ = HAKO_PDU_ENDPOINT_DIRECTION_INOUT;
     sockaddr_storage remote_addr_info_{};
     socklen_t remote_addr_len_ = 0;
+
+    bool is_connected_ = false;
 };
 
 } // namespace comm

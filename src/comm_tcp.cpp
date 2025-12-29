@@ -167,11 +167,12 @@ HakoPduErrorType TcpComm::raw_stop() noexcept {
     if (comm_thread_.joinable()) {
         comm_thread_.join();
     }
+    is_connected_ = false;
     return HAKO_PDU_ERR_OK;
 }
 
 HakoPduErrorType TcpComm::raw_is_running(bool& running) noexcept {
-    running = is_running_flag_;
+    running = is_running_flag_ && is_connected_;
     return HAKO_PDU_ERR_OK;
 }
 
@@ -200,6 +201,7 @@ void TcpComm::server_loop() {
 
         client_fd_ = accepted_fd;
         configure_socket_options(client_fd_, options_);
+        is_connected_ = true;
 
         while (is_running_flag_) {
             std::vector<std::byte> header_buf(sizeof(MetaPdu));
@@ -225,7 +227,7 @@ void TcpComm::server_loop() {
             
             on_raw_data_received(header_buf);
         }
-        
+        is_connected_ = false;
         ::close(client_fd_);
         client_fd_ = -1;
     }
@@ -253,6 +255,7 @@ void TcpComm::client_loop() {
         }
 
         configure_socket_options(client_fd_, options_);
+        is_connected_ = true;
 
         while (is_running_flag_) {
             std::vector<std::byte> header_buf(sizeof(MetaPdu));
