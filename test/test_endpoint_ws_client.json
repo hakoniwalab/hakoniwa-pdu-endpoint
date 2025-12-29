@@ -1,0 +1,1 @@
+{ "name": "test_tcp_client", "cache": "../config/sample/cache/queue.json", "comm": "../config/sample/comm/websocket_client_out_comm.json" }

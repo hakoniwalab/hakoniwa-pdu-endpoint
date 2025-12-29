@@ -181,40 +181,11 @@ TEST_F(EndpointTest, TcpCommunicationTest) {
     ASSERT_GT(server_port, 0);
 
     // Create dynamic configs
-    const char* tmp_server_comm_path = "temp_tcp_server_comm.json";
-    const char* tmp_client_comm_path = "temp_tcp_client_comm.json";
-    const char* tmp_server_endpoint_path = "temp_tcp_server_endpoint.json";
-    const char* tmp_client_endpoint_path = "temp_tcp_client_endpoint.json";
-
-    ASSERT_TRUE(create_dynamic_config(tmp_server_comm_path, "config/sample/comm/tcp_server_inout_comm.json", server_port));
-    ASSERT_TRUE(create_dynamic_config(tmp_client_comm_path, "config/sample/comm/tcp_client_inout_comm.json", 0, server_port));
-
-    create_dynamic_config(tmp_server_endpoint_path, "test/test_endpoint_tcp_server.json", 0, 0);
-    create_dynamic_config(tmp_client_endpoint_path, "test/test_endpoint_tcp_client.json", 0, 0);
-    
     hakoniwa::pdu::Endpoint server("tcp_server", HAKO_PDU_ENDPOINT_DIRECTION_INOUT);
     hakoniwa::pdu::Endpoint client("tcp_client", HAKO_PDU_ENDPOINT_DIRECTION_INOUT);
 
-    // Minor hack to point to temp comm files
-    {
-        std::ifstream ifs(tmp_server_endpoint_path);
-        nlohmann::json j;
-        ifs >> j;
-        j["comm"] = tmp_server_comm_path;
-        std::ofstream ofs(tmp_server_endpoint_path);
-        ofs << j;
-    }
-    {
-        std::ifstream ifs(tmp_client_endpoint_path);
-        nlohmann::json j;
-        ifs >> j;
-        j["comm"] = tmp_client_comm_path;
-        std::ofstream ofs(tmp_client_endpoint_path);
-        ofs << j;
-    }
-
-    ASSERT_EQ(server.open(tmp_server_endpoint_path), HAKO_PDU_ERR_OK);
-    ASSERT_EQ(client.open(tmp_client_endpoint_path), HAKO_PDU_ERR_OK);
+    ASSERT_EQ(server.open("test/test_endpoint_tcp_server.json"), HAKO_PDU_ERR_OK);
+    ASSERT_EQ(client.open("test/test_endpoint_tcp_client.json"), HAKO_PDU_ERR_OK);
     ASSERT_EQ(server.start(), HAKO_PDU_ERR_OK);
     ASSERT_EQ(client.start(), HAKO_PDU_ERR_OK);
     
@@ -249,43 +220,18 @@ TEST_F(EndpointTest, TcpCommunicationTest) {
     ASSERT_EQ(server.close(), HAKO_PDU_ERR_OK);
     ASSERT_EQ(client.close(), HAKO_PDU_ERR_OK);
     
-    unlink(tmp_server_comm_path);
-    unlink(tmp_client_comm_path);
-    unlink(tmp_server_endpoint_path);
-    unlink(tmp_client_endpoint_path);
 }
 
 TEST_F(EndpointTest, UdpCommunicationTest) {
     int server_port = find_available_port(SOCK_DGRAM);
     ASSERT_GT(server_port, 0);
 
-    const char* tmp_server_comm_path = "temp_udp_server_comm.json";
-    const char* tmp_client_comm_path = "temp_udp_client_comm.json";
-    const char* tmp_server_endpoint_path = "temp_udp_server_endpoint.json";
-    const char* tmp_client_endpoint_path = "temp_udp_client_endpoint.json";
-
-    ASSERT_TRUE(create_dynamic_config(tmp_server_comm_path, "config/sample/comm/udp_inout_comm.json", server_port));
-    ASSERT_TRUE(create_dynamic_config(tmp_client_comm_path, "config/sample/comm/udp_client_for_test_comm.json", 0, server_port));
-
-    create_dynamic_config(tmp_server_endpoint_path, "test/test_endpoint_udp_server.json", 0, 0);
-    create_dynamic_config(tmp_client_endpoint_path, "test/test_endpoint_udp_client.json", 0, 0);
-
-    {
-        std::ifstream ifs(tmp_server_endpoint_path); nlohmann::json j; ifs >> j;
-        j["comm"] = tmp_server_comm_path;
-        std::ofstream ofs(tmp_server_endpoint_path); ofs << j;
-    }
-    {
-        std::ifstream ifs(tmp_client_endpoint_path); nlohmann::json j; ifs >> j;
-        j["comm"] = tmp_client_comm_path;
-        std::ofstream ofs(tmp_client_endpoint_path); ofs << j;
-    }
 
     hakoniwa::pdu::Endpoint server("udp_server", HAKO_PDU_ENDPOINT_DIRECTION_INOUT);
     hakoniwa::pdu::Endpoint client("udp_client", HAKO_PDU_ENDPOINT_DIRECTION_OUT);
 
-    ASSERT_EQ(server.open(tmp_server_endpoint_path), HAKO_PDU_ERR_OK);
-    ASSERT_EQ(client.open(tmp_client_endpoint_path), HAKO_PDU_ERR_OK);
+    ASSERT_EQ(server.open("test/test_endpoint_udp_server.json"), HAKO_PDU_ERR_OK);
+    ASSERT_EQ(client.open("test/test_endpoint_udp_client.json"), HAKO_PDU_ERR_OK);
     ASSERT_EQ(server.start(), HAKO_PDU_ERR_OK);
     ASSERT_EQ(client.start(), HAKO_PDU_ERR_OK);
     
@@ -309,52 +255,18 @@ TEST_F(EndpointTest, UdpCommunicationTest) {
     ASSERT_EQ(server.close(), HAKO_PDU_ERR_OK);
     ASSERT_EQ(client.close(), HAKO_PDU_ERR_OK);
 
-    unlink(tmp_server_comm_path);
-    unlink(tmp_client_comm_path);
-    unlink(tmp_server_endpoint_path);
-    unlink(tmp_client_endpoint_path);
 }
 
 TEST_F(EndpointTest, WebSocketCommunicationTest) {
     int server_port = find_available_port(SOCK_STREAM);
     ASSERT_GT(server_port, 0);
 
-    const char* tmp_ws_server_comm_path = "temp_ws_server_comm.json";
-    const char* tmp_ws_client_comm_path = "temp_ws_client_comm.json";
-    const char* tmp_ws_server_endpoint_path = "temp_ws_server_endpoint.json";
-    const char* tmp_ws_client_endpoint_path = "temp_ws_client_endpoint.json";
-
-    // Create dynamic comm configs
-    ASSERT_TRUE(create_dynamic_config(tmp_ws_server_comm_path, "config/sample/comm/websocket_server_in_comm.json", server_port));
-    ASSERT_TRUE(create_dynamic_config(tmp_ws_client_comm_path, "config/sample/comm/websocket_client_out_comm.json", 0, server_port));
-    
-    // Create dynamic endpoint configs (referencing the dynamic comm configs)
-    create_dynamic_config(tmp_ws_server_endpoint_path, "test/test_endpoint_tcp_server.json", 0, 0); // Re-using existing endpoint template
-    create_dynamic_config(tmp_ws_client_endpoint_path, "test/test_endpoint_tcp_client.json", 0, 0); // Re-using existing endpoint template
-
     hakoniwa::pdu::Endpoint server("ws_server", HAKO_PDU_ENDPOINT_DIRECTION_INOUT);
     hakoniwa::pdu::Endpoint client("ws_client", HAKO_PDU_ENDPOINT_DIRECTION_INOUT);
 
-    // Minor hack to point to temp comm files for endpoints
-    {
-        std::ifstream ifs(tmp_ws_server_endpoint_path);
-        nlohmann::json j;
-        ifs >> j;
-        j["comm"] = tmp_ws_server_comm_path;
-        std::ofstream ofs(tmp_ws_server_endpoint_path);
-        ofs << j;
-    }
-    {
-        std::ifstream ifs(tmp_ws_client_endpoint_path);
-        nlohmann::json j;
-        ifs >> j;
-        j["comm"] = tmp_ws_client_comm_path;
-        std::ofstream ofs(tmp_ws_client_endpoint_path);
-        ofs << j;
-    }
 
-    ASSERT_EQ(server.open(tmp_ws_server_endpoint_path), HAKO_PDU_ERR_OK);
-    ASSERT_EQ(client.open(tmp_ws_client_endpoint_path), HAKO_PDU_ERR_OK);
+    ASSERT_EQ(server.open("test/test_endpoint_ws_server.json"), HAKO_PDU_ERR_OK);
+    ASSERT_EQ(client.open("test/test_endpoint_ws_client.json"), HAKO_PDU_ERR_OK);
     
     // Start server first, then client connects
     ASSERT_EQ(server.start(), HAKO_PDU_ERR_OK);
@@ -392,53 +304,20 @@ TEST_F(EndpointTest, WebSocketCommunicationTest) {
     ASSERT_EQ(client.stop(), HAKO_PDU_ERR_OK);
     ASSERT_EQ(server.close(), HAKO_PDU_ERR_OK);
     ASSERT_EQ(client.close(), HAKO_PDU_ERR_OK);
-    
-    unlink(tmp_ws_server_comm_path);
-    unlink(tmp_ws_client_comm_path);
-    unlink(tmp_ws_server_endpoint_path);
-    unlink(tmp_ws_client_endpoint_path);
+ 
 }
 
 TEST_F(EndpointTest, WebSocketCommunicationInOutTest) {
     int server_port = find_available_port(SOCK_STREAM);
     ASSERT_GT(server_port, 0);
 
-    const char* tmp_ws_server_comm_path = "temp_ws_server_inout_comm.json";
-    const char* tmp_ws_client_comm_path = "temp_ws_client_inout_comm.json";
-    const char* tmp_ws_server_endpoint_path = "temp_ws_server_inout_endpoint.json";
-    const char* tmp_ws_client_endpoint_path = "temp_ws_client_inout_endpoint.json";
-
-    // Create dynamic comm configs
-    ASSERT_TRUE(create_dynamic_config(tmp_ws_server_comm_path, "config/sample/comm/websocket_server_inout_comm.json", server_port));
-    ASSERT_TRUE(create_dynamic_config(tmp_ws_client_comm_path, "config/sample/comm/websocket_client_inout_comm.json", 0, server_port));
-    
-    // Create dynamic endpoint configs (referencing the dynamic comm configs)
-    create_dynamic_config(tmp_ws_server_endpoint_path, "test/test_endpoint_tcp_server.json", 0, 0); // Re-using existing endpoint template
-    create_dynamic_config(tmp_ws_client_endpoint_path, "test/test_endpoint_tcp_client.json", 0, 0); // Re-using existing endpoint template
 
     hakoniwa::pdu::Endpoint server("ws_server_inout", HAKO_PDU_ENDPOINT_DIRECTION_INOUT);
     hakoniwa::pdu::Endpoint client("ws_client_inout", HAKO_PDU_ENDPOINT_DIRECTION_INOUT);
 
-    // Minor hack to point to temp comm files for endpoints
-    {
-        std::ifstream ifs(tmp_ws_server_endpoint_path);
-        nlohmann::json j;
-        ifs >> j;
-        j["comm"] = tmp_ws_server_comm_path;
-        std::ofstream ofs(tmp_ws_server_endpoint_path);
-        ofs << j;
-    }
-    {
-        std::ifstream ifs(tmp_ws_client_endpoint_path);
-        nlohmann::json j;
-        ifs >> j;
-        j["comm"] = tmp_ws_client_comm_path;
-        std::ofstream ofs(tmp_ws_client_endpoint_path);
-        ofs << j;
-    }
 
-    ASSERT_EQ(server.open(tmp_ws_server_endpoint_path), HAKO_PDU_ERR_OK);
-    ASSERT_EQ(client.open(tmp_ws_client_endpoint_path), HAKO_PDU_ERR_OK);
+    ASSERT_EQ(server.open("test/test_endpoint_ws_server_inout.json"), HAKO_PDU_ERR_OK);
+    ASSERT_EQ(client.open("test/test_endpoint_ws_client_inout.json"), HAKO_PDU_ERR_OK);
     
     // Start server first, then client connects
     ASSERT_EQ(server.start(), HAKO_PDU_ERR_OK);
@@ -477,9 +356,6 @@ TEST_F(EndpointTest, WebSocketCommunicationInOutTest) {
     ASSERT_EQ(server.close(), HAKO_PDU_ERR_OK);
     ASSERT_EQ(client.close(), HAKO_PDU_ERR_OK);
     
-    unlink(tmp_ws_server_comm_path);
-    unlink(tmp_ws_client_comm_path);
-    unlink(tmp_ws_server_endpoint_path);
-    unlink(tmp_ws_client_endpoint_path);
 }
+
 

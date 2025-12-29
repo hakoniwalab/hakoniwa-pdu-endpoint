@@ -5,7 +5,7 @@
   "role": "server",
   "local": {
     "address": "0.0.0.0",
-    "port": 7000
+    "port": 54001
   },
   "options": {
     "read_timeout_ms": 1000,

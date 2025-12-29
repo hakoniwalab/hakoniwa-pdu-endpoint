@@ -5,7 +5,7 @@
   "pdu_key": { "robot": "TestRobo", "channel_id": 0 },
   "local": {
     "address": "0.0.0.0",
-    "port": 7777
+    "port": 54001
   },
   "options": {
     "buffer_size": 8192,

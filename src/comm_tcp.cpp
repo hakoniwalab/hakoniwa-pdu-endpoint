@@ -10,6 +10,7 @@
 #include <sys/socket.h>
 #include <netinet/tcp.h>
 #include <poll.h>
+#include <iostream>
 
 namespace hakoniwa {
 namespace pdu {
@@ -31,6 +32,7 @@ HakoPduErrorType TcpComm::raw_open(const std::string& config_path) {
 
     std::ifstream config_stream(config_path);
     if (!config_stream) {
+        std::cerr << "Failed to open TCP Comm config file: " << config_path << std::endl;
         return HAKO_PDU_ERR_IO_ERROR;
     }
 
@@ -87,21 +89,25 @@ HakoPduErrorType TcpComm::raw_open(const std::string& config_path) {
         listen_fd_ = ::socket(local_addr_info->ai_family, local_addr_info->ai_socktype, local_addr_info->ai_protocol);
         if (listen_fd_ < 0) {
             freeaddrinfo(local_addr_info);
+            std::cerr << "Failed to create socket: " << std::strerror(errno) << std::endl;
             return HAKO_PDU_ERR_IO_ERROR;
         }
         if (configure_socket_options(listen_fd_, options_) != HAKO_PDU_ERR_OK) {
             raw_close();
             freeaddrinfo(local_addr_info);
+            std::cerr << "Failed to configure socket options." << std::endl;
             return HAKO_PDU_ERR_IO_ERROR;
         }
         if (::bind(listen_fd_, local_addr_info->ai_addr, local_addr_info->ai_addrlen) != 0) {
             raw_close();
             freeaddrinfo(local_addr_info);
+            std::cerr << "Failed to bind socket: " << std::strerror(errno) << std::endl;
             return HAKO_PDU_ERR_IO_ERROR;
         }
         if (::listen(listen_fd_, options_.backlog) != 0) {
             raw_close();
             freeaddrinfo(local_addr_info);
+            std::cerr << "Failed to listen on socket: " << std::strerror(errno) << std::endl;
             return HAKO_PDU_ERR_IO_ERROR;
         }
         freeaddrinfo(local_addr_info);

@@ -5,7 +5,7 @@
   "role": "client",
   "remote": {
     "address": "127.0.0.1",
-    "port": 7000
+    "port": 54001
   },
   "options": {
     "connect_timeout_ms": 2000,

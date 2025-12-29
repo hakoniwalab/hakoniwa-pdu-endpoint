@@ -1,1 +1,1 @@
-{ "name": "test_buffer", "cache": "config/sample/cache/buffer.json", "comm": null }
+{ "name": "test_buffer", "cache": "../config/sample/cache/buffer.json", "comm": null }

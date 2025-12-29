@@ -18,6 +18,8 @@
 #include <functional>
 #include <mutex>
 
+namespace fs = std::filesystem;
+
 namespace hakoniwa {
 namespace pdu {
 using OnRecvCallback = std::function<void(const PduResolvedKey&, std::span<const std::byte>)>;
@@ -35,13 +37,15 @@ public:
     Endpoint& operator=(const Endpoint&) = delete;
     Endpoint& operator=(Endpoint&&) = delete;
     
-    virtual HakoPduErrorType open(const std::string& config_path) 
+    virtual HakoPduErrorType open(const std::string& endpoint_config_path) 
     {
-        std::ifstream ifs(config_path);
+        fs::path ep_path(endpoint_config_path);
+        fs::path base_dir = ep_path.parent_path();
+
+        std::ifstream ifs(endpoint_config_path);
         if (!ifs.is_open()) {
             return HAKO_PDU_ERR_FILE_NOT_FOUND;
         }
-
         nlohmann::json config;
         try {
             ifs >> config;
@@ -49,40 +53,47 @@ public:
             // PduDefinition is optional
             if (config.contains("pdu_def_path") && !config["pdu_def_path"].is_null()) {
                 pdu_def_ = std::make_shared<PduDefinition>();
-                if (!pdu_def_->load(config["pdu_def_path"].get<std::string>())) {
+                auto resolved_pdu_def_path = resolve_under_base(base_dir, config["pdu_def_path"].get<std::string>());
+                if (!pdu_def_->load(resolved_pdu_def_path)) {
                     return HAKO_PDU_ERR_INVALID_CONFIG;
                 }
             }
 
             // Cache is mandatory
             if (!config.contains("cache") || config["cache"].is_null()) {
+                std::cerr << "PDU Cache configuration is missing." << std::endl;
                 return HAKO_PDU_ERR_INVALID_CONFIG;
             }
             std::string cache_config_path = config["cache"].get<std::string>();
+            auto resolved_cache_config_path = resolve_under_base(base_dir, cache_config_path);
 
-            cache_ = create_pdu_cache(cache_config_path);
+            cache_ = create_pdu_cache(resolved_cache_config_path);
             if (!cache_) {
+                std::cerr << "Failed to create PDU Cache module: " << resolved_cache_config_path << std::endl;
                 return HAKO_PDU_ERR_INVALID_CONFIG;
             }
-            HakoPduErrorType err = cache_->open(cache_config_path);
+            HakoPduErrorType err = cache_->open(resolved_cache_config_path);
             if (err != HAKO_PDU_ERR_OK) {
+                std::cerr << "Failed to open PDU Cache: " << static_cast<int>(err) << std::endl;
                 return err;
             }
-
             // Comm is optional
             if (config.contains("comm") && !config["comm"].is_null()) {
                 std::string comm_config_path = config["comm"].get<std::string>();
+                auto resolved_comm_config_path = resolve_under_base(base_dir, comm_config_path);
 
-                comm_ = create_pdu_comm(comm_config_path);
+                comm_ = create_pdu_comm(resolved_comm_config_path);
                 if (!comm_) {
+                    std::cerr << "Failed to create PDU Comm module." << std::endl;
                     return HAKO_PDU_ERR_INVALID_CONFIG;
                 }
                 // Pass PDU definition to comm module
                 if (pdu_def_) {
                     comm_->set_pdu_definition(pdu_def_);
                 }
-                err = comm_->open(comm_config_path);
+                err = comm_->open(resolved_comm_config_path);
                 if (err != HAKO_PDU_ERR_OK) {
+                    std::cerr << "Failed to open PDU Comm: " << static_cast<int>(err) << std::endl;
                     return err;
                 }
             }
@@ -291,6 +302,14 @@ private:
              */
             cb(pdu_key, data);
         }
+    }
+    fs::path resolve_under_base(const fs::path& base_dir, const std::string& maybe_rel)
+    {
+        fs::path p(maybe_rel);
+        if (p.is_absolute()) {
+            return p.lexically_normal();
+        }
+        return (base_dir / p).lexically_normal();
     }
 
 };
