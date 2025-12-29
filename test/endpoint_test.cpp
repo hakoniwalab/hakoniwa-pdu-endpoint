@@ -9,6 +9,7 @@
 #include <nlohmann/json.hpp>
 #include <sys/socket.h>
 #include <netinet/in.h>
+#include <iostream>
 
 // Test Utilities
 namespace {
