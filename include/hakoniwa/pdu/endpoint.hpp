@@ -17,6 +17,7 @@
 #include <vector>
 #include <functional>
 #include <mutex>
+#include <iostream>
 
 namespace fs = std::filesystem;
 
