@@ -264,6 +264,16 @@ public:
         }
         return pdu_def_->get_pdu_channel_id(pdu_key.robot, pdu_key.pdu);
     }
+    std::string get_pdu_name(const PduResolvedKey& pdu_key) const {
+        if (!pdu_def_) {
+            return ""; // PDU definition not loaded
+        }
+        PduDef def;
+        if (pdu_def_->resolve(pdu_key.robot, pdu_key.channel_id, def)) {
+            return def.org_name;
+        }
+        return ""; // Not found
+    }
     void set_on_recv_callback(OnRecvCallback cb) noexcept
     {
         std::lock_guard<std::mutex> lock(cb_mtx_);
