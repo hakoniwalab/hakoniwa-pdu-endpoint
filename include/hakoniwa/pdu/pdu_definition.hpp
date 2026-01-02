@@ -67,7 +67,12 @@ public:
      */
     HakoPduChannelIdType get_pdu_channel_id(const std::string& robot_name, const std::string& pdu_org_name) const;
 
-//private: //TODO
+
+    bool add_definition(const std::string& robot_name, const PduDef& def) {
+        pdu_definitions_[robot_name][def.org_name] = def;
+        return true;
+    }
+private:
     // A nested map to store PDU definitions:
     // map<robot_name, map<pdu_org_name, PduDef>>
     std::map<std::string, std::map<std::string, PduDef>> pdu_definitions_;
