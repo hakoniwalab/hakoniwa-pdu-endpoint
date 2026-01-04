@@ -6,13 +6,15 @@
 #include "hakoniwa/time_source/hakoniwa_time_source.hpp"
 
 namespace hakoniwa::time_source {
-std::unique_ptr<ITimeSource> create_time_source(const std::string& type, uint64_t delta_time_step_usec) {
+std::unique_ptr<ITimeSource> create_time_source(const std::string& type, uint64_t delta_time_step_usec) 
+{
+    std::unique_ptr<ITimeSource> time_source;
     if (type == "real") {
-        return std::make_unique<RealTimeSource>();
+        time_source = std::make_unique<RealTimeSource>();
     } else if (type == "virtual") {
-        return std::make_unique<VirtualTimeSource>();
+        time_source = std::make_unique<VirtualTimeSource>();
     } else if (type == "hakoniwa") {
-        return std::make_unique<HakoniwaTimeSource>();
+        time_source = std::make_unique<HakoniwaTimeSource>();
     } else {
         throw std::invalid_argument("Unknown time source type: " + type);
     }
