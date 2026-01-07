@@ -159,6 +159,8 @@ HakoPduErrorType TcpComm::raw_stop() noexcept {
 
     if (listen_fd_ >= 0) {
         ::shutdown(listen_fd_, SHUT_RD);
+        ::close(listen_fd_);
+        listen_fd_ = -1;
     }
     if (client_fd_ >= 0) {
         ::shutdown(client_fd_, SHUT_RDWR);
@@ -228,8 +230,10 @@ void TcpComm::server_loop() {
             on_raw_data_received(header_buf);
         }
         is_connected_ = false;
-        ::close(client_fd_);
-        client_fd_ = -1;
+        if (client_fd_ >= 0) {
+            ::close(client_fd_);
+            client_fd_ = -1;
+        }
     }
 }
 
