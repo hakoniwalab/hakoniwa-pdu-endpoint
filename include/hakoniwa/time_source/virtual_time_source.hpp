@@ -24,4 +24,4 @@ private:
     std::atomic<uint64_t> current_time_micros_;
 };
 
-} // namespace hakoniwa::pdu::bridge
+} // namespace hakoniwa::time_source

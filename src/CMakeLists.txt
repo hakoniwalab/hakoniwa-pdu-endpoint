@@ -30,11 +30,13 @@ add_library(hakoniwa_pdu_endpoint
   pdu_factory.cpp
   comm_shm.cpp 
   pdu_definition.cpp
+  hakoniwa_time_source.cpp
 )
 
 target_include_directories(hakoniwa_pdu_endpoint
   PUBLIC
     ${CMAKE_CURRENT_LIST_DIR}/../include
+    /usr/local/hakoniwa/include
 )
 
 # Boostはヘッダーオンリーで使用
