@@ -48,7 +48,7 @@ private:
     HakoPduErrorType configure_multicast(const Options& options) noexcept;
 
     // ソケットとアドレス関連 (remains the same)
-    int socket_fd_ = -1;
+    std::atomic<int> socket_fd_{-1};
     sockaddr_storage dest_addr_{};
     socklen_t dest_addr_len_ = 0;
     bool has_fixed_remote_ = false;

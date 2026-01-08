@@ -62,8 +62,8 @@ private:
     // TCP specific state
     Role role_ = Role::Client;
     Options options_{};
-    int listen_fd_ = -1;
-    int client_fd_ = -1; // Represents the connected socket for both client and server
+    std::atomic<int> listen_fd_{-1};
+    std::atomic<int> client_fd_{-1}; // Represents the connected socket for both client and server
     
     // Threading
     std::thread comm_thread_;
@@ -73,7 +73,7 @@ private:
     sockaddr_storage remote_addr_info_{};
     socklen_t remote_addr_len_ = 0;
 
-    bool is_connected_ = false;
+    std::atomic<bool> is_connected_{false};
 };
 
 } // namespace comm
