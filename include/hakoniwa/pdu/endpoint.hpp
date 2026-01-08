@@ -25,6 +25,13 @@ namespace hakoniwa {
 namespace pdu {
 using OnRecvCallback = std::function<void(const PduResolvedKey&, std::span<const std::byte>)>;
 
+/*
+ * Threading assumptions:
+ * - open/close/start/stop are called from a single thread (initialization/shutdown).
+ * - set_on_recv_callback is configured during initialization and not changed afterward.
+ * - send/recv may be called from multiple threads, but callers must serialize access if needed.
+ * - Comm implementations may use background threads; close/stop can be used to interrupt blocking I/O.
+ */
 class Endpoint
 {
 public:

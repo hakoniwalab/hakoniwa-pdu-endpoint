@@ -26,7 +26,7 @@ TcpComm::~TcpComm() {
 }
 
 HakoPduErrorType TcpComm::raw_open(const std::string& config_path) {
-    if (client_fd_ != -1 || listen_fd_ != -1) {
+    if (client_fd_.load() != -1 || listen_fd_.load() != -1) {
         return HAKO_PDU_ERR_BUSY;
     }
 
@@ -87,24 +87,24 @@ HakoPduErrorType TcpComm::raw_open(const std::string& config_path) {
         }
 
         listen_fd_ = ::socket(local_addr_info->ai_family, local_addr_info->ai_socktype, local_addr_info->ai_protocol);
-        if (listen_fd_ < 0) {
+        if (listen_fd_.load() < 0) {
             freeaddrinfo(local_addr_info);
             std::cerr << "Failed to create socket: " << std::strerror(errno) << std::endl;
             return HAKO_PDU_ERR_IO_ERROR;
         }
-        if (configure_socket_options(listen_fd_, options_) != HAKO_PDU_ERR_OK) {
+        if (configure_socket_options(listen_fd_.load(), options_) != HAKO_PDU_ERR_OK) {
             raw_close();
             freeaddrinfo(local_addr_info);
             std::cerr << "Failed to configure socket options." << std::endl;
             return HAKO_PDU_ERR_IO_ERROR;
         }
-        if (::bind(listen_fd_, local_addr_info->ai_addr, local_addr_info->ai_addrlen) != 0) {
+        if (::bind(listen_fd_.load(), local_addr_info->ai_addr, local_addr_info->ai_addrlen) != 0) {
             raw_close();
             freeaddrinfo(local_addr_info);
             std::cerr << "Failed to bind socket: " << std::strerror(errno) << std::endl;
             return HAKO_PDU_ERR_IO_ERROR;
         }
-        if (::listen(listen_fd_, options_.backlog) != 0) {
+        if (::listen(listen_fd_.load(), options_.backlog) != 0) {
             raw_close();
             freeaddrinfo(local_addr_info);
             std::cerr << "Failed to listen on socket: " << std::strerror(errno) << std::endl;
@@ -127,12 +127,14 @@ HakoPduErrorType TcpComm::raw_open(const std::string& config_path) {
 
 HakoPduErrorType TcpComm::raw_close() noexcept {
     raw_stop();
-    if (client_fd_ >= 0) {
-        ::close(client_fd_);
+    int current_client_fd = client_fd_.load();
+    if (current_client_fd >= 0) {
+        ::close(current_client_fd);
         client_fd_ = -1;
     }
-    if (listen_fd_ >= 0) {
-        ::close(listen_fd_);
+    int current_listen_fd = listen_fd_.load();
+    if (current_listen_fd >= 0) {
+        ::close(current_listen_fd);
         listen_fd_ = -1;
     }
     return HAKO_PDU_ERR_OK;
@@ -157,13 +159,15 @@ HakoPduErrorType TcpComm::raw_stop() noexcept {
     }
     is_running_flag_ = false;
 
-    if (listen_fd_ >= 0) {
-        ::shutdown(listen_fd_, SHUT_RD);
-        ::close(listen_fd_);
+    int current_listen_fd = listen_fd_.load();
+    if (current_listen_fd >= 0) {
+        ::shutdown(current_listen_fd, SHUT_RD);
+        ::close(current_listen_fd);
         listen_fd_ = -1;
     }
-    if (client_fd_ >= 0) {
-        ::shutdown(client_fd_, SHUT_RDWR);
+    int current_client_fd = client_fd_.load();
+    if (current_client_fd >= 0) {
+        ::shutdown(current_client_fd, SHUT_RDWR);
     }
 
     if (comm_thread_.joinable()) {
@@ -174,25 +178,26 @@ HakoPduErrorType TcpComm::raw_stop() noexcept {
 }
 
 HakoPduErrorType TcpComm::raw_is_running(bool& running) noexcept {
-    running = is_running_flag_ && is_connected_;
+    running = is_running_flag_.load() && is_connected_.load();
     return HAKO_PDU_ERR_OK;
 }
 
 HakoPduErrorType TcpComm::raw_send(const std::vector<std::byte>& data) noexcept {
-    if (client_fd_ < 0) {
+    int current_client_fd = client_fd_.load();
+    if (current_client_fd < 0) {
         return HAKO_PDU_ERR_NOT_RUNNING;
     }
     if (config_direction_ == HAKO_PDU_ENDPOINT_DIRECTION_IN) {
         return HAKO_PDU_ERR_INVALID_ARGUMENT;
     }
-    return write_data(client_fd_, data.data(), data.size());
+    return write_data(current_client_fd, data.data(), data.size());
 }
 
 void TcpComm::server_loop() {
     while (is_running_flag_) {
         sockaddr_storage client_addr{};
         socklen_t client_len = sizeof(client_addr);
-        int accepted_fd = ::accept(listen_fd_, reinterpret_cast<sockaddr*>(&client_addr), &client_len);
+        int accepted_fd = ::accept(listen_fd_.load(), reinterpret_cast<sockaddr*>(&client_addr), &client_len);
 
         if (accepted_fd < 0) {
             if (is_running_flag_) {
@@ -202,12 +207,12 @@ void TcpComm::server_loop() {
         }
 
         client_fd_ = accepted_fd;
-        configure_socket_options(client_fd_, options_);
+        configure_socket_options(client_fd_.load(), options_);
         is_connected_ = true;
 
         while (is_running_flag_) {
             std::vector<std::byte> header_buf(sizeof(MetaPdu));
-            HakoPduErrorType err = read_data(client_fd_, header_buf.data(), header_buf.size());
+            HakoPduErrorType err = read_data(client_fd_.load(), header_buf.data(), header_buf.size());
             if (err != HAKO_PDU_ERR_OK) {
                 // Connection closed or error
                 break;
@@ -219,7 +224,7 @@ void TcpComm::server_loop() {
 
             if (meta.body_len > 0) {
                 std::vector<std::byte> body_buf(meta.body_len);
-                err = read_data(client_fd_, body_buf.data(), body_buf.size());
+                err = read_data(client_fd_.load(), body_buf.data(), body_buf.size());
                 if (err != HAKO_PDU_ERR_OK) {
                     // Incomplete packet or error
                     break;
@@ -230,8 +235,9 @@ void TcpComm::server_loop() {
             on_raw_data_received(header_buf);
         }
         is_connected_ = false;
-        if (client_fd_ >= 0) {
-            ::close(client_fd_);
+        int current_client_fd = client_fd_.load();
+        if (current_client_fd >= 0) {
+            ::close(current_client_fd);
             client_fd_ = -1;
         }
     }
@@ -240,7 +246,7 @@ void TcpComm::server_loop() {
 void TcpComm::client_loop() {
     while (is_running_flag_) {
         client_fd_ = ::socket(remote_addr_info_.ss_family, kTcpSocketType, 0);
-        if (client_fd_ < 0) {
+        if (client_fd_.load() < 0) {
             // error handling
             std::this_thread::sleep_for(std::chrono::seconds(1));
             continue;
@@ -251,19 +257,19 @@ void TcpComm::client_loop() {
         remote_info.ai_addr = reinterpret_cast<sockaddr*>(&remote_addr_info_);
         remote_info.ai_addrlen = remote_addr_len_;
 
-        if (connect_with_timeout(client_fd_, &remote_info, options_) != HAKO_PDU_ERR_OK) {
-            ::close(client_fd_);
+        if (connect_with_timeout(client_fd_.load(), &remote_info, options_) != HAKO_PDU_ERR_OK) {
+            ::close(client_fd_.load());
             client_fd_ = -1;
             std::this_thread::sleep_for(std::chrono::seconds(1));
             continue;
         }
 
-        configure_socket_options(client_fd_, options_);
+        configure_socket_options(client_fd_.load(), options_);
         is_connected_ = true;
 
         while (is_running_flag_) {
             std::vector<std::byte> header_buf(sizeof(MetaPdu));
-            HakoPduErrorType err = read_data(client_fd_, header_buf.data(), header_buf.size());
+            HakoPduErrorType err = read_data(client_fd_.load(), header_buf.data(), header_buf.size());
             if (err != HAKO_PDU_ERR_OK) {
                 break; // Disconnected
             }
@@ -275,7 +281,7 @@ void TcpComm::client_loop() {
             std::vector<std::byte> body_buf;
             if (meta.body_len > 0) {
                 body_buf.resize(meta.body_len);
-                err = read_data(client_fd_, body_buf.data(), body_buf.size());
+                err = read_data(client_fd_.load(), body_buf.data(), body_buf.size());
                 if (err != HAKO_PDU_ERR_OK) {
                     break; // Incomplete packet
                 }
@@ -285,7 +291,7 @@ void TcpComm::client_loop() {
             full_packet.insert(full_packet.end(), body_buf.begin(), body_buf.end());
             on_raw_data_received(full_packet);
         }
-        ::close(client_fd_);
+        ::close(client_fd_.load());
         client_fd_ = -1;
     }
 }

@@ -5,14 +5,14 @@
 #include <vector>
 #include <string>
 #include <mutex> // Add mutex include
- #include <memory>
- // Removed <deque>, <mutex>, <condition_variable>
- 
- namespace hakoniwa {
- namespace pdu {
- namespace comm {
- 
- class PduCommRaw : public PduComm {
+#include <memory>
+// Removed <deque>, <mutex>, <condition_variable>
+
+namespace hakoniwa {
+namespace pdu {
+namespace comm {
+
+class PduCommRaw : public PduComm {
  public:
      PduCommRaw() = default;
      virtual ~PduCommRaw() = default;
