@@ -140,12 +140,15 @@ void PduCommShm::handle_shm_recv(int recv_event_id) {
         return;
     }
 
-    auto it = event_id_to_key_map_.find(recv_event_id);
-    if (it == event_id_to_key_map_.end()) {
-        return; // Not found
+    PduResolvedKey key{};
+    {
+        std::lock_guard<std::mutex> lock(event_map_mutex_);
+        auto it = event_id_to_key_map_.find(recv_event_id);
+        if (it == event_id_to_key_map_.end()) {
+            return; // Not found
+        }
+        key = it->second;
     }
-
-    const PduResolvedKey& key = it->second;
     PduDef def;
     if (!pdu_def_->resolve(key.robot, key.channel_id, def)) { // Access inherited member
         std::cerr << "PduCommShm Error: Can't resolve PDU for received event. Robot: " << key.robot << " Channel: " << key.channel_id << std::endl;
