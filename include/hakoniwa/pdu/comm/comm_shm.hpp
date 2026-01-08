@@ -35,6 +35,8 @@ public:
 private:
     // Callback from hako_asset C API
     static void shm_recv_callback(int recv_event_id);
+    HakoPduErrorType native_send(const PduResolvedKey& pdu_key, std::span<const std::byte> data) noexcept;
+    HakoPduErrorType native_recv(const PduResolvedKey& pdu_key, std::span<std::byte> data, size_t& received_size) noexcept;
 
     // Member function to handle the dispatched callback
     void handle_shm_recv(int recv_event_id);
@@ -44,6 +46,7 @@ private:
     // Map from SHM event ID back to our internal key and the PduCommShm instance
     static std::map<int, PduCommShm*> event_id_to_instance_map_;
     static std::mutex event_map_mutex_;
+    std::mutex io_mutex_;
 
     std::map<int, PduResolvedKey> event_id_to_key_map_;
     std::vector<int> registered_event_ids_;

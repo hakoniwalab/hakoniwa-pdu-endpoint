@@ -103,7 +103,7 @@ HakoPduErrorType PduCommShm::is_running(bool& running) noexcept {
 }
 
 HakoPduErrorType PduCommShm::send(const PduResolvedKey& pdu_key, std::span<const std::byte> data) noexcept {
-    if (hako_asset_pdu_write(pdu_key.robot.c_str(), pdu_key.channel_id, reinterpret_cast<const char*>(data.data()), data.size()) != 0) {
+    if (native_send(pdu_key, data) != 0) {
         return HAKO_PDU_ERR_IO_ERROR;
     }
     return HAKO_PDU_ERR_OK;
@@ -119,7 +119,8 @@ HakoPduErrorType PduCommShm::recv(const PduResolvedKey& pdu_key, std::span<std::
         return HAKO_PDU_ERR_INVALID_ARGUMENT; // or OK, choose policy
     }    
     const size_t read_size = std::min(data.size(), def.pdu_size);
-    if (hako_asset_pdu_read(pdu_key.robot.c_str(), pdu_key.channel_id, reinterpret_cast<char*>(data.data()), read_size) == 0) {
+    data = data.subspan(0, read_size);
+    if (native_recv(pdu_key, data, received_size) == 0) {
         received_size = read_size;
         return HAKO_PDU_ERR_OK;
     }
@@ -152,11 +153,26 @@ void PduCommShm::handle_shm_recv(int recv_event_id) {
     }
 
     std::vector<std::byte> buffer(def.pdu_size);
-    if (hako_asset_pdu_read(key.robot.c_str(), key.channel_id, reinterpret_cast<char*>(buffer.data()), buffer.size()) == 0) {
+    size_t received_size = 0;
+    if (native_recv(key, buffer, received_size) == 0) {
         on_recv_callback_(key, buffer);
     }
 }
-
+HakoPduErrorType PduCommShm::native_send(const PduResolvedKey& pdu_key, std::span<const std::byte> data) noexcept {
+    std::lock_guard<std::mutex> lock(io_mutex_);
+    if (hako_asset_pdu_write(pdu_key.robot.c_str(), pdu_key.channel_id, reinterpret_cast<const char*>(data.data()), data.size()) != 0) {
+        return HAKO_PDU_ERR_IO_ERROR;
+    }
+    return HAKO_PDU_ERR_OK;
+}
+HakoPduErrorType PduCommShm::native_recv(const PduResolvedKey& pdu_key, std::span<std::byte> data, size_t& received_size) noexcept {
+    std::lock_guard<std::mutex> lock(io_mutex_);
+    if (hako_asset_pdu_read(pdu_key.robot.c_str(), pdu_key.channel_id, reinterpret_cast<char*>(data.data()), data.size()) == 0) {
+        received_size = data.size();
+        return HAKO_PDU_ERR_OK;
+    }
+    return HAKO_PDU_ERR_IO_ERROR;
+}
 } // namespace comm
 } // namespace pdu
 } // namespace hakoniwa

@@ -242,7 +242,14 @@ public:
     }
     virtual HakoPduErrorType recv(const PduResolvedKey& pdu_key, std::span<std::byte> data, size_t& received_size) noexcept
     {
-        return cache_->read(pdu_key, data, received_size);
+        auto errcode = cache_->read(pdu_key, data, received_size);
+        if (errcode == HAKO_PDU_ERR_OK) {
+            return HAKO_PDU_ERR_OK;
+        }
+        if (comm_) {
+            return comm_->recv(pdu_key, data, received_size);
+        }
+        return errcode;
     }
 
     /**
