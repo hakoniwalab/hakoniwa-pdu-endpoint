@@ -27,6 +27,7 @@ public:
   // Lifecycle owner
   HakoPduErrorType start_all() noexcept;
   HakoPduErrorType stop_all() noexcept;
+  bool is_running_all() const noexcept;
 
   // Optional: explicit per-endpoint lifecycle
   HakoPduErrorType start(const std::string& endpoint_id) noexcept;

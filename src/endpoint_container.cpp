@@ -270,6 +270,24 @@ HakoPduErrorType EndpointContainer::start(const std::string& endpoint_id) noexce
     started_[endpoint_id] = true;
     return HAKO_PDU_ERR_OK;
 }
+bool EndpointContainer::is_running_all() const noexcept
+{
+    std::lock_guard<std::mutex> lock(mtx_);
+    if (!initialized_) {
+        return false;
+    }
+    for (const auto& [id, ep] : cache_) {
+        if (!ep) {
+            return false;
+        }
+        bool running = false;
+        HakoPduErrorType err = ep->is_running(running);
+        if (err != HAKO_PDU_ERR_OK || !running) {
+            return false;
+        }
+    }
+    return true;
+}
 std::shared_ptr<Endpoint> EndpointContainer::ref(const std::string& id)
 {
     std::lock_guard<std::mutex> lock(mtx_);
