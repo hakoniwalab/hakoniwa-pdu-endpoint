@@ -233,17 +233,7 @@ public:
             if (ret != HAKO_PDU_ERR_OK) {
                 return ret;
             }
-            OnRecvCallback cb;
-            {
-                std::lock_guard<std::mutex> lock(cb_mtx_);
-                cb = on_recv_cb_;
-            }
-            if (cb) {
-                /*
-                * call user callback
-                */
-                cb(pdu_key, data);
-            }
+            notify_subscribers_(pdu_key, data);
             return HAKO_PDU_ERR_OK;
         }
     }
@@ -292,10 +282,11 @@ public:
         }
         return ""; // Not found
     }
-    void set_on_recv_callback(OnRecvCallback cb) noexcept
+    // subscribe_on_recv_callback should be called during initialization (before start()).
+    void subscribe_on_recv_callback(const PduResolvedKey& pdu_key, OnRecvCallback cb) noexcept
     {
         std::lock_guard<std::mutex> lock(cb_mtx_);
-        on_recv_cb_ = std::move(cb);
+        per_pdu_callbacks_.emplace_back(pdu_key, std::move(cb));
     }
     const std::string& get_name() const { return name_; }
     HakoPduEndpointDirectionType get_type() const { return type_; }
@@ -310,7 +301,24 @@ protected:
 
 private:
     mutable std::mutex cb_mtx_;
-    OnRecvCallback on_recv_cb_;
+    std::vector<std::pair<PduResolvedKey, OnRecvCallback>> per_pdu_callbacks_;
+    void notify_subscribers_(const PduResolvedKey& pdu_key,
+                            std::span<const std::byte> data) noexcept
+    {
+        std::vector<OnRecvCallback> targets;
+        {
+            std::lock_guard<std::mutex> lock(cb_mtx_);
+            for (const auto& [sub_key, cb] : per_pdu_callbacks_) {
+                if (sub_key.robot == pdu_key.robot &&
+                    sub_key.channel_id == pdu_key.channel_id) {
+                    targets.push_back(cb); // copy
+                }
+            }
+        }
+        for (auto& cb : targets) {
+            cb(pdu_key, data);
+        }
+    }
 
     /*
      * call from comm when data is received
@@ -320,17 +328,7 @@ private:
         if (!cache_) { return; }
         (void)cache_->write(pdu_key, data);
 
-        OnRecvCallback cb;
-        {
-            std::lock_guard<std::mutex> lock(cb_mtx_);
-            cb = on_recv_cb_;
-        }
-        if (cb) {
-            /*
-             * call user callback
-             */
-            cb(pdu_key, data);
-        }
+        notify_subscribers_(pdu_key, data);
     }
     fs::path resolve_under_base(const fs::path& base_dir, const std::string& maybe_rel)
     {
