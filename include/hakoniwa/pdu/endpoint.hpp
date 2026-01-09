@@ -45,8 +45,8 @@ public:
     Endpoint& operator=(const Endpoint&) = delete;
     Endpoint& operator=(Endpoint&&) = delete;
 
-    PduDefinition& get_pdu_definition() {
-        return *pdu_def_;
+    std::shared_ptr<PduDefinition> get_pdu_definition() const{
+        return pdu_def_;
     }
     
     virtual HakoPduErrorType open(const std::string& endpoint_config_path) 

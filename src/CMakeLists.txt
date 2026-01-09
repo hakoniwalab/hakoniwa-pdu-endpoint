@@ -31,6 +31,7 @@ add_library(hakoniwa_pdu_endpoint
   comm_shm.cpp 
   pdu_definition.cpp
   hakoniwa_time_source.cpp
+  endpoint_container.cpp
 )
 
 target_include_directories(hakoniwa_pdu_endpoint
