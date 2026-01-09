@@ -75,9 +75,29 @@ HakoPduErrorType EndpointContainer::initialize()
         return HAKO_PDU_ERR_INVALID_JSON;
     }
 
-    if (!root.contains("endpoints") || !root["endpoints"].is_array()) {
+    if (!root.is_array()) {
         last_error_ = "Missing or invalid 'endpoints' array in container config.";
         return HAKO_PDU_ERR_INVALID_CONFIG;
+    }
+    const nlohmann::json* founded_entry = nullptr;
+    for (auto& entry: root) {
+        if (!entry.is_object()) {
+            last_error_ = "Invalid endpoint entry (not an object).";
+            return HAKO_PDU_ERR_INVALID_CONFIG;
+        }
+        if (!entry.contains("nodeId") || !entry["endpoints"].is_array()) {
+            last_error_ = "Endpoint entry missing 'nodeId' or 'endpoints' array.";
+            return HAKO_PDU_ERR_INVALID_CONFIG;
+        }
+        if (entry["nodeId"] != node_id_) {
+            continue;
+        }
+        founded_entry = &entry;
+        break;
+    }
+    if (founded_entry == nullptr) {
+        last_error_ = "No endpoint entry found for nodeId: " + node_id_;
+        return HAKO_PDU_ERR_NO_ENTRY;
     }
 
     fs::path cfg_path(container_config_path_);
@@ -85,7 +105,7 @@ HakoPduErrorType EndpointContainer::initialize()
 
     const HakoPduEndpointDirectionType default_dir = kDefaultDir;
 
-    for (const auto& ep : root["endpoints"]) {
+    for (const auto& ep : (*founded_entry)["endpoints"]) {
         if (!ep.is_object()) {
             last_error_ = "Invalid endpoint entry (not an object).";
             return HAKO_PDU_ERR_INVALID_CONFIG;
