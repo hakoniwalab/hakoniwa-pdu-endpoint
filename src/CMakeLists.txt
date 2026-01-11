@@ -56,6 +56,7 @@ if(APPLE)
   target_link_libraries(hakoniwa_pdu_endpoint
     PUBLIC
       /usr/local/hakoniwa/lib/libassets.dylib
+      /usr/local/hakoniwa/lib/libshakoc.dylib
   )
 elseif(UNIX) # Add this block for Linux
   target_include_directories(hakoniwa_pdu_endpoint
@@ -65,6 +66,7 @@ elseif(UNIX) # Add this block for Linux
   target_link_libraries(hakoniwa_pdu_endpoint
     PUBLIC
       /usr/lib/x86_64-linux-gnu/libassets.so
+      /usr/lib/x86_64-linux-gnu/libshakoc.so
   )
 endif()
 
