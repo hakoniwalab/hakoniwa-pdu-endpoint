@@ -37,6 +37,26 @@ HakoPduErrorType PduCommShm::open(const std::string& config_path) {
     nlohmann::json shm_config;
     try {
         ifs >> shm_config;
+        if (shm_config.contains("impl_type")) {
+            std::string impl_type = shm_config.at("impl_type").get<std::string>();
+            if (impl_type == "callback") {
+                impl_ = std::make_unique<PduCommShmCallbackImpl>(pdu_def_); // Access inherited member
+            } else if (impl_type == "poll") {
+                if (shm_config.contains("asset_name")) {
+                    std::string asset_name = shm_config.at("asset_name").get<std::string>();
+                    impl_ = std::make_unique<PduCommShmPollImpl>(pdu_def_, asset_name); // Access inherited member
+                } else {
+                    std::cerr << "PduCommShm Error: 'asset_name' not specified for poll implementation." << std::endl;
+                    return HAKO_PDU_ERR_INVALID_CONFIG;
+                }
+            } else {
+                std::cerr << "PduCommShm Error: Unknown impl_type '" << impl_type << "' in config." << std::endl;
+                return HAKO_PDU_ERR_INVALID_CONFIG;
+            }
+        } else {
+            std::cerr << "PduCommShm Error: 'impl_type' not specified in config." << std::endl;
+            return HAKO_PDU_ERR_INVALID_CONFIG;
+        }
         for (const auto& robot_def : shm_config.at("io").at("robots")) {
             std::string robot_name = robot_def.at("name").get<std::string>();
             for (const auto& pdu_entry : robot_def.at("pdu")) {
@@ -50,7 +70,7 @@ HakoPduErrorType PduCommShm::open(const std::string& config_path) {
                     }
 
                     int event_id = -1;
-                    if (hako_asset_register_data_recv_event(robot_name.c_str(), def.channel_id, PduCommShm::shm_recv_callback, &event_id) != 0) {
+                    if (impl_->register_rcv_event({ robot_name, def.channel_id }, PduCommShm::shm_recv_callback, event_id) != 0) {
                         std::cerr << "PduCommShm Error: Failed to register recv event for " << robot_name << "/" << pdu_name << std::endl;
                         return HAKO_PDU_ERR_INVALID_CONFIG;
                     }
@@ -95,6 +115,16 @@ HakoPduErrorType PduCommShm::stop() noexcept {
     running_.store(false);
     // Nothing else to do for SHM
     return HAKO_PDU_ERR_OK;
+}
+
+void PduCommShm::process_recv_events() noexcept
+{
+    if (!running_.load()) {
+        return;
+    }
+    if (impl_) {
+        impl_->process_recv_events();
+    }
 }
 
 HakoPduErrorType PduCommShm::is_running(bool& running) noexcept {
@@ -163,15 +193,14 @@ void PduCommShm::handle_shm_recv(int recv_event_id) {
 }
 HakoPduErrorType PduCommShm::native_send(const PduResolvedKey& pdu_key, std::span<const std::byte> data) noexcept {
     std::lock_guard<std::mutex> lock(io_mutex_);
-    if (hako_asset_pdu_write(pdu_key.robot.c_str(), pdu_key.channel_id, reinterpret_cast<const char*>(data.data()), data.size()) != 0) {
+    if (impl_->send(pdu_key, data) != 0) {
         return HAKO_PDU_ERR_IO_ERROR;
     }
     return HAKO_PDU_ERR_OK;
 }
 HakoPduErrorType PduCommShm::native_recv(const PduResolvedKey& pdu_key, std::span<std::byte> data, size_t& received_size) noexcept {
     std::lock_guard<std::mutex> lock(io_mutex_);
-    if (hako_asset_pdu_read(pdu_key.robot.c_str(), pdu_key.channel_id, reinterpret_cast<char*>(data.data()), data.size()) == 0) {
-        received_size = data.size();
+    if (impl_->recv(pdu_key, data, received_size) == 0) {
         return HAKO_PDU_ERR_OK;
     }
     return HAKO_PDU_ERR_IO_ERROR;

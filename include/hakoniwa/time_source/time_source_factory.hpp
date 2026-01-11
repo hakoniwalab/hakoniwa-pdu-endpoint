@@ -17,7 +17,11 @@ static inline std::unique_ptr<ITimeSource> create_time_source(
     } else if (type == "virtual") {
         time_source = std::make_unique<VirtualTimeSource>();
     } else if (type == "hakoniwa") {
-        time_source = std::make_unique<HakoniwaTimeSource>();
+        time_source = std::make_unique<HakoniwaTimeSource>(HakoniwaTimeSource::ImplType::Poll);
+    } else if (type == "hakoniwa_poll") {
+        time_source = std::make_unique<HakoniwaTimeSource>(HakoniwaTimeSource::ImplType::Poll);
+    } else if (type == "hakoniwa_callback") {
+        time_source = std::make_unique<HakoniwaTimeSource>(HakoniwaTimeSource::ImplType::Callback);
     } else {
         throw std::invalid_argument("Unknown time source type: " + type);
     }

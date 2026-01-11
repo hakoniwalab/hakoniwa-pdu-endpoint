@@ -29,8 +29,12 @@ add_library(hakoniwa_pdu_endpoint
   comm_websocket.cpp
   pdu_factory.cpp
   comm_shm.cpp 
+  comm_shm_poll.cpp
+  comm_shm_callback.cpp
   pdu_definition.cpp
   hakoniwa_time_source.cpp
+  hakoniwa_time_source_poll.cpp
+  hakoniwa_time_source_callback.cpp
   endpoint_container.cpp
 )
 
@@ -39,6 +43,21 @@ target_include_directories(hakoniwa_pdu_endpoint
     ${CMAKE_CURRENT_LIST_DIR}/../include
     /usr/local/hakoniwa/include
 )
+if(APPLE)
+  set(HAKONIWA_LIB_DIRS /usr/local/hakoniwa/lib)
+else()
+  set(HAKONIWA_LIB_DIRS /usr/local/hakoniwa/lib /usr/lib/x86_64-linux-gnu)
+endif()
+
+set(HAKONIWA_LINK_LIBS "")
+foreach(lib_name assets shakoc)
+  find_library(HAKONIWA_${lib_name}_LIB NAMES ${lib_name} PATHS ${HAKONIWA_LIB_DIRS})
+  if(HAKONIWA_${lib_name}_LIB)
+    list(APPEND HAKONIWA_LINK_LIBS ${HAKONIWA_${lib_name}_LIB})
+  else()
+    list(APPEND HAKONIWA_LINK_LIBS ${lib_name})
+  endif()
+endforeach()
 
 # Boostはヘッダーオンリーで使用
 target_link_libraries(hakoniwa_pdu_endpoint
@@ -55,8 +74,7 @@ if(APPLE)
   )
   target_link_libraries(hakoniwa_pdu_endpoint
     PUBLIC
-      /usr/local/hakoniwa/lib/libassets.dylib
-      /usr/local/hakoniwa/lib/libshakoc.dylib
+    ${HAKONIWA_LINK_LIBS}
   )
 elseif(UNIX) # Add this block for Linux
   target_include_directories(hakoniwa_pdu_endpoint
@@ -65,8 +83,7 @@ elseif(UNIX) # Add this block for Linux
   )
   target_link_libraries(hakoniwa_pdu_endpoint
     PUBLIC
-      /usr/lib/x86_64-linux-gnu/libassets.so
-      /usr/lib/x86_64-linux-gnu/libshakoc.so
+    ${HAKONIWA_LINK_LIBS}
   )
 endif()
 

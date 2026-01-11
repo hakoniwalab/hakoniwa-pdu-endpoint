@@ -1,18 +1,48 @@
 #include "hakoniwa/time_source/hakoniwa_time_source.hpp"
-#include "hakoniwa/hako_capi.h"
 
 namespace hakoniwa::time_source {
 
+HakoniwaTimeSource::HakoniwaTimeSource()
+    : impl_(std::make_unique<HakoniwaTimeSourceCallbackImpl>())
+{
+}
+
+HakoniwaTimeSource::HakoniwaTimeSource(ImplType impl_type)
+{
+    switch (impl_type) {
+    case ImplType::Poll:
+        impl_ = std::make_unique<HakoniwaTimeSourcePollImpl>();
+        break;
+    case ImplType::Callback:
+    default:
+        impl_ = std::make_unique<HakoniwaTimeSourceCallbackImpl>();
+        break;
+    }
+}
+
+HakoniwaTimeSource::HakoniwaTimeSource(std::unique_ptr<IHakoniwaTimeSourceImpl> impl)
+    : impl_(std::move(impl))
+{
+}
+
 uint64_t HakoniwaTimeSource::get_microseconds() const 
 {
-    hako_time_t t = hako_asset_get_worldtime();
-    return static_cast<uint64_t>(t);
+    if (!impl_) {
+        return 0;
+    }
+    return impl_->get_microseconds();
 }
 void HakoniwaTimeSource::advance_time(uint64_t microseconds) 
 {
-    //noop
+    if (!impl_) {
+        return;
+    }
+    impl_->advance_time(microseconds);
 }
 void HakoniwaTimeSource::sleep_delta_time() const {
-    //noop
+    if (!impl_) {
+        return;
+    }
+    impl_->sleep_delta_time();
 }
 } // namespace hakoniwa::time_source

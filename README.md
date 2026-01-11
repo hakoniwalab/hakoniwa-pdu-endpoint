@@ -130,6 +130,16 @@ When using SHM communication, a PDU definition file is required so the shared-me
 }
 ```
 
+### 5. Time Source Types
+
+`create_time_source(type, delta_time_step_usec)` accepts the following `type` strings:
+
+- `real`: Wall-clock time with `sleep_for` based on `delta_time_step_usec`.
+- `virtual`: Manually advanced time.
+- `hakoniwa`: Hakoniwa time source (defaults to poll behavior).
+- `hakoniwa_poll`: Explicit poll implementation.
+- `hakoniwa_callback`: Explicit callback implementation.
+
 ## Basic Usage
 
 The library offers two API levels depending on whether a PDU definition file is provided.

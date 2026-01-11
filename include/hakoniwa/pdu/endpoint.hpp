@@ -195,6 +195,14 @@ public:
         return HAKO_PDU_ERR_OK;
     }
 
+    // Only meaningful for SHM poll implementation; other comm types are no-op.
+    virtual void process_recv_events() noexcept
+    {
+        if (comm_) {
+            comm_->process_recv_events();
+        }
+    }
+
     // High-level API using PDU names (requires pdu_def to be loaded)
     virtual HakoPduErrorType send(const PduKey& pdu_key, std::span<const std::byte> data) noexcept
     {

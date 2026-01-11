@@ -1,8 +1,8 @@
 #pragma once
 
 #include "hakoniwa/pdu/comm/comm.hpp"
+#include "hakoniwa/pdu/comm/comm_shm_impl.hpp"
 #include "hakoniwa/pdu/endpoint_types.hpp"
-#include "hako_asset.h"
 #include <string>
 #include <memory>
 #include <functional>
@@ -28,6 +28,8 @@ public:
     virtual HakoPduErrorType start() noexcept override;
     virtual HakoPduErrorType stop() noexcept override;
     virtual HakoPduErrorType is_running(bool& running) noexcept override;
+    // Only meaningful for SHM poll implementation; other SHM modes are no-op.
+    virtual void process_recv_events() noexcept override;
 
     virtual HakoPduErrorType send(const PduResolvedKey& pdu_key, std::span<const std::byte> data) noexcept override;
     virtual HakoPduErrorType recv(const PduResolvedKey& pdu_key, std::span<std::byte> data, size_t& received_size) noexcept override;
@@ -50,6 +52,7 @@ private:
 
     std::map<int, PduResolvedKey> event_id_to_key_map_;
     std::vector<int> registered_event_ids_;
+    std::unique_ptr<PduCommShmImp> impl_;
 };
 
 } // namespace comm

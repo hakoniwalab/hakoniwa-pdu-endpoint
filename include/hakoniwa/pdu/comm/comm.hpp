@@ -39,6 +39,9 @@ public:
         on_recv_callback_ = callback;
         return HAKO_PDU_ERR_OK;
     }
+
+    // Only meaningful for SHM poll implementations. Other comm types are no-op.
+    virtual void process_recv_events() noexcept {}
     
     // Set PDU definition and store it in the protected member
     virtual void set_pdu_definition(std::shared_ptr<PduDefinition> pdu_def) { pdu_def_ = pdu_def; }

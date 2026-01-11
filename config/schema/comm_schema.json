@@ -21,6 +21,21 @@
       "enum": ["in", "out", "inout"],
       "description": "Communication direction."
     },
+    "impl_type": {
+      "type": "string",
+      "enum": ["callback", "poll"],
+      "description": "SHM implementation type."
+    },
+    "asset_name": {
+      "type": "string",
+      "description": "Target asset name for SHM poll implementation.",
+      "minLength": 1
+    },
+    "poll_interval_ms": {
+      "type": "integer",
+      "description": "Polling interval in milliseconds for SHM poll implementation.",
+      "minimum": 1
+    },
     "role": {
       "type": "string",
       "enum": ["client", "server"],
@@ -163,10 +178,16 @@
     {
       "if": { "properties": { "protocol": { "const": "shm" } } },
       "then": {
-        "required": ["name", "io"],
+        "required": ["name", "io", "impl_type"],
         "properties": {
           "io": { "$ref": "#/$defs/shm_io" }
-        }
+        },
+        "allOf": [
+          {
+            "if": { "properties": { "impl_type": { "const": "poll" } } },
+            "then": { "required": ["asset_name"] }
+          }
+        ]
       }
     }
   ],

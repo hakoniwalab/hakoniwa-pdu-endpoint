@@ -1,5 +1,8 @@
 {
   "protocol": "shm",
+  "impl_type": "poll",
+  "asset_name": "Conductor",
+  "poll_interval_ms": 10,
   "name": "hakoniwa_shared_memory",
   "direction": "inout",
   "pdu_config_path": "config/sample/comm/hakoniwa/pdudef.json",
