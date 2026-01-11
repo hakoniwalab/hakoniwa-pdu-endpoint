@@ -43,6 +43,6 @@ void HakoniwaTimeSource::sleep_delta_time() const {
     if (!impl_) {
         return;
     }
-    impl_->sleep_delta_time();
+    impl_->advance_time(delta_time_microseconds_);
 }
 } // namespace hakoniwa::time_source
