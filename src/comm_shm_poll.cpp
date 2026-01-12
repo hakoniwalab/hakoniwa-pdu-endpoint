@@ -29,7 +29,7 @@ HakoPduErrorType PduCommShmPollImpl::recv(const PduResolvedKey& pdu_key, std::sp
 }
 HakoPduErrorType PduCommShmPollImpl::register_rcv_event(const PduResolvedKey& pdu_key, void (*on_recv)(int), int& out_event_id) noexcept
 {
-    if (!hako_asset_register_data_recv_event(pdu_key.robot.c_str(), pdu_key.channel_id)) {
+    if (!hako_capi_asset_register_data_recv_event(pdu_key.robot.c_str(), pdu_key.channel_id)) {
         return HAKO_PDU_ERR_IO_ERROR;
     }
 
@@ -54,7 +54,7 @@ void PduCommShmPollImpl::process_recv_events() noexcept
         entries = poll_entries_;
     }
     for (const auto& entry : entries) {
-        if (hako_asset_check_data_recv_event(
+        if (hako_capi_asset_check_data_recv_event(
                 asset_name_.c_str(),
                 entry.key.robot.c_str(),
                 entry.key.channel_id)) {
