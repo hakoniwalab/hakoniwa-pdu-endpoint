@@ -39,14 +39,17 @@ HakoPduErrorType TcpComm::raw_open(const std::string& config_path) {
     nlohmann::json config_json;
     try {
         config_stream >> config_json;
-    } catch (const nlohmann::json::exception&) {
+    } catch (const nlohmann::json::exception& e) {
+        std::cerr << "TCP Comm config JSON parse error: " << e.what() << std::endl;
         return HAKO_PDU_ERR_INVALID_ARGUMENT;
     }
 
     if (!config_json.contains("protocol") || config_json.at("protocol").get<std::string>() != "tcp") {
+        std::cerr << "TCP Comm config error: protocol is not 'tcp'." << std::endl;
         return HAKO_PDU_ERR_INVALID_ARGUMENT;
     }
     if (!config_json.contains("direction") || !config_json.contains("role")) {
+        std::cerr << "TCP Comm config error: missing 'direction' or 'role'." << std::endl;
         return HAKO_PDU_ERR_INVALID_ARGUMENT;
     }
     config_direction_ = parse_direction(config_json.at("direction").get<std::string>());
@@ -57,6 +60,7 @@ HakoPduErrorType TcpComm::raw_open(const std::string& config_path) {
     } else if (role_value == "client") {
         role_ = Role::Client;
     } else {
+        std::cerr << "TCP Comm config error: unknown role '" << role_value << "'." << std::endl;
         return HAKO_PDU_ERR_INVALID_ARGUMENT;
     }
     
@@ -81,8 +85,12 @@ HakoPduErrorType TcpComm::raw_open(const std::string& config_path) {
 
     if (role_ == Role::Server) {
         addrinfo* local_addr_info = nullptr;
-        if (!config_json.contains("local")) return HAKO_PDU_ERR_INVALID_ARGUMENT;
+        if (!config_json.contains("local")) {
+            std::cerr << "TCP Comm config error: missing 'local' for server role." << std::endl;
+            return HAKO_PDU_ERR_INVALID_ARGUMENT;
+        }
         if (resolve_address(config_json.at("local"), kTcpSocketType, &local_addr_info) != HAKO_PDU_ERR_OK) {
+            std::cerr << "TCP Comm config error: failed to resolve local address." << std::endl;
             return HAKO_PDU_ERR_INVALID_ARGUMENT;
         }
 
@@ -113,8 +121,12 @@ HakoPduErrorType TcpComm::raw_open(const std::string& config_path) {
         freeaddrinfo(local_addr_info);
     } else { // Client
         addrinfo* remote_addr_info = nullptr;
-        if (!config_json.contains("remote")) return HAKO_PDU_ERR_INVALID_ARGUMENT;
+        if (!config_json.contains("remote")) {
+            std::cerr << "TCP Comm config error: missing 'remote' for client role." << std::endl;
+            return HAKO_PDU_ERR_INVALID_ARGUMENT;
+        }
         if (resolve_address(config_json.at("remote"), kTcpSocketType, &remote_addr_info) != HAKO_PDU_ERR_OK) {
+            std::cerr << "TCP Comm config error: failed to resolve remote address." << std::endl;
             return HAKO_PDU_ERR_INVALID_ARGUMENT;
         }
         std::memcpy(&remote_addr_info_, remote_addr_info->ai_addr, remote_addr_info->ai_addrlen);
@@ -142,6 +154,7 @@ HakoPduErrorType TcpComm::raw_close() noexcept {
 
 HakoPduErrorType TcpComm::raw_start() noexcept {
     if (is_running_flag_) {
+        std::cerr << "TCP Comm start requested while already running." << std::endl;
         return HAKO_PDU_ERR_BUSY;
     }
     is_running_flag_ = true;
@@ -201,7 +214,7 @@ void TcpComm::server_loop() {
 
         if (accepted_fd < 0) {
             if (is_running_flag_) {
-                // handle accept error
+                std::cerr << "TCP Comm accept failed: " << std::strerror(errno) << std::endl;
             }
             continue; // or break
         }
@@ -214,6 +227,7 @@ void TcpComm::server_loop() {
             std::vector<std::byte> header_buf(sizeof(MetaPdu));
             HakoPduErrorType err = read_data(client_fd_.load(), header_buf.data(), header_buf.size());
             if (err != HAKO_PDU_ERR_OK) {
+                std::cerr << "TCP Comm read header failed: " << static_cast<int>(err) << std::endl;
                 // Connection closed or error
                 break;
             }
@@ -226,6 +240,7 @@ void TcpComm::server_loop() {
                 std::vector<std::byte> body_buf(meta.body_len);
                 err = read_data(client_fd_.load(), body_buf.data(), body_buf.size());
                 if (err != HAKO_PDU_ERR_OK) {
+                    std::cerr << "TCP Comm read body failed: " << static_cast<int>(err) << std::endl;
                     // Incomplete packet or error
                     break;
                 }
@@ -247,7 +262,7 @@ void TcpComm::client_loop() {
     while (is_running_flag_) {
         client_fd_ = ::socket(remote_addr_info_.ss_family, kTcpSocketType, 0);
         if (client_fd_.load() < 0) {
-            // error handling
+            std::cerr << "TCP Comm client socket create failed: " << std::strerror(errno) << std::endl;
             std::this_thread::sleep_for(std::chrono::seconds(1));
             continue;
         }
@@ -257,7 +272,9 @@ void TcpComm::client_loop() {
         remote_info.ai_addr = reinterpret_cast<sockaddr*>(&remote_addr_info_);
         remote_info.ai_addrlen = remote_addr_len_;
 
-        if (connect_with_timeout(client_fd_.load(), &remote_info, options_) != HAKO_PDU_ERR_OK) {
+        HakoPduErrorType connect_err = connect_with_timeout(client_fd_.load(), &remote_info, options_);
+        if (connect_err != HAKO_PDU_ERR_OK) {
+            std::cerr << "TCP Comm connect failed: " << static_cast<int>(connect_err) << std::endl;
             ::close(client_fd_.load());
             client_fd_ = -1;
             std::this_thread::sleep_for(std::chrono::seconds(1));
@@ -271,6 +288,7 @@ void TcpComm::client_loop() {
             std::vector<std::byte> header_buf(sizeof(MetaPdu));
             HakoPduErrorType err = read_data(client_fd_.load(), header_buf.data(), header_buf.size());
             if (err != HAKO_PDU_ERR_OK) {
+                std::cerr << "TCP Comm read header failed: " << static_cast<int>(err) << std::endl;
                 break; // Disconnected
             }
 
@@ -283,6 +301,7 @@ void TcpComm::client_loop() {
                 body_buf.resize(meta.body_len);
                 err = read_data(client_fd_.load(), body_buf.data(), body_buf.size());
                 if (err != HAKO_PDU_ERR_OK) {
+                    std::cerr << "TCP Comm read body failed: " << static_cast<int>(err) << std::endl;
                     break; // Incomplete packet
                 }
             }

@@ -36,25 +36,30 @@ HakoPduErrorType UdpComm::raw_open(const std::string& config_path)
 
     std::ifstream config_stream(config_path);
     if (!config_stream) {
+        std::cerr << "UDP Comm config open failed: " << config_path << std::endl;
         return HAKO_PDU_ERR_IO_ERROR;
     }
 
     nlohmann::json config_json;
     try {
         config_stream >> config_json;
-    } catch (const nlohmann::json::exception&) {
+    } catch (const nlohmann::json::exception& e) {
+        std::cerr << "UDP Comm config JSON parse error: " << e.what() << std::endl;
         return HAKO_PDU_ERR_INVALID_ARGUMENT;
     }
 
     if (!config_json.contains("protocol") || config_json.at("protocol").get<std::string>() != "udp") {
+        std::cerr << "UDP Comm config error: protocol is not 'udp'." << std::endl;
         return HAKO_PDU_ERR_INVALID_ARGUMENT;
     }
     if (!config_json.contains("direction")) {
+        std::cerr << "UDP Comm config error: missing 'direction'." << std::endl;
         return HAKO_PDU_ERR_INVALID_ARGUMENT;
     }
     config_direction_ = parse_direction(config_json.at("direction").get<std::string>());
     
     if (!config_json.contains("pdu_key")) {
+        std::cerr << "UDP Comm config error: missing 'pdu_key'." << std::endl;
         return HAKO_PDU_ERR_INVALID_ARGUMENT;
     }
     const auto& key_json = config_json.at("pdu_key");
@@ -66,18 +71,27 @@ HakoPduErrorType UdpComm::raw_open(const std::string& config_path)
     addrinfo* remote_addr_info = nullptr;
 
     if (config_direction_ == HAKO_PDU_ENDPOINT_DIRECTION_IN || config_direction_ == HAKO_PDU_ENDPOINT_DIRECTION_INOUT) {
-        if (!config_json.contains("local")) return HAKO_PDU_ERR_INVALID_ARGUMENT;
+        if (!config_json.contains("local")) {
+            std::cerr << "UDP Comm config error: missing 'local' for in/inout." << std::endl;
+            return HAKO_PDU_ERR_INVALID_ARGUMENT;
+        }
         if (resolve_address(config_json.at("local"), kUdpSocketType, &local_addr_info) != HAKO_PDU_ERR_OK) {
+            std::cerr << "UDP Comm config error: failed to resolve local address." << std::endl;
             return HAKO_PDU_ERR_INVALID_ARGUMENT;
         }
     }
     if (config_direction_ == HAKO_PDU_ENDPOINT_DIRECTION_OUT) {
-        if (!config_json.contains("remote")) return HAKO_PDU_ERR_INVALID_ARGUMENT;
+        if (!config_json.contains("remote")) {
+            std::cerr << "UDP Comm config error: missing 'remote' for out." << std::endl;
+            return HAKO_PDU_ERR_INVALID_ARGUMENT;
+        }
         if (resolve_address(config_json.at("remote"), kUdpSocketType, &remote_addr_info) != HAKO_PDU_ERR_OK) {
+            std::cerr << "UDP Comm config error: failed to resolve remote address." << std::endl;
             return HAKO_PDU_ERR_INVALID_ARGUMENT;
         }
     } else if (config_direction_ == HAKO_PDU_ENDPOINT_DIRECTION_INOUT && config_json.contains("remote")) {
         if (resolve_address(config_json.at("remote"), kUdpSocketType, &remote_addr_info) != HAKO_PDU_ERR_OK) {
+            std::cerr << "UDP Comm config error: failed to resolve remote address." << std::endl;
             return HAKO_PDU_ERR_INVALID_ARGUMENT;
         }
         has_fixed_remote_ = true;
@@ -85,11 +99,13 @@ HakoPduErrorType UdpComm::raw_open(const std::string& config_path)
 
     addrinfo* initial_addr = local_addr_info ? local_addr_info : remote_addr_info;
     if (!initial_addr) {
+        std::cerr << "UDP Comm config error: missing local/remote address." << std::endl;
         return HAKO_PDU_ERR_INVALID_ARGUMENT;
     }
     
     socket_fd_ = ::socket(initial_addr->ai_family, initial_addr->ai_socktype, initial_addr->ai_protocol);
     if (socket_fd_.load() < 0) {
+        std::cerr << "UDP Comm socket create failed: " << std::strerror(errno) << std::endl;
         if(local_addr_info) freeaddrinfo(local_addr_info);
         if(remote_addr_info) freeaddrinfo(remote_addr_info);
         return HAKO_PDU_ERR_IO_ERROR;
@@ -121,6 +137,7 @@ HakoPduErrorType UdpComm::raw_open(const std::string& config_path)
 
     HakoPduErrorType option_result = configure_socket_options(options);
     if (option_result != HAKO_PDU_ERR_OK) {
+        std::cerr << "UDP Comm configure socket options failed: " << static_cast<int>(option_result) << std::endl;
         raw_close(); // Use raw_close for cleanup
         if(local_addr_info) freeaddrinfo(local_addr_info);
         if(remote_addr_info) freeaddrinfo(remote_addr_info);
@@ -129,6 +146,7 @@ HakoPduErrorType UdpComm::raw_open(const std::string& config_path)
 
     if (local_addr_info) {
         if (::bind(socket_fd_.load(), local_addr_info->ai_addr, local_addr_info->ai_addrlen) != 0) {
+            std::cerr << "UDP Comm bind failed: " << std::strerror(errno) << std::endl;
             raw_close(); // Use raw_close for cleanup
             freeaddrinfo(local_addr_info);
             if(remote_addr_info) freeaddrinfo(remote_addr_info);
@@ -147,6 +165,7 @@ HakoPduErrorType UdpComm::raw_open(const std::string& config_path)
     if (options.multicast_enabled) {
         HakoPduErrorType multicast_result = configure_multicast(options);
         if (multicast_result != HAKO_PDU_ERR_OK) {
+            std::cerr << "UDP Comm multicast setup failed: " << static_cast<int>(multicast_result) << std::endl;
             raw_close(); // Use raw_close for cleanup
             return multicast_result;
         }
@@ -172,6 +191,7 @@ HakoPduErrorType UdpComm::raw_close() noexcept
 HakoPduErrorType UdpComm::raw_start() noexcept
 {
     if (socket_fd_.load() < 0 || is_running_flag_) {
+        std::cerr << "UDP Comm start failed: invalid socket or already running." << std::endl;
         return HAKO_PDU_ERR_INVALID_ARGUMENT;
     }
     if (config_direction_ == HAKO_PDU_ENDPOINT_DIRECTION_OUT) {
@@ -212,9 +232,11 @@ HakoPduErrorType UdpComm::raw_send(const std::vector<std::byte>& data) noexcept
 {
     int current_socket_fd = socket_fd_.load();
     if (current_socket_fd < 0 || data.empty()) {
+        std::cerr << "UDP Comm send failed: invalid socket or empty data." << std::endl;
         return HAKO_PDU_ERR_INVALID_ARGUMENT;
     }
     if (config_direction_ == HAKO_PDU_ENDPOINT_DIRECTION_IN) {
+        std::cerr << "UDP Comm send failed: direction is 'in'." << std::endl;
         return HAKO_PDU_ERR_INVALID_ARGUMENT;
     }
 
@@ -225,7 +247,10 @@ HakoPduErrorType UdpComm::raw_send(const std::vector<std::byte>& data) noexcept
         target_addr = reinterpret_cast<const sockaddr*>(&dest_addr_);
         target_addr_len = dest_addr_len_;
     } else if (config_direction_ == HAKO_PDU_ENDPOINT_DIRECTION_INOUT) {
-        if (last_client_addr_len_ == 0) return HAKO_PDU_ERR_IO_ERROR; // Not received yet
+        if (last_client_addr_len_ == 0) {
+            std::cerr << "UDP Comm send failed: no remote address received yet." << std::endl;
+            return HAKO_PDU_ERR_IO_ERROR; // Not received yet
+        }
         target_addr = reinterpret_cast<const sockaddr*>(&last_client_addr_);
         target_addr_len = last_client_addr_len_;
     } else { // OUT
@@ -234,11 +259,13 @@ HakoPduErrorType UdpComm::raw_send(const std::vector<std::byte>& data) noexcept
     }
 
     if (target_addr == nullptr || target_addr_len == 0) {
+        std::cerr << "UDP Comm send failed: target address not set." << std::endl;
         return HAKO_PDU_ERR_INVALID_ARGUMENT;
     }
 
     ssize_t sent = ::sendto(current_socket_fd, data.data(), data.size(), 0, target_addr, target_addr_len);
     if (sent < 0) {
+        std::cerr << "UDP Comm sendto failed: " << std::strerror(errno) << std::endl;
         return map_errno_to_error(errno);
     }
     return HAKO_PDU_ERR_OK;
@@ -265,7 +292,7 @@ void UdpComm::recv_loop()
                 break;
             }
             // Real error
-            // std::cerr << "recvfrom error: " << strerror(errno) << std::endl;
+            std::cerr << "UDP Comm recvfrom failed: " << std::strerror(errno) << std::endl;
             continue;
         }
 

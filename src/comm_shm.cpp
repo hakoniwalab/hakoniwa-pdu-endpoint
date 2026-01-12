@@ -37,6 +37,10 @@ HakoPduErrorType PduCommShm::open(const std::string& config_path) {
     nlohmann::json shm_config;
     try {
         ifs >> shm_config;
+        if (!shm_config.contains("protocol") || shm_config.at("protocol").get<std::string>() != "shm") {
+            std::cerr << "PduCommShm Error: protocol is not 'shm'." << std::endl;
+            return HAKO_PDU_ERR_INVALID_CONFIG;
+        }
         if (shm_config.contains("impl_type")) {
             std::string impl_type = shm_config.at("impl_type").get<std::string>();
             if (impl_type == "callback") {
@@ -55,6 +59,10 @@ HakoPduErrorType PduCommShm::open(const std::string& config_path) {
             }
         } else {
             std::cerr << "PduCommShm Error: 'impl_type' not specified in config." << std::endl;
+            return HAKO_PDU_ERR_INVALID_CONFIG;
+        }
+        if (!shm_config.contains("io") || !shm_config.at("io").contains("robots")) {
+            std::cerr << "PduCommShm Error: 'io.robots' not specified in config." << std::endl;
             return HAKO_PDU_ERR_INVALID_CONFIG;
         }
         for (const auto& robot_def : shm_config.at("io").at("robots")) {

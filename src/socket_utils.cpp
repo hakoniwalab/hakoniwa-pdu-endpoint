@@ -36,7 +36,7 @@ HakoPduErrorType resolve_address(const nlohmann::json& endpoint_json, int socket
     addrinfo hints{};
     hints.ai_family = AF_UNSPEC;
     hints.ai_socktype = socket_type;
-    hints.ai_flags = AI_NUMERICHOST | AI_PASSIVE;
+    hints.ai_flags = AI_PASSIVE;
 
     if (getaddrinfo(address.c_str(), port_str.c_str(), &hints, res) != 0 || *res == nullptr) {
         return HAKO_PDU_ERR_INVALID_ARGUMENT;

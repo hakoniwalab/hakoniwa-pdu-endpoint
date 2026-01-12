@@ -1,7 +1,7 @@
 #pragma once
 
 #include "hakoniwa/pdu/endpoint_types.h"
-#include "hako_primitive_types.h" // Added
+#include "hakoniwa/hako_primitive_types.h" // Added
 #include <string>
 
 

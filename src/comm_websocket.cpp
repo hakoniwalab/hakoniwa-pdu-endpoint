@@ -244,22 +244,56 @@ WebSocketComm::~WebSocketComm() {
 HakoPduErrorType WebSocketComm::raw_open(const std::string& config_path) {
     if (is_running_flag_) return HAKO_PDU_ERR_BUSY;
     std::ifstream config_stream(config_path);
-    if (!config_stream) return HAKO_PDU_ERR_IO_ERROR;
+    if (!config_stream) {
+        std::cerr << "WebSocket Comm config open failed: " << config_path << std::endl;
+        return HAKO_PDU_ERR_IO_ERROR;
+    }
     nlohmann::json config_json;
-    try { config_stream >> config_json; } catch (const nlohmann::json::exception& e) { return HAKO_PDU_ERR_INVALID_ARGUMENT; }
+    try {
+        config_stream >> config_json;
+    } catch (const nlohmann::json::exception& e) {
+        std::cerr << "WebSocket Comm config JSON parse error: " << e.what() << std::endl;
+        return HAKO_PDU_ERR_INVALID_ARGUMENT;
+    }
+
+    if (!config_json.contains("protocol") || config_json.at("protocol").get<std::string>() != "websocket") {
+        std::cerr << "WebSocket Comm config error: protocol is not 'websocket'." << std::endl;
+        return HAKO_PDU_ERR_INVALID_ARGUMENT;
+    }
+    if (!config_json.contains("direction")) {
+        std::cerr << "WebSocket Comm config error: missing 'direction'." << std::endl;
+        return HAKO_PDU_ERR_INVALID_ARGUMENT;
+    }
+    if (!config_json.contains("role")) {
+        std::cerr << "WebSocket Comm config error: missing 'role'." << std::endl;
+        return HAKO_PDU_ERR_INVALID_ARGUMENT;
+    }
 
     config_direction_ = parse_direction(config_json.at("direction").get<std::string>());
     const std::string role_value = config_json.at("role").get<std::string>();
     if (role_value == "server") {
         role_ = Role::Server;
-        unsigned short port = config_json.at("local").value("port", 8080);
-        tcp::endpoint endpoint(net::ip::make_address("0.0.0.0"), port);
-        acceptor_.open(endpoint.protocol());
-        acceptor_.set_option(net::socket_base::reuse_address(true));
-        acceptor_.bind(endpoint);
-        acceptor_.listen();
+        if (!config_json.contains("local")) {
+            std::cerr << "WebSocket Comm config error: missing 'local' for server role." << std::endl;
+            return HAKO_PDU_ERR_INVALID_ARGUMENT;
+        }
+        try {
+            unsigned short port = config_json.at("local").value("port", 8080);
+            tcp::endpoint endpoint(net::ip::make_address("0.0.0.0"), port);
+            acceptor_.open(endpoint.protocol());
+            acceptor_.set_option(net::socket_base::reuse_address(true));
+            acceptor_.bind(endpoint);
+            acceptor_.listen();
+        } catch (const std::exception& e) {
+            std::cerr << "WebSocket Comm server setup failed: " << e.what() << std::endl;
+            return HAKO_PDU_ERR_IO_ERROR;
+        }
     } else {
         role_ = Role::Client;
+        if (!config_json.contains("remote")) {
+            std::cerr << "WebSocket Comm config error: missing 'remote' for client role." << std::endl;
+            return HAKO_PDU_ERR_INVALID_ARGUMENT;
+        }
         const auto& remote_cfg = config_json.at("remote");
         remote_host_ = remote_cfg.value("host", "127.0.0.1");
         remote_port_ = std::to_string(remote_cfg.value("port", 8080));
@@ -274,7 +308,10 @@ HakoPduErrorType WebSocketComm::raw_close() noexcept {
 }
 
 HakoPduErrorType WebSocketComm::raw_start() noexcept {
-    if (is_running_flag_) return HAKO_PDU_ERR_BUSY;
+    if (is_running_flag_) {
+        std::cerr << "WebSocket Comm start requested while already running." << std::endl;
+        return HAKO_PDU_ERR_BUSY;
+    }
     is_running_flag_ = true;
     
     comm_thread_ = std::thread([this]() { ioc_.run(); });
@@ -346,9 +383,15 @@ HakoPduErrorType WebSocketComm::raw_is_running(bool& running) noexcept {
 }
 
 HakoPduErrorType WebSocketComm::raw_send(const std::vector<std::byte>& data) noexcept {
-    if (!is_running_flag_) return HAKO_PDU_ERR_NOT_RUNNING;
+    if (!is_running_flag_) {
+        std::cerr << "WebSocket Comm send failed: not running." << std::endl;
+        return HAKO_PDU_ERR_NOT_RUNNING;
+    }
     std::lock_guard<std::mutex> lock(sessions_mtx_);
-    if (sessions_.empty()) return HAKO_PDU_ERR_NOT_RUNNING;
+    if (sessions_.empty()) {
+        std::cerr << "WebSocket Comm send failed: no active sessions." << std::endl;
+        return HAKO_PDU_ERR_NOT_RUNNING;
+    }
 
     for (const auto& session : sessions_) {
         if (session) {
