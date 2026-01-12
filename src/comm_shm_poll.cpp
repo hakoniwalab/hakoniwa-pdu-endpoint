@@ -1,5 +1,5 @@
 #include "hakoniwa/pdu/comm/comm_shm.hpp"
-#include "hako_capi.h"
+#include "hakoniwa_asset_polling.h"
 #include <mutex>
 
 namespace hakoniwa {
@@ -14,14 +14,14 @@ PduCommShmPollImpl::~PduCommShmPollImpl()
 }
 HakoPduErrorType PduCommShmPollImpl::send(const PduResolvedKey& pdu_key, std::span<const std::byte> data) noexcept
 {
-    if (hako_asset_write_pdu(asset_name_.c_str(), pdu_key.robot.c_str(), pdu_key.channel_id, reinterpret_cast<const char*>(data.data()), data.size()) != 0) {
+    if (hakoniwa_asset_write_pdu(asset_name_.c_str(), pdu_key.robot.c_str(), pdu_key.channel_id, reinterpret_cast<const char*>(data.data()), data.size()) != 0) {
         return HAKO_PDU_ERR_IO_ERROR;
     }
     return HAKO_PDU_ERR_OK;
 }
 HakoPduErrorType PduCommShmPollImpl::recv(const PduResolvedKey& pdu_key, std::span<std::byte> data, size_t& received_size) noexcept
 {
-    if (hako_asset_read_pdu(asset_name_.c_str(), pdu_key.robot.c_str(), pdu_key.channel_id, reinterpret_cast<char*>(data.data()), data.size()) == 0) {
+    if (hakoniwa_asset_read_pdu(asset_name_.c_str(), pdu_key.robot.c_str(), pdu_key.channel_id, reinterpret_cast<char*>(data.data()), data.size()) == 0) {
         received_size = data.size();
         return HAKO_PDU_ERR_OK;
     }
@@ -29,7 +29,7 @@ HakoPduErrorType PduCommShmPollImpl::recv(const PduResolvedKey& pdu_key, std::sp
 }
 HakoPduErrorType PduCommShmPollImpl::register_rcv_event(const PduResolvedKey& pdu_key, void (*on_recv)(int), int& out_event_id) noexcept
 {
-    if (!hako_capi_asset_register_data_recv_event(pdu_key.robot.c_str(), pdu_key.channel_id)) {
+    if (hakoniwa_asset_register_data_recv_event(pdu_key.robot.c_str(), pdu_key.channel_id) != 0) {
         return HAKO_PDU_ERR_IO_ERROR;
     }
 
@@ -54,10 +54,10 @@ void PduCommShmPollImpl::process_recv_events() noexcept
         entries = poll_entries_;
     }
     for (const auto& entry : entries) {
-        if (hako_capi_asset_check_data_recv_event(
+        if (hakoniwa_asset_check_data_recv_event(
                 asset_name_.c_str(),
                 entry.key.robot.c_str(),
-                entry.key.channel_id)) {
+                entry.key.channel_id) == 0) {
             if (entry.on_recv) {
                 entry.on_recv(entry.event_id);
             }
