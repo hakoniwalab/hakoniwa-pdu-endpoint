@@ -22,7 +22,7 @@ PduCommShm::~PduCommShm() {
     close();
 }
 
-HakoPduErrorType PduCommShm::open(const std::string& config_path) {
+HakoPduErrorType PduCommShm::create_pdu_lchannels(const std::string& config_path) {
     if (!pdu_def_) { // Access inherited member
         std::cerr << "PduCommShm Error: PDU definition is not set." << std::endl;
         return HAKO_PDU_ERR_INVALID_CONFIG;
@@ -61,6 +61,54 @@ HakoPduErrorType PduCommShm::open(const std::string& config_path) {
             std::cerr << "PduCommShm Error: 'impl_type' not specified in config." << std::endl;
             return HAKO_PDU_ERR_INVALID_CONFIG;
         }
+        if (!shm_config.contains("io") || !shm_config.at("io").contains("robots")) {
+            std::cerr << "PduCommShm Error: 'io.robots' not specified in config." << std::endl;
+            return HAKO_PDU_ERR_INVALID_CONFIG;
+        }
+        for (const auto& robot_def : shm_config.at("io").at("robots")) {
+            std::string robot_name = robot_def.at("name").get<std::string>();
+            for (const auto& pdu_entry : robot_def.at("pdu")) {
+                std::string pdu_name = pdu_entry.at("name").get<std::string>();
+                
+                PduDef def;
+                if (!pdu_def_->resolve(robot_name, pdu_name, def)) { // Access inherited member
+                    std::cerr << "PduCommShm Error: Failed to resolve PDU '" << pdu_name << "' for robot '" << robot_name << "'" << std::endl;
+                    return HAKO_PDU_ERR_INVALID_CONFIG;
+                }
+                if (impl_->create_pdu_lchannel(robot_name, def.channel_id, def.pdu_size) != HAKO_PDU_ERR_OK) {
+                    std::cerr << "PduCommShm Error: Failed to create PDU channel for " << robot_name << "/" << pdu_name << std::endl;
+                    return HAKO_PDU_ERR_IO_ERROR;
+                }
+            }
+        }
+    } catch (const nlohmann::json::exception& e) {
+        std::cerr << "PduCommShm Error: JSON parsing failed for " << config_path << ". Details: " << e.what() << std::endl;
+        return HAKO_PDU_ERR_INVALID_JSON;
+    }
+
+    return HAKO_PDU_ERR_OK;
+}
+
+HakoPduErrorType PduCommShm::open(const std::string& config_path) {
+    if (!pdu_def_) { // Access inherited member
+        std::cerr << "PduCommShm Error: PDU definition is not set." << std::endl;
+        return HAKO_PDU_ERR_INVALID_CONFIG;
+    }
+
+    std::ifstream ifs(config_path);
+    if (!ifs.is_open()) {
+        std::cerr << "PduCommShm Error: Failed to open config file: " << config_path << std::endl;
+        return HAKO_PDU_ERR_FILE_NOT_FOUND;
+    }
+    
+    nlohmann::json shm_config;
+    try {
+        ifs >> shm_config;
+        if (!shm_config.contains("protocol") || shm_config.at("protocol").get<std::string>() != "shm") {
+            std::cerr << "PduCommShm Error: protocol is not 'shm'." << std::endl;
+            return HAKO_PDU_ERR_INVALID_CONFIG;
+        }
+        
         if (!shm_config.contains("io") || !shm_config.at("io").contains("robots")) {
             std::cerr << "PduCommShm Error: 'io.robots' not specified in config." << std::endl;
             return HAKO_PDU_ERR_INVALID_CONFIG;

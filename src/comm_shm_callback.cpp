@@ -1,5 +1,6 @@
 #include "hakoniwa/pdu/comm/comm_shm.hpp"
 #include "hako_asset.h"
+#include <iostream>
 
 namespace hakoniwa {
 namespace pdu {
@@ -10,6 +11,15 @@ PduCommShmCallbackImpl::PduCommShmCallbackImpl(std::shared_ptr<PduDefinition> pd
 }
 PduCommShmCallbackImpl::~PduCommShmCallbackImpl()
 {
+}
+HakoPduErrorType PduCommShmCallbackImpl::create_pdu_lchannel(const std::string& robot_name, HakoPduChannelIdType channel_id, size_t pdu_size) noexcept
+{
+    if (hako_asset_pdu_create(robot_name.c_str(), channel_id, pdu_size) != 0) {
+        std::cerr << "PduCommShmCallbackImpl Error: Failed to create PDU channel. Robot: " << robot_name << " Channel ID: " << channel_id << std::endl;
+        return HAKO_PDU_ERR_IO_ERROR;
+    }
+    std::cout << "PduCommShmCallbackImpl: Created PDU channel. Robot: " << robot_name << " Channel ID: " << channel_id << " Size: " << pdu_size << std::endl;
+    return HAKO_PDU_ERR_OK;
 }
 HakoPduErrorType PduCommShmCallbackImpl::send(const PduResolvedKey& pdu_key, std::span<const std::byte> data) noexcept
 {

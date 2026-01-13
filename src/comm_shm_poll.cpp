@@ -1,6 +1,7 @@
 #include "hakoniwa/pdu/comm/comm_shm.hpp"
 #include "hakoniwa_asset_polling.h"
 #include <mutex>
+#include <iostream>
 
 namespace hakoniwa {
 namespace pdu {
@@ -11,6 +12,15 @@ PduCommShmPollImpl::PduCommShmPollImpl(std::shared_ptr<PduDefinition> pdu_def, c
 }
 PduCommShmPollImpl::~PduCommShmPollImpl()
 {
+}
+HakoPduErrorType PduCommShmPollImpl::create_pdu_lchannel(const std::string& robot_name, HakoPduChannelIdType channel_id, size_t pdu_size) noexcept
+{
+    if (hakoniwa_asset_create_pdu_lchannel(robot_name.c_str(), channel_id, pdu_size) != 0) {
+        std::cerr << "PduCommShmPollImpl Error: Failed to create PDU channel. Robot: " << robot_name << " Channel ID: " << channel_id << std::endl;
+        return HAKO_PDU_ERR_IO_ERROR;
+    }
+    std::cout << "PduCommShmPollImpl: Created PDU channel. Robot: " << robot_name << " Channel ID: " << channel_id << " Size: " << pdu_size << std::endl;
+    return HAKO_PDU_ERR_OK;
 }
 HakoPduErrorType PduCommShmPollImpl::send(const PduResolvedKey& pdu_key, std::span<const std::byte> data) noexcept
 {

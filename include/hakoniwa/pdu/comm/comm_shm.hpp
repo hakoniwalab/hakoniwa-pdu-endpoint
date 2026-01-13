@@ -23,6 +23,7 @@ public:
     virtual ~PduCommShm();
 
     // PduComm virtual methods
+    virtual HakoPduErrorType create_pdu_lchannels(const std::string& config_path) override;
     virtual HakoPduErrorType open(const std::string& config_path) override;
     virtual HakoPduErrorType close() noexcept override;
     virtual HakoPduErrorType start() noexcept override;

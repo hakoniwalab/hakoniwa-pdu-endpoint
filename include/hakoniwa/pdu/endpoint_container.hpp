@@ -21,6 +21,8 @@ class EndpointContainer {
 public:
   EndpointContainer(std::string node_id, std::string container_config_path);
 
+  HakoPduErrorType create_pdu_lchannels();
+
   // Parse config only
   HakoPduErrorType initialize();
 
@@ -43,6 +45,7 @@ private:
 
   // create & open endpoint (called under lock)
   std::shared_ptr<Endpoint> create_and_open_(const EndpointEntry& e);
+  std::shared_ptr<Endpoint> create_(const EndpointEntry& e);
 
   std::string node_id_;
   std::string container_config_path_;

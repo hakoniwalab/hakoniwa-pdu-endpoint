@@ -13,6 +13,7 @@ class PduCommShmImp {
 public:
     virtual ~PduCommShmImp() = default;
 
+    virtual HakoPduErrorType create_pdu_lchannel(const std::string& robot_name, HakoPduChannelIdType channel_id, size_t pdu_size) noexcept { return HAKO_PDU_ERR_UNSUPPORTED; };
     virtual HakoPduErrorType send(const PduResolvedKey& pdu_key, std::span<const std::byte> data) noexcept = 0;
     virtual HakoPduErrorType recv(const PduResolvedKey& pdu_key, std::span<std::byte> data, size_t& received_size) noexcept = 0;
     virtual HakoPduErrorType register_rcv_event(const PduResolvedKey& pdu_key, void (*on_recv)(int), int& out_event_id) noexcept = 0;
@@ -24,6 +25,7 @@ public:
     PduCommShmPollImpl(std::shared_ptr<PduDefinition> pdu_def, const std::string& asset_name);
     virtual ~PduCommShmPollImpl();
 
+    virtual HakoPduErrorType create_pdu_lchannel(const std::string& robot_name, HakoPduChannelIdType channel_id, size_t pdu_size) noexcept override;
     virtual HakoPduErrorType send(const PduResolvedKey& pdu_key, std::span<const std::byte> data) noexcept override;
     virtual HakoPduErrorType recv(const PduResolvedKey& pdu_key, std::span<std::byte> data, size_t& received_size) noexcept override;
     virtual HakoPduErrorType register_rcv_event(const PduResolvedKey& pdu_key, void (*on_recv)(int), int& out_event_id) noexcept override;
@@ -47,6 +49,7 @@ public:
     PduCommShmCallbackImpl(std::shared_ptr<PduDefinition> pdu_def);
     virtual ~PduCommShmCallbackImpl();
 
+    virtual HakoPduErrorType create_pdu_lchannel(const std::string& robot_name, HakoPduChannelIdType channel_id, size_t pdu_size) noexcept override;
     virtual HakoPduErrorType send(const PduResolvedKey& pdu_key, std::span<const std::byte> data) noexcept override;
     virtual HakoPduErrorType recv(const PduResolvedKey& pdu_key, std::span<std::byte> data, size_t& received_size) noexcept override;
     virtual HakoPduErrorType register_rcv_event(const PduResolvedKey& pdu_key, void (*on_recv)(int), int& out_event_id) noexcept override;

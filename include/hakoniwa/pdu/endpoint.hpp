@@ -48,6 +48,61 @@ public:
     std::shared_ptr<PduDefinition> get_pdu_definition() const{
         return pdu_def_;
     }
+
+    virtual HakoPduErrorType create_pdu_lchannels(const std::string& endpoint_config_path)
+    {
+        fs::path ep_path(endpoint_config_path);
+        fs::path base_dir = ep_path.parent_path();
+
+        std::ifstream ifs(endpoint_config_path);
+        if (!ifs.is_open()) {
+            return HAKO_PDU_ERR_FILE_NOT_FOUND;
+        }
+        nlohmann::json config;
+        try {
+            ifs >> config;
+
+            // PduDefinition is optional
+            if (config.contains("pdu_def_path") && !config["pdu_def_path"].is_null()) {
+                pdu_def_ = std::make_shared<PduDefinition>();
+                auto resolved_pdu_def_path = resolve_under_base(base_dir, config["pdu_def_path"].get<std::string>());
+                if (!pdu_def_->load(resolved_pdu_def_path)) {
+                    return HAKO_PDU_ERR_INVALID_CONFIG;
+                }
+            }
+            else {
+                std::cerr << "PDU Definition path is not specified." << std::endl;
+                return HAKO_PDU_ERR_INVALID_CONFIG;
+            }
+
+            // Comm is mandatory
+            if (config.contains("comm") && !config["comm"].is_null()) {
+                std::string comm_config_path = config["comm"].get<std::string>();
+                auto resolved_comm_config_path = resolve_under_base(base_dir, comm_config_path);
+
+                comm_ = create_pdu_comm(resolved_comm_config_path);
+                if (!comm_) {
+                    std::cerr << "Failed to create PDU Comm module." << std::endl;
+                    return HAKO_PDU_ERR_INVALID_CONFIG;
+                }
+                // Pass PDU definition to comm module
+                comm_->set_pdu_definition(pdu_def_);
+                HakoPduErrorType err = comm_->create_pdu_lchannels(resolved_comm_config_path);
+                if (err != HAKO_PDU_ERR_OK) {
+                    std::cerr << "Failed to create_pdu_lchannels PDU Comm: " << static_cast<int>(err) << std::endl;
+                    return err;
+                }
+            }
+            else {
+                std::cerr << "PDU Comm configuration is missing." << std::endl;
+                return HAKO_PDU_ERR_INVALID_CONFIG;
+            }
+        } catch (const nlohmann::json::exception& e) {
+            return HAKO_PDU_ERR_INVALID_JSON;
+        }
+
+        return HAKO_PDU_ERR_OK;
+    }
     
     virtual HakoPduErrorType open(const std::string& endpoint_config_path) 
     {
@@ -94,7 +149,9 @@ public:
                 std::string comm_config_path = config["comm"].get<std::string>();
                 auto resolved_comm_config_path = resolve_under_base(base_dir, comm_config_path);
 
-                comm_ = create_pdu_comm(resolved_comm_config_path);
+                if (!comm_) {
+                    comm_ = create_pdu_comm(resolved_comm_config_path);
+                }
                 if (!comm_) {
                     std::cerr << "Failed to create PDU Comm module." << std::endl;
                     return HAKO_PDU_ERR_INVALID_CONFIG;
