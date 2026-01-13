@@ -8,6 +8,43 @@ namespace hakoniwa {
 namespace pdu {
 namespace comm {
 
+namespace {
+HakoPduErrorType init_impl_from_config(const nlohmann::json& shm_config,
+    const std::shared_ptr<PduDefinition>& pdu_def,
+    std::unique_ptr<PduCommShmImp>& impl)
+{
+    if (impl) {
+        return HAKO_PDU_ERR_OK;
+    }
+    if (!pdu_def) {
+        std::cerr << "PduCommShm Error: PDU definition is not set." << std::endl;
+        return HAKO_PDU_ERR_INVALID_CONFIG;
+    }
+    if (!shm_config.contains("impl_type")) {
+        std::cerr << "PduCommShm Error: 'impl_type' not specified in config." << std::endl;
+        return HAKO_PDU_ERR_INVALID_CONFIG;
+    }
+
+    const std::string impl_type = shm_config.at("impl_type").get<std::string>();
+    if (impl_type == "callback") {
+        impl = std::make_unique<PduCommShmCallbackImpl>(pdu_def);
+        return HAKO_PDU_ERR_OK;
+    }
+    if (impl_type == "poll") {
+        if (!shm_config.contains("asset_name")) {
+            std::cerr << "PduCommShm Error: 'asset_name' not specified for poll implementation." << std::endl;
+            return HAKO_PDU_ERR_INVALID_CONFIG;
+        }
+        const std::string asset_name = shm_config.at("asset_name").get<std::string>();
+        impl = std::make_unique<PduCommShmPollImpl>(pdu_def, asset_name);
+        return HAKO_PDU_ERR_OK;
+    }
+
+    std::cerr << "PduCommShm Error: Unknown impl_type '" << impl_type << "' in config." << std::endl;
+    return HAKO_PDU_ERR_INVALID_CONFIG;
+}
+} // namespace
+
 // Initialize static members
 std::map<int, PduCommShm*> PduCommShm::event_id_to_instance_map_;
 std::mutex PduCommShm::event_map_mutex_;
@@ -41,25 +78,9 @@ HakoPduErrorType PduCommShm::create_pdu_lchannels(const std::string& config_path
             std::cerr << "PduCommShm Error: protocol is not 'shm'." << std::endl;
             return HAKO_PDU_ERR_INVALID_CONFIG;
         }
-        if (shm_config.contains("impl_type")) {
-            std::string impl_type = shm_config.at("impl_type").get<std::string>();
-            if (impl_type == "callback") {
-                impl_ = std::make_unique<PduCommShmCallbackImpl>(pdu_def_); // Access inherited member
-            } else if (impl_type == "poll") {
-                if (shm_config.contains("asset_name")) {
-                    std::string asset_name = shm_config.at("asset_name").get<std::string>();
-                    impl_ = std::make_unique<PduCommShmPollImpl>(pdu_def_, asset_name); // Access inherited member
-                } else {
-                    std::cerr << "PduCommShm Error: 'asset_name' not specified for poll implementation." << std::endl;
-                    return HAKO_PDU_ERR_INVALID_CONFIG;
-                }
-            } else {
-                std::cerr << "PduCommShm Error: Unknown impl_type '" << impl_type << "' in config." << std::endl;
-                return HAKO_PDU_ERR_INVALID_CONFIG;
-            }
-        } else {
-            std::cerr << "PduCommShm Error: 'impl_type' not specified in config." << std::endl;
-            return HAKO_PDU_ERR_INVALID_CONFIG;
+        HakoPduErrorType init_err = init_impl_from_config(shm_config, pdu_def_, impl_);
+        if (init_err != HAKO_PDU_ERR_OK) {
+            return init_err;
         }
         if (!shm_config.contains("io") || !shm_config.at("io").contains("robots")) {
             std::cerr << "PduCommShm Error: 'io.robots' not specified in config." << std::endl;
@@ -107,6 +128,10 @@ HakoPduErrorType PduCommShm::open(const std::string& config_path) {
         if (!shm_config.contains("protocol") || shm_config.at("protocol").get<std::string>() != "shm") {
             std::cerr << "PduCommShm Error: protocol is not 'shm'." << std::endl;
             return HAKO_PDU_ERR_INVALID_CONFIG;
+        }
+        HakoPduErrorType init_err = init_impl_from_config(shm_config, pdu_def_, impl_);
+        if (init_err != HAKO_PDU_ERR_OK) {
+            return init_err;
         }
         
         if (!shm_config.contains("io") || !shm_config.at("io").contains("robots")) {

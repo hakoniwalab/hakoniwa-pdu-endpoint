@@ -17,13 +17,18 @@ struct EndpointEntry {
   std::optional<std::string> mode;
 };
 
+// Usage:
+// - Pattern 1: create_pdu_lchannels() then initialize()
+// - Pattern 2: initialize() only
+// Do not call create_pdu_lchannels() after initialize().
 class EndpointContainer {
 public:
   EndpointContainer(std::string node_id, std::string container_config_path);
 
+  // Optional: pre-open creation of PDU channels for endpoints that need it.
   HakoPduErrorType create_pdu_lchannels();
 
-  // Parse config only
+  // Parse config and open endpoints.
   HakoPduErrorType initialize();
 
   // Lifecycle owner
@@ -42,6 +47,7 @@ public:
 
 private:
   std::optional<EndpointEntry> find_entry_(const std::string& endpoint_id) const;
+  HakoPduErrorType load_entries_();
 
   // create & open endpoint (called under lock)
   std::shared_ptr<Endpoint> create_and_open_(const EndpointEntry& e);

@@ -23,6 +23,8 @@ public:
     PduComm& operator=(const PduComm&) = delete;
     PduComm& operator=(PduComm&&) = delete;
 
+    // Optional pre-open hook for comms that must create PDU channels in advance.
+    // Callers may skip this and just use open(); implementations should handle both.
     virtual HakoPduErrorType create_pdu_lchannels(const std::string& config_path) { return HAKO_PDU_ERR_OK; }
     virtual HakoPduErrorType open(const std::string& config_path) = 0;
     virtual HakoPduErrorType close() noexcept = 0;

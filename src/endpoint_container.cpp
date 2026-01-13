@@ -54,87 +54,9 @@ EndpointContainer::EndpointContainer(std::string node_id, std::string container_
 HakoPduErrorType EndpointContainer::create_pdu_lchannels()
 {
     std::lock_guard<std::mutex> lock(mtx_);
-    last_error_.clear();
-    entries_.clear();
-
-    std::ifstream ifs(container_config_path_);
-    if (!ifs.is_open()) {
-        last_error_ = "Failed to open container config: " + container_config_path_;
-        return HAKO_PDU_ERR_FILE_NOT_FOUND;
-    }
-
-    nlohmann::json root;
-    try {
-        ifs >> root;
-    } catch (const nlohmann::json::exception& e) {
-        last_error_ = std::string("Invalid JSON: ") + e.what();
-        return HAKO_PDU_ERR_INVALID_JSON;
-    }
-
-    if (!root.is_array()) {
-        last_error_ = "Missing or invalid 'endpoints' array in container config.";
-        return HAKO_PDU_ERR_INVALID_CONFIG;
-    }
-    const nlohmann::json* founded_entry = nullptr;
-    for (auto& entry: root) {
-        if (!entry.is_object()) {
-            last_error_ = "Invalid endpoint entry (not an object).";
-            return HAKO_PDU_ERR_INVALID_CONFIG;
-        }
-        if (!entry.contains("nodeId") || !entry["endpoints"].is_array()) {
-            last_error_ = "Endpoint entry missing 'nodeId' or 'endpoints' array.";
-            return HAKO_PDU_ERR_INVALID_CONFIG;
-        }
-        if (entry["nodeId"] != node_id_) {
-            continue;
-        }
-        founded_entry = &entry;
-        break;
-    }
-    if (founded_entry == nullptr) {
-        last_error_ = "No endpoint entry found for nodeId: " + node_id_;
-        return HAKO_PDU_ERR_NO_ENTRY;
-    }
-
-    fs::path cfg_path(container_config_path_);
-    fs::path base_dir = cfg_path.parent_path();
-
-    const HakoPduEndpointDirectionType default_dir = kDefaultDir;
-
-    for (const auto& ep : (*founded_entry)["endpoints"]) {
-        if (!ep.is_object()) {
-            last_error_ = "Invalid endpoint entry (not an object).";
-            return HAKO_PDU_ERR_INVALID_CONFIG;
-        }
-        if (!ep.contains("id") || !ep["id"].is_string()) {
-            last_error_ = "Endpoint entry missing string field 'id'.";
-            return HAKO_PDU_ERR_INVALID_CONFIG;
-        }
-        if (!ep.contains("config_path") || !ep["config_path"].is_string()) {
-            last_error_ = "Endpoint entry missing string field 'config_path'. id=" + ep.value("id", "");
-            return HAKO_PDU_ERR_INVALID_CONFIG;
-        }
-
-        EndpointEntry e;
-        e.id = ep["id"].get<std::string>();
-
-        // Resolve config_path relative to container config base dir
-        const std::string rel = ep["config_path"].get<std::string>();
-        e.config_path = resolve_under_base(base_dir, rel).string();
-
-        // Optional: direction
-        // If present and parseable, store it; else keep std::nullopt and resolve later.
-        if (ep.contains("direction") && !ep["direction"].is_null()) {
-            // For now: accept int or string; store parsed final enum.
-            e.direction = parse_direction_or_default(ep, default_dir);
-        }
-
-        // Optional: mode (kept but not interpreted by container)
-        if (ep.contains("mode") && ep["mode"].is_string()) {
-            e.mode = ep["mode"].get<std::string>();
-        }
-
-        entries_.push_back(std::move(e));
+    HakoPduErrorType err = load_entries_();
+    if (err != HAKO_PDU_ERR_OK) {
+        return err;
     }
 
     //open endpoints here
@@ -149,7 +71,17 @@ HakoPduErrorType EndpointContainer::create_pdu_lchannels()
             started_.clear();
             return HAKO_PDU_ERR_INVALID_CONFIG;
         }
-        ep->create_pdu_lchannels(e.config_path);
+        HakoPduErrorType err = ep->create_pdu_lchannels(e.config_path);
+        if (err != HAKO_PDU_ERR_OK) {
+            last_error_ = "Endpoint create_pdu_lchannels failed. id=" + e.id + " config=" + e.config_path
+                + " error=" + std::to_string(static_cast<int>(err));
+            for (auto& [id, opened_ep] : cache_) {
+                if (opened_ep) { (void)opened_ep->close(); }
+            }
+            cache_.clear();
+            started_.clear();
+            return err;
+        }
     }
     return HAKO_PDU_ERR_OK;
 }
@@ -160,87 +92,9 @@ HakoPduErrorType EndpointContainer::initialize()
         last_error_ = "EndpointContainer is already initialized.";
         return HAKO_PDU_ERR_INVALID_CONFIG;
     }
-    last_error_.clear();
-    entries_.clear();
-
-    std::ifstream ifs(container_config_path_);
-    if (!ifs.is_open()) {
-        last_error_ = "Failed to open container config: " + container_config_path_;
-        return HAKO_PDU_ERR_FILE_NOT_FOUND;
-    }
-
-    nlohmann::json root;
-    try {
-        ifs >> root;
-    } catch (const nlohmann::json::exception& e) {
-        last_error_ = std::string("Invalid JSON: ") + e.what();
-        return HAKO_PDU_ERR_INVALID_JSON;
-    }
-
-    if (!root.is_array()) {
-        last_error_ = "Missing or invalid 'endpoints' array in container config.";
-        return HAKO_PDU_ERR_INVALID_CONFIG;
-    }
-    const nlohmann::json* founded_entry = nullptr;
-    for (auto& entry: root) {
-        if (!entry.is_object()) {
-            last_error_ = "Invalid endpoint entry (not an object).";
-            return HAKO_PDU_ERR_INVALID_CONFIG;
-        }
-        if (!entry.contains("nodeId") || !entry["endpoints"].is_array()) {
-            last_error_ = "Endpoint entry missing 'nodeId' or 'endpoints' array.";
-            return HAKO_PDU_ERR_INVALID_CONFIG;
-        }
-        if (entry["nodeId"] != node_id_) {
-            continue;
-        }
-        founded_entry = &entry;
-        break;
-    }
-    if (founded_entry == nullptr) {
-        last_error_ = "No endpoint entry found for nodeId: " + node_id_;
-        return HAKO_PDU_ERR_NO_ENTRY;
-    }
-
-    fs::path cfg_path(container_config_path_);
-    fs::path base_dir = cfg_path.parent_path();
-
-    const HakoPduEndpointDirectionType default_dir = kDefaultDir;
-
-    for (const auto& ep : (*founded_entry)["endpoints"]) {
-        if (!ep.is_object()) {
-            last_error_ = "Invalid endpoint entry (not an object).";
-            return HAKO_PDU_ERR_INVALID_CONFIG;
-        }
-        if (!ep.contains("id") || !ep["id"].is_string()) {
-            last_error_ = "Endpoint entry missing string field 'id'.";
-            return HAKO_PDU_ERR_INVALID_CONFIG;
-        }
-        if (!ep.contains("config_path") || !ep["config_path"].is_string()) {
-            last_error_ = "Endpoint entry missing string field 'config_path'. id=" + ep.value("id", "");
-            return HAKO_PDU_ERR_INVALID_CONFIG;
-        }
-
-        EndpointEntry e;
-        e.id = ep["id"].get<std::string>();
-
-        // Resolve config_path relative to container config base dir
-        const std::string rel = ep["config_path"].get<std::string>();
-        e.config_path = resolve_under_base(base_dir, rel).string();
-
-        // Optional: direction
-        // If present and parseable, store it; else keep std::nullopt and resolve later.
-        if (ep.contains("direction") && !ep["direction"].is_null()) {
-            // For now: accept int or string; store parsed final enum.
-            e.direction = parse_direction_or_default(ep, default_dir);
-        }
-
-        // Optional: mode (kept but not interpreted by container)
-        if (ep.contains("mode") && ep["mode"].is_string()) {
-            e.mode = ep["mode"].get<std::string>();
-        }
-
-        entries_.push_back(std::move(e));
+    HakoPduErrorType err = load_entries_();
+    if (err != HAKO_PDU_ERR_OK) {
+        return err;
     }
 
     //open endpoints here
@@ -258,6 +112,94 @@ HakoPduErrorType EndpointContainer::initialize()
     }
 
     initialized_ = true;
+    return HAKO_PDU_ERR_OK;
+}
+
+HakoPduErrorType EndpointContainer::load_entries_()
+{
+    last_error_.clear();
+    entries_.clear();
+
+    std::ifstream ifs(container_config_path_);
+    if (!ifs.is_open()) {
+        last_error_ = "Failed to open container config: " + container_config_path_;
+        return HAKO_PDU_ERR_FILE_NOT_FOUND;
+    }
+
+    nlohmann::json root;
+    try {
+        ifs >> root;
+    } catch (const nlohmann::json::exception& e) {
+        last_error_ = std::string("Invalid JSON: ") + e.what();
+        return HAKO_PDU_ERR_INVALID_JSON;
+    }
+
+    if (!root.is_array()) {
+        last_error_ = "Missing or invalid 'endpoints' array in container config.";
+        return HAKO_PDU_ERR_INVALID_CONFIG;
+    }
+    const nlohmann::json* founded_entry = nullptr;
+    for (auto& entry: root) {
+        if (!entry.is_object()) {
+            last_error_ = "Invalid endpoint entry (not an object).";
+            return HAKO_PDU_ERR_INVALID_CONFIG;
+        }
+        if (!entry.contains("nodeId") || !entry["endpoints"].is_array()) {
+            last_error_ = "Endpoint entry missing 'nodeId' or 'endpoints' array.";
+            return HAKO_PDU_ERR_INVALID_CONFIG;
+        }
+        if (entry["nodeId"] != node_id_) {
+            continue;
+        }
+        founded_entry = &entry;
+        break;
+    }
+    if (founded_entry == nullptr) {
+        last_error_ = "No endpoint entry found for nodeId: " + node_id_;
+        return HAKO_PDU_ERR_NO_ENTRY;
+    }
+
+    fs::path cfg_path(container_config_path_);
+    fs::path base_dir = cfg_path.parent_path();
+
+    const HakoPduEndpointDirectionType default_dir = kDefaultDir;
+
+    for (const auto& ep : (*founded_entry)["endpoints"]) {
+        if (!ep.is_object()) {
+            last_error_ = "Invalid endpoint entry (not an object).";
+            return HAKO_PDU_ERR_INVALID_CONFIG;
+        }
+        if (!ep.contains("id") || !ep["id"].is_string()) {
+            last_error_ = "Endpoint entry missing string field 'id'.";
+            return HAKO_PDU_ERR_INVALID_CONFIG;
+        }
+        if (!ep.contains("config_path") || !ep["config_path"].is_string()) {
+            last_error_ = "Endpoint entry missing string field 'config_path'. id=" + ep.value("id", "");
+            return HAKO_PDU_ERR_INVALID_CONFIG;
+        }
+
+        EndpointEntry e;
+        e.id = ep["id"].get<std::string>();
+
+        // Resolve config_path relative to container config base dir
+        const std::string rel = ep["config_path"].get<std::string>();
+        e.config_path = resolve_under_base(base_dir, rel).string();
+
+        // Optional: direction
+        // If present and parseable, store it; else keep std::nullopt and resolve later.
+        if (ep.contains("direction") && !ep["direction"].is_null()) {
+            // For now: accept int or string; store parsed final enum.
+            e.direction = parse_direction_or_default(ep, default_dir);
+        }
+
+        // Optional: mode (kept but not interpreted by container)
+        if (ep.contains("mode") && ep["mode"].is_string()) {
+            e.mode = ep["mode"].get<std::string>();
+        }
+
+        entries_.push_back(std::move(e));
+    }
+
     return HAKO_PDU_ERR_OK;
 }
 

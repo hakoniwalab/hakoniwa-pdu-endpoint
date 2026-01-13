@@ -49,30 +49,20 @@ public:
         return pdu_def_;
     }
 
+    // Optional: call before open() when the comm layer needs PDU channels created upfront.
+    // open() without this call is also supported.
     virtual HakoPduErrorType create_pdu_lchannels(const std::string& endpoint_config_path)
     {
-        fs::path ep_path(endpoint_config_path);
-        fs::path base_dir = ep_path.parent_path();
-
-        std::ifstream ifs(endpoint_config_path);
-        if (!ifs.is_open()) {
-            return HAKO_PDU_ERR_FILE_NOT_FOUND;
-        }
         nlohmann::json config;
+        fs::path base_dir;
+        HakoPduErrorType err = load_endpoint_config_(endpoint_config_path, config, base_dir);
+        if (err != HAKO_PDU_ERR_OK) {
+            return err;
+        }
         try {
-            ifs >> config;
-
-            // PduDefinition is optional
-            if (config.contains("pdu_def_path") && !config["pdu_def_path"].is_null()) {
-                pdu_def_ = std::make_shared<PduDefinition>();
-                auto resolved_pdu_def_path = resolve_under_base(base_dir, config["pdu_def_path"].get<std::string>());
-                if (!pdu_def_->load(resolved_pdu_def_path)) {
-                    return HAKO_PDU_ERR_INVALID_CONFIG;
-                }
-            }
-            else {
-                std::cerr << "PDU Definition path is not specified." << std::endl;
-                return HAKO_PDU_ERR_INVALID_CONFIG;
+            err = load_pdu_definition_if_needed_(config, base_dir, true);
+            if (err != HAKO_PDU_ERR_OK) {
+                return err;
             }
 
             // Comm is mandatory
@@ -106,24 +96,16 @@ public:
     
     virtual HakoPduErrorType open(const std::string& endpoint_config_path) 
     {
-        fs::path ep_path(endpoint_config_path);
-        fs::path base_dir = ep_path.parent_path();
-
-        std::ifstream ifs(endpoint_config_path);
-        if (!ifs.is_open()) {
-            return HAKO_PDU_ERR_FILE_NOT_FOUND;
-        }
         nlohmann::json config;
+        fs::path base_dir;
+        HakoPduErrorType err = load_endpoint_config_(endpoint_config_path, config, base_dir);
+        if (err != HAKO_PDU_ERR_OK) {
+            return err;
+        }
         try {
-            ifs >> config;
-
-            // PduDefinition is optional
-            if (config.contains("pdu_def_path") && !config["pdu_def_path"].is_null()) {
-                pdu_def_ = std::make_shared<PduDefinition>();
-                auto resolved_pdu_def_path = resolve_under_base(base_dir, config["pdu_def_path"].get<std::string>());
-                if (!pdu_def_->load(resolved_pdu_def_path)) {
-                    return HAKO_PDU_ERR_INVALID_CONFIG;
-                }
+            err = load_pdu_definition_if_needed_(config, base_dir, false);
+            if (err != HAKO_PDU_ERR_OK) {
+                return err;
             }
 
             // Cache is mandatory
@@ -402,6 +384,43 @@ private:
             return p.lexically_normal();
         }
         return (base_dir / p).lexically_normal();
+    }
+    HakoPduErrorType load_endpoint_config_(const std::string& endpoint_config_path,
+        nlohmann::json& config,
+        fs::path& base_dir)
+    {
+        fs::path ep_path(endpoint_config_path);
+        base_dir = ep_path.parent_path();
+        std::ifstream ifs(endpoint_config_path);
+        if (!ifs.is_open()) {
+            return HAKO_PDU_ERR_FILE_NOT_FOUND;
+        }
+        try {
+            ifs >> config;
+        } catch (const nlohmann::json::exception& e) {
+            return HAKO_PDU_ERR_INVALID_JSON;
+        }
+        return HAKO_PDU_ERR_OK;
+    }
+    HakoPduErrorType load_pdu_definition_if_needed_(const nlohmann::json& config,
+        const fs::path& base_dir,
+        bool required)
+    {
+        if (config.contains("pdu_def_path") && !config["pdu_def_path"].is_null()) {
+            if (!pdu_def_) {
+                pdu_def_ = std::make_shared<PduDefinition>();
+                auto resolved_pdu_def_path = resolve_under_base(base_dir, config["pdu_def_path"].get<std::string>());
+                if (!pdu_def_->load(resolved_pdu_def_path)) {
+                    return HAKO_PDU_ERR_INVALID_CONFIG;
+                }
+            }
+            return HAKO_PDU_ERR_OK;
+        }
+        if (required) {
+            std::cerr << "PDU Definition path is not specified." << std::endl;
+            return HAKO_PDU_ERR_INVALID_CONFIG;
+        }
+        return HAKO_PDU_ERR_OK;
     }
 
 };
