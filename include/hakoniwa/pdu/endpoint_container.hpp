@@ -33,11 +33,13 @@ public:
 
   // Lifecycle owner
   HakoPduErrorType start_all() noexcept;
+  HakoPduErrorType post_start_all() noexcept;
   HakoPduErrorType stop_all() noexcept;
   bool is_running_all() const noexcept;
 
   // Optional: explicit per-endpoint lifecycle
   HakoPduErrorType start(const std::string& endpoint_id) noexcept;
+  HakoPduErrorType post_start(const std::string& endpoint_id) noexcept;
   HakoPduErrorType stop(const std::string& endpoint_id) noexcept;
   std::shared_ptr<Endpoint> ref(const std::string& id);
 

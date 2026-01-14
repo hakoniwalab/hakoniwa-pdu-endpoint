@@ -27,6 +27,7 @@ public:
     virtual HakoPduErrorType open(const std::string& config_path) override;
     virtual HakoPduErrorType close() noexcept override;
     virtual HakoPduErrorType start() noexcept override;
+    virtual HakoPduErrorType post_start() noexcept override;
     virtual HakoPduErrorType stop() noexcept override;
     virtual HakoPduErrorType is_running(bool& running) noexcept override;
     // Only meaningful for SHM poll implementation; other SHM modes are no-op.

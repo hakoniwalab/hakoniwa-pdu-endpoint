@@ -180,6 +180,10 @@ HakoPduErrorType PduCommShm::close() noexcept {
 
 HakoPduErrorType PduCommShm::start() noexcept {
     running_.store(true);
+    return HAKO_PDU_ERR_OK;
+}
+
+HakoPduErrorType PduCommShm::post_start() noexcept {
     if (!recv_events_registered_ && !recv_notify_keys_.empty()) {
         std::vector<int> newly_registered_ids;
         for (const auto& key : recv_notify_keys_) {

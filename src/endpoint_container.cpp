@@ -277,6 +277,32 @@ HakoPduErrorType EndpointContainer::start_all() noexcept
     return first_err;
 }
 
+HakoPduErrorType EndpointContainer::post_start_all() noexcept
+{
+    std::lock_guard<std::mutex> lock(mtx_);
+    last_error_.clear();
+
+    if (!initialized_) {
+        last_error_ = "EndpointContainer is not initialized.";
+        return HAKO_PDU_ERR_INVALID_CONFIG;
+    }
+
+    HakoPduErrorType first_err = HAKO_PDU_ERR_OK;
+
+    for (auto& [id, ep] : cache_) {
+        if (!ep) { continue; }
+        if (!started_[id]) { continue; }
+
+        const HakoPduErrorType err = ep->post_start();
+        if (err != HAKO_PDU_ERR_OK && first_err == HAKO_PDU_ERR_OK) {
+            first_err = err;
+            last_error_ = "post_start_all failed at endpoint id=" + id
+                          + " err=" + std::to_string(static_cast<int>(err));
+        }
+    }
+    return first_err;
+}
+
 HakoPduErrorType EndpointContainer::stop_all() noexcept
 {
     std::lock_guard<std::mutex> lock(mtx_);
@@ -349,6 +375,37 @@ HakoPduErrorType EndpointContainer::start(const std::string& endpoint_id) noexce
     started_[endpoint_id] = true;
     return HAKO_PDU_ERR_OK;
 }
+
+HakoPduErrorType EndpointContainer::post_start(const std::string& endpoint_id) noexcept
+{
+    std::lock_guard<std::mutex> lock(mtx_);
+    last_error_.clear();
+
+    if (!initialized_) {
+        last_error_ = "EndpointContainer is not initialized.";
+        return HAKO_PDU_ERR_INVALID_CONFIG;
+    }
+
+    auto it = cache_.find(endpoint_id);
+    if (it == cache_.end() || !it->second) {
+        last_error_ = "post_start: endpoint not found in container. id=" + endpoint_id;
+        return HAKO_PDU_ERR_INVALID_CONFIG;
+    }
+
+    if (!started_[endpoint_id]) {
+        last_error_ = "post_start: endpoint is not started. id=" + endpoint_id;
+        return HAKO_PDU_ERR_INVALID_CONFIG;
+    }
+
+    const HakoPduErrorType err = it->second->post_start();
+    if (err != HAKO_PDU_ERR_OK) {
+        last_error_ = "post_start failed. id=" + endpoint_id
+                      + " err=" + std::to_string(static_cast<int>(err));
+        return err;
+    }
+    return HAKO_PDU_ERR_OK;
+}
+
 bool EndpointContainer::is_running_all() const noexcept
 {
     std::lock_guard<std::mutex> lock(mtx_);

@@ -188,6 +188,15 @@ public:
         }
         return HAKO_PDU_ERR_OK;
     }
+
+    // Optional post-start hook (comm only).
+    virtual HakoPduErrorType post_start() noexcept
+    {
+        if (comm_) {
+            return comm_->post_start();
+        }
+        return HAKO_PDU_ERR_OK;
+    }
     
     virtual HakoPduErrorType stop() noexcept
     {

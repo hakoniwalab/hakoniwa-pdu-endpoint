@@ -29,6 +29,8 @@ public:
     virtual HakoPduErrorType open(const std::string& config_path) = 0;
     virtual HakoPduErrorType close() noexcept = 0;
     virtual HakoPduErrorType start() noexcept = 0;
+    // Optional post-start hook for comms that need extra setup after start().
+    virtual HakoPduErrorType post_start() noexcept { return HAKO_PDU_ERR_OK; }
     virtual HakoPduErrorType stop() noexcept = 0;
     virtual HakoPduErrorType is_running(bool& running) noexcept = 0;
 
