@@ -49,7 +49,7 @@ HakoPduErrorType init_impl_from_config(const nlohmann::json& shm_config,
 std::map<int, PduCommShm*> PduCommShm::event_id_to_instance_map_;
 std::mutex PduCommShm::event_map_mutex_;
 
-PduCommShm::PduCommShm() : running_(false) {
+PduCommShm::PduCommShm() : running_(false), recv_events_registered_(false) {
     // Constructor
 }
 
@@ -138,6 +138,8 @@ HakoPduErrorType PduCommShm::open(const std::string& config_path) {
             std::cerr << "PduCommShm Error: 'io.robots' not specified in config." << std::endl;
             return HAKO_PDU_ERR_INVALID_CONFIG;
         }
+        recv_notify_keys_.clear();
+        recv_events_registered_ = false;
         for (const auto& robot_def : shm_config.at("io").at("robots")) {
             std::string robot_name = robot_def.at("name").get<std::string>();
             for (const auto& pdu_entry : robot_def.at("pdu")) {
@@ -149,19 +151,7 @@ HakoPduErrorType PduCommShm::open(const std::string& config_path) {
                         std::cerr << "PduCommShm Error: Failed to resolve PDU '" << pdu_name << "' for robot '" << robot_name << "'" << std::endl;
                         return HAKO_PDU_ERR_INVALID_CONFIG;
                     }
-
-                    int event_id = -1;
-                    if (impl_->register_rcv_event({ robot_name, def.channel_id }, PduCommShm::shm_recv_callback, event_id) != 0) {
-                        std::cerr << "PduCommShm Error: Failed to register recv event for " << robot_name << "/" << pdu_name << std::endl;
-                        return HAKO_PDU_ERR_INVALID_CONFIG;
-                    }
-
-                    PduResolvedKey key = { robot_name, def.channel_id };
-                    event_id_to_key_map_[event_id] = key;
-                    registered_event_ids_.push_back(event_id);
-
-                    std::lock_guard<std::mutex> lock(event_map_mutex_);
-                    event_id_to_instance_map_[event_id] = this;
+                    recv_notify_keys_.push_back({ robot_name, def.channel_id });
                 }
             }
         }
@@ -183,12 +173,37 @@ HakoPduErrorType PduCommShm::close() noexcept {
     }
     registered_event_ids_.clear();
     event_id_to_key_map_.clear();
+    recv_notify_keys_.clear();
+    recv_events_registered_ = false;
     return HAKO_PDU_ERR_OK;
 }
 
 HakoPduErrorType PduCommShm::start() noexcept {
     running_.store(true);
-    // Nothing else to do for SHM as events are callback-driven
+    if (!recv_events_registered_ && !recv_notify_keys_.empty()) {
+        std::vector<int> newly_registered_ids;
+        for (const auto& key : recv_notify_keys_) {
+            int event_id = -1;
+            if (impl_->register_rcv_event(key, PduCommShm::shm_recv_callback, event_id) != 0) {
+                std::cerr << "PduCommShm Error: Failed to register recv event for " << key.robot << "/" << key.channel_id << std::endl;
+                std::lock_guard<std::mutex> lock(event_map_mutex_);
+                for (int registered_id : newly_registered_ids) {
+                    event_id_to_instance_map_.erase(registered_id);
+                    event_id_to_key_map_.erase(registered_id);
+                }
+                registered_event_ids_.clear();
+                running_.store(false);
+                return HAKO_PDU_ERR_INVALID_CONFIG;
+            }
+            event_id_to_key_map_[event_id] = key;
+            registered_event_ids_.push_back(event_id);
+            newly_registered_ids.push_back(event_id);
+
+            std::lock_guard<std::mutex> lock(event_map_mutex_);
+            event_id_to_instance_map_[event_id] = this;
+        }
+        recv_events_registered_ = true;
+    }
     return HAKO_PDU_ERR_OK;
 }
 
