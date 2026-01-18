@@ -26,6 +26,7 @@ HakoPduErrorType init_impl_from_config(const nlohmann::json& shm_config,
     }
 
     const std::string impl_type = shm_config.at("impl_type").get<std::string>();
+    std::cout << "DEBUG: PduCommShm impl_type=" << impl_type << std::endl;
     if (impl_type == "callback") {
         impl = std::make_unique<PduCommShmCallbackImpl>(pdu_def);
         return HAKO_PDU_ERR_OK;
@@ -36,6 +37,7 @@ HakoPduErrorType init_impl_from_config(const nlohmann::json& shm_config,
             return HAKO_PDU_ERR_INVALID_CONFIG;
         }
         const std::string asset_name = shm_config.at("asset_name").get<std::string>();
+        std::cout << "DEBUG: PduCommShm poll asset_name=" << asset_name << std::endl;
         impl = std::make_unique<PduCommShmPollImpl>(pdu_def, asset_name);
         return HAKO_PDU_ERR_OK;
     }
@@ -222,8 +224,15 @@ void PduCommShm::process_recv_events() noexcept
     if (!running_.load()) {
         return;
     }
+    static bool logged_once = false;
+    if (!logged_once) {
+        std::cout << "DEBUG: PduCommShm process_recv_events called." << std::endl;
+        logged_once = true;
+    }
     if (impl_) {
         impl_->process_recv_events();
+    } else {
+        std::cout << "DEBUG: PduCommShm process_recv_events: impl_ is null" << std::endl;
     }
 }
 
@@ -258,11 +267,16 @@ HakoPduErrorType PduCommShm::recv(const PduResolvedKey& pdu_key, std::span<std::
 }
 
 void PduCommShm::shm_recv_callback(int recv_event_id) {
-    std::lock_guard<std::mutex> lock(event_map_mutex_);
-    if (event_id_to_instance_map_.count(recv_event_id)) {
-        PduCommShm* instance = event_id_to_instance_map_[recv_event_id];
-        instance->handle_shm_recv(recv_event_id);
+    PduCommShm* instance = nullptr;
+    {
+        std::lock_guard<std::mutex> lock(event_map_mutex_);
+        auto it = event_id_to_instance_map_.find(recv_event_id);
+        if (it == event_id_to_instance_map_.end()) {
+            return;
+        }
+        instance = it->second;
     }
+    instance->handle_shm_recv(recv_event_id);
 }
 
 void PduCommShm::handle_shm_recv(int recv_event_id) {

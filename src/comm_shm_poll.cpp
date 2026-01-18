@@ -25,6 +25,7 @@ HakoPduErrorType PduCommShmPollImpl::create_pdu_lchannel(const std::string& robo
 HakoPduErrorType PduCommShmPollImpl::send(const PduResolvedKey& pdu_key, std::span<const std::byte> data) noexcept
 {
     if (hakoniwa_asset_write_pdu(asset_name_.c_str(), pdu_key.robot.c_str(), pdu_key.channel_id, reinterpret_cast<const char*>(data.data()), data.size()) != 0) {
+        std::cerr << "PduCommShmPollImpl Error: Failed to send PDU. AssetName:" << asset_name_ << " Robot: " << pdu_key.robot << " Channel ID: " << pdu_key.channel_id << " Size: " << data.size() << std::endl;
         return HAKO_PDU_ERR_IO_ERROR;
     }
     return HAKO_PDU_ERR_OK;
@@ -58,16 +59,23 @@ HakoPduErrorType PduCommShmPollImpl::register_rcv_event(const PduResolvedKey& pd
 
 void PduCommShmPollImpl::process_recv_events() noexcept
 {
+    std::cout << "DEBUG: PduCommShmPollImpl process_recv_events called." << std::endl;
     std::vector<PollEntry> entries;
     {
         std::lock_guard<std::mutex> lock(poll_mutex_);
         entries = poll_entries_;
     }
+    std::cout << "DEBUG: PduCommShmPollImpl checking " << entries.size() << " poll entries." << std::endl;
     for (const auto& entry : entries) {
-        if (hakoniwa_asset_check_data_recv_event(
+        int rc = hakoniwa_asset_check_data_recv_event(
                 asset_name_.c_str(),
                 entry.key.robot.c_str(),
-                entry.key.channel_id) == 0) {
+                entry.key.channel_id);
+        std::cout << "SHM poll check: asset=" << asset_name_
+                  << " robot=" << entry.key.robot
+                  << " channel=" << entry.key.channel_id
+                  << " rc=" << rc << std::endl;
+        if (rc == 0) {
             if (entry.on_recv) {
                 entry.on_recv(entry.event_id);
             }

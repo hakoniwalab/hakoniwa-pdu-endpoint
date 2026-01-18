@@ -341,6 +341,10 @@ public:
     // subscribe_on_recv_callback should be called during initialization (before start()).
     void subscribe_on_recv_callback(const PduResolvedKey& pdu_key, OnRecvCallback cb) noexcept
     {
+        std::cout << "DEBUG: subscribe_on_recv_callback: endpoint=" << name_
+                  << " robot=" << pdu_key.robot
+                  << " channel=" << pdu_key.channel_id
+                  << std::endl;
         std::lock_guard<std::mutex> lock(cb_mtx_);
         per_pdu_callbacks_.emplace_back(pdu_key, std::move(cb));
     }
