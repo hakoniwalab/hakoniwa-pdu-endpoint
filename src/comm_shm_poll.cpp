@@ -59,22 +59,16 @@ HakoPduErrorType PduCommShmPollImpl::register_rcv_event(const PduResolvedKey& pd
 
 void PduCommShmPollImpl::process_recv_events() noexcept
 {
-    std::cout << "DEBUG: PduCommShmPollImpl process_recv_events called." << std::endl;
     std::vector<PollEntry> entries;
     {
         std::lock_guard<std::mutex> lock(poll_mutex_);
         entries = poll_entries_;
     }
-    std::cout << "DEBUG: PduCommShmPollImpl checking " << entries.size() << " poll entries." << std::endl;
     for (const auto& entry : entries) {
         int rc = hakoniwa_asset_check_data_recv_event(
                 asset_name_.c_str(),
                 entry.key.robot.c_str(),
                 entry.key.channel_id);
-        std::cout << "SHM poll check: asset=" << asset_name_
-                  << " robot=" << entry.key.robot
-                  << " channel=" << entry.key.channel_id
-                  << " rc=" << rc << std::endl;
         if (rc == 0) {
             if (entry.on_recv) {
                 entry.on_recv(entry.event_id);

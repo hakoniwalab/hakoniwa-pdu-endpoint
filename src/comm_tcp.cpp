@@ -198,6 +198,7 @@ HakoPduErrorType TcpComm::raw_is_running(bool& running) noexcept {
 HakoPduErrorType TcpComm::raw_send(const std::vector<std::byte>& data) noexcept {
     int current_client_fd = client_fd_.load();
     if (current_client_fd < 0) {
+        std::cout << "TCP Comm send failed: not connected." << std::endl;
         return HAKO_PDU_ERR_NOT_RUNNING;
     }
     if (config_direction_ == HAKO_PDU_ENDPOINT_DIRECTION_IN) {
