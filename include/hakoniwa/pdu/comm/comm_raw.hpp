@@ -6,6 +6,7 @@
 #include <string>
 #include <mutex> // Add mutex include
 #include <memory>
+#include <iostream>
 // Removed <deque>, <mutex>, <condition_variable>
 
 namespace hakoniwa {
@@ -45,6 +46,11 @@ class PduCommRaw : public PduComm {
          // TODO: Timestamps should be set here if needed.
          std::lock_guard<std::mutex> lock(send_mutex_); // Add lock
          auto encoded_data = packet.encode("v2"); // Encode data while holding lock
+         #ifdef ENABLE_DEBUG_MESSAGES
+         std::cout << "DEBUG: PduCommRaw sending PDU: robot=" << pdu_key.robot
+                   << " channel=" << pdu_key.channel_id
+                   << " size=" << encoded_data.size() << std::endl;
+        #endif
          return raw_send(encoded_data); // Call the pure virtual raw_send, now protected by the lock
      }
  
@@ -79,6 +85,11 @@ class PduCommRaw : public PduComm {
              key.robot = packet->get_robot_name();
              key.channel_id = packet->get_channel_id();
              const auto& pdu_data = packet->get_pdu_data();
+             #ifdef ENABLE_DEBUG_MESSAGES
+             std::cout << "DEBUG: PduCommRaw received PDU: robot=" << key.robot
+                       << " channel=" << key.channel_id
+                       << " size=" << pdu_data.size() << std::endl;
+            #endif
              on_recv_callback_(key, std::span<const std::byte>(pdu_data));
          }
          // Removed queue related code

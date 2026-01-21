@@ -62,8 +62,6 @@ private:
   mutable std::mutex mtx_;
   std::unordered_map<std::string, std::shared_ptr<Endpoint>> cache_; // id -> endpoint
 
-  // track started state (optional but practical)
-  std::unordered_map<std::string, bool> started_;
   bool initialized_{false};
 
   std::string last_error_;

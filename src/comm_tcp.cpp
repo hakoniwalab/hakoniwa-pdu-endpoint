@@ -196,14 +196,21 @@ HakoPduErrorType TcpComm::raw_is_running(bool& running) noexcept {
 }
 
 HakoPduErrorType TcpComm::raw_send(const std::vector<std::byte>& data) noexcept {
+    #ifdef ENABLE_DEBUG_MESSAGES
+    std::cout << "DEBUG: TCP Comm raw_send called with " << data.size() << " bytes." << std::endl;
+    #endif
     int current_client_fd = client_fd_.load();
     if (current_client_fd < 0) {
         std::cout << "TCP Comm send failed: not connected." << std::endl;
         return HAKO_PDU_ERR_NOT_RUNNING;
     }
     if (config_direction_ == HAKO_PDU_ENDPOINT_DIRECTION_IN) {
+        std::cerr << "TCP Comm send failed: endpoint configured as IN only." << std::endl;
         return HAKO_PDU_ERR_INVALID_ARGUMENT;
     }
+    #ifdef ENABLE_DEBUG_MESSAGES
+    std::cout << "DEBUG: TCP Comm sending " << data.size() << " bytes." << std::endl;
+    #endif
     return write_data(current_client_fd, data.data(), data.size());
 }
 
@@ -232,7 +239,9 @@ void TcpComm::server_loop() {
                 // Connection closed or error
                 break;
             }
-            
+            #ifdef ENABLE_DEBUG_MESSAGES
+            std::cout << "DEBUG: TCP Comm server received header." << std::endl;
+            #endif
             MetaPdu meta;
             std::memcpy(&meta, header_buf.data(), sizeof(MetaPdu));
             meta.body_len = ntohl(meta.body_len); // Assuming body_len is what we need
@@ -247,7 +256,9 @@ void TcpComm::server_loop() {
                 }
                 header_buf.insert(header_buf.end(), body_buf.begin(), body_buf.end());
             }
-            
+            #ifdef ENABLE_DEBUG_MESSAGES
+            std::cout << "DEBUG: TCP Comm server received full packet." << std::endl;
+            #endif
             on_raw_data_received(header_buf);
         }
         is_connected_ = false;
@@ -292,7 +303,9 @@ void TcpComm::client_loop() {
                 std::cerr << "TCP Comm read header failed: " << static_cast<int>(err) << std::endl;
                 break; // Disconnected
             }
-
+            #ifdef ENABLE_DEBUG_MESSAGES
+            std::cout << "DEBUG: TCP Comm client received header." << std::endl;
+            #endif
             MetaPdu meta;
             std::memcpy(&meta, header_buf.data(), sizeof(MetaPdu));
             meta.body_len = ntohl(meta.body_len);
@@ -351,6 +364,9 @@ HakoPduErrorType TcpComm::write_data(int fd, const std::byte* buffer, size_t siz
             return map_errno_to_error(errno);
         }
     }
+    #ifdef ENABLE_DEBUG_MESSAGES
+    std::cout << "DEBUG: TCP Comm sent " << total_sent << " bytes." << std::endl;
+    #endif
     return HAKO_PDU_ERR_OK;
 }
 

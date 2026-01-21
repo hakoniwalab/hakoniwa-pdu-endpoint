@@ -55,7 +55,6 @@ private:
     std::map<int, PduResolvedKey> event_id_to_key_map_;
     std::vector<int> registered_event_ids_;
     std::vector<PduResolvedKey> recv_notify_keys_;
-    bool recv_events_registered_;
     std::unique_ptr<PduCommShmImp> impl_;
 };
 

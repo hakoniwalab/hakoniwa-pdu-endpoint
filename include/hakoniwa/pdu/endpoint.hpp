@@ -192,7 +192,9 @@ public:
     // Optional post-start hook (comm only).
     virtual HakoPduErrorType post_start() noexcept
     {
+        std::cout << "DEBUG: Endpoint post_start called. name=" << name_ << std::endl;
         if (comm_) {
+            std::cout << "DEBUG: Endpoint calling comm_->post_start(). name=" << name_ << std::endl;
             return comm_->post_start();
         }
         return HAKO_PDU_ERR_OK;
@@ -282,6 +284,11 @@ public:
     virtual HakoPduErrorType send(const PduResolvedKey& pdu_key, std::span<const std::byte> data) noexcept
     {
         if (comm_) {
+            #ifdef ENABLE_DEBUG_MESSAGES
+            std::cout << "DEBUG: Endpoint sending PDU: robot=" << pdu_key.robot
+                      << " channel=" << pdu_key.channel_id
+                      << " size=" << data.size() << std::endl;
+            #endif
             return comm_->send(pdu_key, data);
         }
         else {

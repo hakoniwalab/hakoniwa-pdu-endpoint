@@ -68,7 +68,6 @@ HakoPduErrorType EndpointContainer::create_pdu_lchannels()
                 if (opened_ep) { (void)opened_ep->close(); }
             }
             cache_.clear();
-            started_.clear();
             return HAKO_PDU_ERR_INVALID_CONFIG;
         }
         HakoPduErrorType err = ep->create_pdu_lchannels(e.config_path);
@@ -79,7 +78,6 @@ HakoPduErrorType EndpointContainer::create_pdu_lchannels()
                 if (opened_ep) { (void)opened_ep->close(); }
             }
             cache_.clear();
-            started_.clear();
             return err;
         }
     }
@@ -106,7 +104,6 @@ HakoPduErrorType EndpointContainer::initialize()
                 if (opened_ep) { (void)opened_ep->close(); }
             }
             cache_.clear();
-            started_.clear();
             return HAKO_PDU_ERR_INVALID_CONFIG;
         }
     }
@@ -244,7 +241,6 @@ std::shared_ptr<Endpoint> EndpointContainer::create_and_open_(const EndpointEntr
         return nullptr;
     }
 
-    started_[e.id] = false;
     return ep;
 }
 
@@ -263,15 +259,12 @@ HakoPduErrorType EndpointContainer::start_all() noexcept
 
     for (auto& [id, ep] : cache_) {
         if (!ep) { continue; }
-        if (started_[id]) { continue; }
 
         const HakoPduErrorType err = ep->start();
         if (err != HAKO_PDU_ERR_OK && first_err == HAKO_PDU_ERR_OK) {
             first_err = err;
             last_error_ = "start_all failed at endpoint id=" + id
                           + " err=" + std::to_string(static_cast<int>(err));
-        } else if (err == HAKO_PDU_ERR_OK) {
-            started_[id] = true;
         }
     }
     return first_err;
@@ -281,18 +274,28 @@ HakoPduErrorType EndpointContainer::post_start_all() noexcept
 {
     std::lock_guard<std::mutex> lock(mtx_);
     last_error_.clear();
+    #ifdef ENABLE_DEBUG_MESSAGES
+    std::cout << "## DEBUG: EndpointContainer::post_start_all called." << std::endl;
+    #endif
 
     if (!initialized_) {
         last_error_ = "EndpointContainer is not initialized.";
+        #ifdef ENABLE_DEBUG_MESSAGES
+        std::cout << "## DEBUG: EndpointContainer::post_start_all failed: not initialized." << std::endl;
+        #endif
         return HAKO_PDU_ERR_INVALID_CONFIG;
     }
 
     HakoPduErrorType first_err = HAKO_PDU_ERR_OK;
 
     for (auto& [id, ep] : cache_) {
+        #ifdef ENABLE_DEBUG_MESSAGES
+        std::cout << "## DEBUG: EndpointContainer::post_start_all processing endpoint id=" << id << std::endl;
+        #endif
         if (!ep) { continue; }
-        if (!started_[id]) { continue; }
-
+        #ifdef ENABLE_DEBUG_MESSAGES
+        std::cout << "## DEBUG: EndpointContainer::post_start_all calling post_start for endpoint id=" << id << std::endl;
+        #endif
         const HakoPduErrorType err = ep->post_start();
         if (err != HAKO_PDU_ERR_OK && first_err == HAKO_PDU_ERR_OK) {
             first_err = err;
@@ -335,12 +338,10 @@ HakoPduErrorType EndpointContainer::stop_all() noexcept
                           + " err=" + std::to_string(static_cast<int>(close_err));
         }
 
-        started_[id] = false;
     }
 
     // Optional: clear cache to allow clean re-create later.
     cache_.clear();
-    started_.clear();
     initialized_ = false;    
 
     return first_err;
@@ -362,17 +363,12 @@ HakoPduErrorType EndpointContainer::start(const std::string& endpoint_id) noexce
         return HAKO_PDU_ERR_INVALID_CONFIG;
     }
 
-    if (started_[endpoint_id]) {
-        return HAKO_PDU_ERR_OK;
-    }
-
     const HakoPduErrorType err = it->second->start();
     if (err != HAKO_PDU_ERR_OK) {
         last_error_ = "start failed. id=" + endpoint_id
                       + " err=" + std::to_string(static_cast<int>(err));
         return err;
     }
-    started_[endpoint_id] = true;
     return HAKO_PDU_ERR_OK;
 }
 
@@ -391,12 +387,6 @@ HakoPduErrorType EndpointContainer::post_start(const std::string& endpoint_id) n
         last_error_ = "post_start: endpoint not found in container. id=" + endpoint_id;
         return HAKO_PDU_ERR_INVALID_CONFIG;
     }
-
-    if (!started_[endpoint_id]) {
-        last_error_ = "post_start: endpoint is not started. id=" + endpoint_id;
-        return HAKO_PDU_ERR_INVALID_CONFIG;
-    }
-
     const HakoPduErrorType err = it->second->post_start();
     if (err != HAKO_PDU_ERR_OK) {
         last_error_ = "post_start failed. id=" + endpoint_id
@@ -473,11 +463,8 @@ HakoPduErrorType EndpointContainer::stop(const std::string& endpoint_id) noexcep
                       + " err=" + std::to_string(static_cast<int>(close_err));
     }
 
-    started_[endpoint_id] = false;
-
     // Optional: remove from cache so it can be re-created
     cache_.erase(endpoint_id);
-    started_.erase(endpoint_id);
 
     return first_err;
 }

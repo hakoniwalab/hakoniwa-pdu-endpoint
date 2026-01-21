@@ -26,7 +26,9 @@ HakoPduErrorType init_impl_from_config(const nlohmann::json& shm_config,
     }
 
     const std::string impl_type = shm_config.at("impl_type").get<std::string>();
+    #ifdef ENABLE_DEBUG_MESSAGES
     std::cout << "DEBUG: PduCommShm impl_type=" << impl_type << std::endl;
+    #endif
     if (impl_type == "callback") {
         impl = std::make_unique<PduCommShmCallbackImpl>(pdu_def);
         return HAKO_PDU_ERR_OK;
@@ -37,7 +39,9 @@ HakoPduErrorType init_impl_from_config(const nlohmann::json& shm_config,
             return HAKO_PDU_ERR_INVALID_CONFIG;
         }
         const std::string asset_name = shm_config.at("asset_name").get<std::string>();
+        #ifdef ENABLE_DEBUG_MESSAGES
         std::cout << "DEBUG: PduCommShm poll asset_name=" << asset_name << std::endl;
+        #endif
         impl = std::make_unique<PduCommShmPollImpl>(pdu_def, asset_name);
         return HAKO_PDU_ERR_OK;
     }
@@ -51,7 +55,7 @@ HakoPduErrorType init_impl_from_config(const nlohmann::json& shm_config,
 std::map<int, PduCommShm*> PduCommShm::event_id_to_instance_map_;
 std::mutex PduCommShm::event_map_mutex_;
 
-PduCommShm::PduCommShm() : running_(false), recv_events_registered_(false) {
+PduCommShm::PduCommShm() : running_(false) {
     // Constructor
 }
 
@@ -141,7 +145,6 @@ HakoPduErrorType PduCommShm::open(const std::string& config_path) {
             return HAKO_PDU_ERR_INVALID_CONFIG;
         }
         recv_notify_keys_.clear();
-        recv_events_registered_ = false;
         for (const auto& robot_def : shm_config.at("io").at("robots")) {
             std::string robot_name = robot_def.at("name").get<std::string>();
             for (const auto& pdu_entry : robot_def.at("pdu")) {
@@ -176,7 +179,6 @@ HakoPduErrorType PduCommShm::close() noexcept {
     registered_event_ids_.clear();
     event_id_to_key_map_.clear();
     recv_notify_keys_.clear();
-    recv_events_registered_ = false;
     return HAKO_PDU_ERR_OK;
 }
 
@@ -186,10 +188,16 @@ HakoPduErrorType PduCommShm::start() noexcept {
 }
 
 HakoPduErrorType PduCommShm::post_start() noexcept {
-    if (!recv_events_registered_ && !recv_notify_keys_.empty()) {
+    #ifdef ENABLE_DEBUG_MESSAGES
+    std::cout << "DEBUG: PduCommShm post_start called. recv_notify_keys_.size(): " << recv_notify_keys_.size() << std::endl;
+    #endif
+    if (!recv_notify_keys_.empty()) {
         std::vector<int> newly_registered_ids;
         for (const auto& key : recv_notify_keys_) {
             int event_id = -1;
+            #ifdef ENABLE_DEBUG_MESSAGES
+            std::cout << "DEBUG: PduCommShm registering recv event for " << key.robot << "/" << key.channel_id << std::endl;
+            #endif
             if (impl_->register_rcv_event(key, PduCommShm::shm_recv_callback, event_id) != 0) {
                 std::cerr << "PduCommShm Error: Failed to register recv event for " << key.robot << "/" << key.channel_id << std::endl;
                 std::lock_guard<std::mutex> lock(event_map_mutex_);
@@ -208,7 +216,6 @@ HakoPduErrorType PduCommShm::post_start() noexcept {
             std::lock_guard<std::mutex> lock(event_map_mutex_);
             event_id_to_instance_map_[event_id] = this;
         }
-        recv_events_registered_ = true;
     }
     return HAKO_PDU_ERR_OK;
 }
@@ -226,13 +233,17 @@ void PduCommShm::process_recv_events() noexcept
     }
     static bool logged_once = false;
     if (!logged_once) {
+        #ifdef ENABLE_DEBUG_MESSAGES
         std::cout << "DEBUG: PduCommShm process_recv_events called." << std::endl;
+        #endif
         logged_once = true;
     }
     if (impl_) {
         impl_->process_recv_events();
     } else {
+        #ifdef ENABLE_DEBUG_MESSAGES
         std::cout << "DEBUG: PduCommShm process_recv_events: impl_ is null" << std::endl;
+        #endif
     }
 }
 

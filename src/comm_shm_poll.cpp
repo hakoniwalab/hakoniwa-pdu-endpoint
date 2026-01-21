@@ -28,6 +28,9 @@ HakoPduErrorType PduCommShmPollImpl::send(const PduResolvedKey& pdu_key, std::sp
         std::cerr << "PduCommShmPollImpl Error: Failed to send PDU. AssetName:" << asset_name_ << " Robot: " << pdu_key.robot << " Channel ID: " << pdu_key.channel_id << " Size: " << data.size() << std::endl;
         return HAKO_PDU_ERR_IO_ERROR;
     }
+    #ifdef ENABLE_DEBUG_MESSAGES
+    std::cout << "## PduCom SHM write: " << pdu_key.robot << std::endl;
+    #endif
     return HAKO_PDU_ERR_OK;
 }
 HakoPduErrorType PduCommShmPollImpl::recv(const PduResolvedKey& pdu_key, std::span<std::byte> data, size_t& received_size) noexcept
@@ -40,8 +43,20 @@ HakoPduErrorType PduCommShmPollImpl::recv(const PduResolvedKey& pdu_key, std::sp
 }
 HakoPduErrorType PduCommShmPollImpl::register_rcv_event(const PduResolvedKey& pdu_key, void (*on_recv)(int), int& out_event_id) noexcept
 {
+    std::cout << "PduCommShmPollImpl: Registering recv event. Robot: " << pdu_key.robot << " Channel ID: " << pdu_key.channel_id << std::endl;
     if (hakoniwa_asset_register_data_recv_event(pdu_key.robot.c_str(), pdu_key.channel_id) != 0) {
+        std::cerr << "PduCommShmPollImpl Error: Failed to register recv event. Robot: " << pdu_key.robot << " Channel ID: " << pdu_key.channel_id << std::endl;
         return HAKO_PDU_ERR_IO_ERROR;
+    }
+
+    {
+        std::lock_guard<std::mutex> lock(poll_mutex_);
+        for (const auto& entry : poll_entries_) {
+            if (entry.key.robot == pdu_key.robot && entry.key.channel_id == pdu_key.channel_id) {
+                out_event_id = entry.event_id;
+                return HAKO_PDU_ERR_OK;
+            }
+        }
     }
 
     PollEntry entry;
@@ -64,11 +79,19 @@ void PduCommShmPollImpl::process_recv_events() noexcept
         std::lock_guard<std::mutex> lock(poll_mutex_);
         entries = poll_entries_;
     }
+    #ifdef ENABLE_DEBUG_MESSAGES
+    std::cout << "PduCommShmPollImpl: Processing recv events. Total entries: " << entries.size() << std::endl;
+    #endif
     for (const auto& entry : entries) {
         int rc = hakoniwa_asset_check_data_recv_event(
                 asset_name_.c_str(),
                 entry.key.robot.c_str(),
                 entry.key.channel_id);
+        #ifdef ENABLE_DEBUG_MESSAGES
+        std::cout << "PduCommShmPollImpl: Checking recv event for Robot: " << entry.key.robot
+                  << " Channel ID: " << entry.key.channel_id
+                  << " Result: " << rc << std::endl;
+        #endif
         if (rc == 0) {
             if (entry.on_recv) {
                 entry.on_recv(entry.event_id);
