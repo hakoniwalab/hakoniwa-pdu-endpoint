@@ -300,6 +300,7 @@ void PduCommShm::handle_shm_recv(int recv_event_id) {
         std::lock_guard<std::mutex> lock(event_map_mutex_);
         auto it = event_id_to_key_map_.find(recv_event_id);
         if (it == event_id_to_key_map_.end()) {
+            std::cerr << "PduCommShm Error: Received event ID not found in key map: " << recv_event_id << std::endl;
             return; // Not found
         }
         key = it->second;
@@ -309,10 +310,12 @@ void PduCommShm::handle_shm_recv(int recv_event_id) {
         std::cerr << "PduCommShm Error: Can't resolve PDU for received event. Robot: " << key.robot << " Channel: " << key.channel_id << std::endl;
         return;
     }
+    //std::cout << "PduCommShm: Received PDU event for Robot: " << key.robot << " Channel ID: " << key.channel_id << std::endl;
 
     std::vector<std::byte> buffer(def.pdu_size);
     size_t received_size = 0;
     if (native_recv(key, buffer, received_size) == 0) {
+        //std::cout << "PduCommShm: Successfully received PDU data. Size: " << received_size << " bytes" << std::endl;
         on_recv_callback_(key, buffer);
     }
 }

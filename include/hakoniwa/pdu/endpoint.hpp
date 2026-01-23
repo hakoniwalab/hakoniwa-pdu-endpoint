@@ -372,17 +372,27 @@ private:
     void notify_subscribers_(const PduResolvedKey& pdu_key,
                             std::span<const std::byte> data) noexcept
     {
+        //std::cout << "DEBUG: notify_subscribers_ called for Robot: " << pdu_key.robot << " Channel ID: " << pdu_key.channel_id << std::endl;
+        bool is_found = false;
         std::vector<OnRecvCallback> targets;
         {
             std::lock_guard<std::mutex> lock(cb_mtx_);
             for (const auto& [sub_key, cb] : per_pdu_callbacks_) {
+                //std::cout << "DEBUG: Checking subscriber for Robot: " << sub_key.robot << " Channel ID: " << sub_key.channel_id << std::endl;
                 if (sub_key.robot == pdu_key.robot &&
                     sub_key.channel_id == pdu_key.channel_id) {
+                    //std::cout << "DEBUG: Found matching subscriber for Robot: " << pdu_key.robot << " Channel ID: " << pdu_key.channel_id << std::endl;
                     targets.push_back(cb); // copy
+                    is_found = true;
                 }
             }
         }
+        if (!is_found) {
+            std::cerr << "ERROR: No subscribers found for Robot: " << pdu_key.robot << " Channel ID: " << pdu_key.channel_id << std::endl;
+            return;
+        }
         for (auto& cb : targets) {
+            //std::cout << "DEBUG: Invoking subscriber callback for Robot: " << pdu_key.robot << " Channel ID: " << pdu_key.channel_id << std::endl;
             cb(pdu_key, data);
         }
     }
@@ -392,7 +402,11 @@ private:
      */
     void recv_callback_(const PduResolvedKey& pdu_key, std::span<const std::byte> data) noexcept
     {
-        if (!cache_) { return; }
+        //std::cout << "DEBUG: Endpoint recv_callback_ called for Robot: " << pdu_key.robot << " Channel ID: " << pdu_key.channel_id << std::endl;
+        if (!cache_) { 
+            std::cerr << "PDU Cache module is not initialized in recv_callback_. Ignoring received data." << std::endl;
+            return; 
+        }
         (void)cache_->write(pdu_key, data);
 
         notify_subscribers_(pdu_key, data);
