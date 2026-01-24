@@ -1,0 +1,5 @@
+{
+  "name": "tutorial_websocket_client_endpoint",
+  "cache": "cache/buffer.json",
+  "comm": "comm/websocket_client_out.json"
+}

@@ -78,7 +78,7 @@ python tools/validate_json.py --schema config/schema/endpoint_schema.json --chec
 python tools/validate_json.py --schema config/schema/endpoint_container_schema.json --check-paths config/sample/endpoint_container.json
 ```
 
-Tutorial:
+Tutorials:
 - `docs/tutorials/endpoint.md`
 
 ### 1. Endpoint Configuration

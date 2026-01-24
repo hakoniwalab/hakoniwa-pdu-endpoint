@@ -1,4 +1,4 @@
-# Endpoint Tutorial (TCP and UDP)
+# Endpoint Tutorial (TCP, UDP, WebSocket)
 
 This tutorial walks through install, build, run, and verify using TCP, then swaps the endpoint configuration to UDP without changing application code.
 
@@ -79,3 +79,24 @@ build/examples/endpoint_minimal config/tutorial/endpoint_udp_client.json send 5
 ```
 
 If you see the same `sent:`/`recv:` logs, the swap worked.
+
+## Swap to WebSocket (No Code Changes)
+
+Use the WebSocket endpoint configs with the same binary:
+
+Terminal 1 (server, receive):
+```bash
+build/examples/endpoint_minimal config/tutorial/endpoint_websocket_server.json recv 10
+```
+
+Terminal 2 (client, send):
+```bash
+build/examples/endpoint_minimal config/tutorial/endpoint_websocket_client.json send 5
+```
+
+Expected output:
+
+- Client prints `sent: hello N`
+- Server prints `recv: hello N`
+
+Note: when the client exits, the server may log a read error as the connection closes.

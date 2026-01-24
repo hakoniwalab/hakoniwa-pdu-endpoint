@@ -1,0 +1,9 @@
+{
+  "protocol": "websocket",
+  "name": "tutorial_ws_server_in",
+  "direction": "in",
+  "role": "server",
+  "local": {
+    "port": 9100
+  }
+}

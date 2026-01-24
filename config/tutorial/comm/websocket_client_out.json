@@ -1,0 +1,11 @@
+{
+  "protocol": "websocket",
+  "name": "tutorial_ws_client_out",
+  "direction": "out",
+  "role": "client",
+  "remote": {
+    "host": "127.0.0.1",
+    "port": 9100,
+    "path": "/"
+  }
+}
