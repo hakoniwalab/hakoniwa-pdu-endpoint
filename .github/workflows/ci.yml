@@ -27,6 +27,8 @@ jobs:
           cd hakoniwa-core-pro
           bash build.bash
           bash install.bash
+          echo "/usr/local/hakoniwa/lib" | sudo tee /etc/ld.so.conf.d/hakoniwa.conf
+          sudo ldconfig
 
       - name: Configure
         run: cmake -S . -B build -DHAKO_PDU_ENDPOINT_BUILD_TESTS=ON
@@ -35,4 +37,6 @@ jobs:
         run: cmake --build build
 
       - name: Test
-        run: ctest --test-dir build --rerun-failed --output-on-failure 
+        env:
+          LD_LIBRARY_PATH: /usr/local/hakoniwa/lib
+        run: ctest --test-dir build --rerun-failed --output-on-failure
