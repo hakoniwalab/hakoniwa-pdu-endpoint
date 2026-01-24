@@ -14,12 +14,19 @@ jobs:
           echo "deb [trusted=yes] https://hakoniwalab.github.io/apt stable main" \
             | sudo tee /etc/apt/sources.list.d/hakoniwa.list
           sudo apt update
-          sudo apt-get install -y g++-12 hakoniwa-core-full libgtest-dev cmake libboost-dev
+          sudo apt-get install -y g++-12 libgtest-dev cmake libboost-dev
       - name: Update Compiler Alternatives
         run: |
           sudo update-alternatives --install /usr/bin/g++ g++ /usr/bin/g++-12 12
       - name: Checkout
         uses: actions/checkout@v4
+
+      - name: Build and Install hakoniwa-core-pro
+        run: |
+          git clone https://github.com/hakoniwalab/hakoniwa-core-pro.git
+          cd hakoniwa-core-pro
+          bash build.bash
+          bash install.bash
 
       - name: Configure
         run: cmake -S . -B build -DHAKO_PDU_ENDPOINT_BUILD_TESTS=ON
