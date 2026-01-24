@@ -35,4 +35,4 @@ jobs:
         run: cmake --build build
 
       - name: Test
-        run: ctest --test-dir build
+        run: ctest --test-dir build --rerun-failed --output-on-failure 
