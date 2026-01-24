@@ -1,0 +1,5 @@
+{
+  "name": "tutorial_udp_client_endpoint",
+  "cache": "cache/buffer.json",
+  "comm": "comm/udp_client_out.json"
+}

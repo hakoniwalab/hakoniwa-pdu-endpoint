@@ -1,0 +1,5 @@
+{
+  "name": "tutorial_tcp_client_endpoint",
+  "cache": "cache/buffer.json",
+  "comm": "comm/tcp_client_out.json"
+}

@@ -21,8 +21,10 @@
 
 -   C++20 compatible compiler (e.g., GCC, Clang, MSVC)
 -   CMake (version 3.16 or later)
--   GoogleTest (for running tests, automatically fetched by CMake)
--   (Optional) Hakoniwa Core Library, if using Shared Memory (`comm_shm`) communication.
+-   Boost headers (header-only usage)
+-   GoogleTest (for running tests, provided by your system package)
+-   (Optional) Hakoniwa Core Library, if using Shared Memory (`comm_shm`) communication or Hakoniwa time sources.
+    -   Expected install prefix: `/usr/local/hakoniwa` (headers in `/usr/local/hakoniwa/include`, libs in `/usr/local/hakoniwa/lib`)
 
 ## How to Build
 
@@ -30,17 +32,15 @@ You can build the project using standard CMake commands.
 
 1.  **Clone the repository**:
     ```bash
-    git clone https://github.com/your-username/hakoniwa-pdu-endpoint.git
+    git clone https://github.com/hakoniwalab/hakoniwa-pdu-endpoint.git
     cd hakoniwa-pdu-endpoint
     ```
 
 2.  **Configure and build the project**:
     Create a `build` directory and run CMake and make.
     ```bash
-    mkdir -p build
-    cd build
-    cmake ..
-    make
+    cmake -S . -B build
+    cmake --build build
     ```
     This will compile the static library `libhakoniwa_pdu_endpoint.a` into the `build/src` directory.
 
@@ -49,7 +49,7 @@ You can build the project using standard CMake commands.
 The project includes a test suite built with GoogleTest. After a successful build, run the tests from the `build` directory:
 
 ```bash
-ctest --verbose
+ctest --test-dir build --output-on-failure
 ```
 
 You should see output indicating that all tests have passed.
@@ -60,9 +60,26 @@ The endpoint configuration is modular, consisting of up to four parts: the main 
 
 The schemas for these can be found in `config/schema/`:
 - `endpoint_schema.json`
+- `endpoint_container_schema.json`
 - `cache_schema.json`
 - `comm_schema.json`
 - `pdu_def_schema.json`
+
+### Configuration Workflow
+
+1. Create a cache config (e.g., `config/sample/cache/buffer.json` or `config/sample/cache/queue.json`).
+2. Create a comm config (e.g., `config/sample/comm/tcp_server_inout_comm.json`).
+3. Create a single endpoint config (e.g., `config/sample/endpoint.json`) that references the cache and comm files.
+4. Optional: create a container config (e.g., `config/sample/endpoint_container.json`) to manage multiple endpoints under a `nodeId`.
+
+You can validate configs with the JSON schema checker:
+```bash
+python tools/validate_json.py --schema config/schema/endpoint_schema.json --check-paths config/sample/endpoint.json
+python tools/validate_json.py --schema config/schema/endpoint_container_schema.json --check-paths config/sample/endpoint_container.json
+```
+
+Tutorial:
+- `docs/tutorials/endpoint.md`
 
 ### 1. Endpoint Configuration
 
@@ -94,6 +111,25 @@ An endpoint for internal use (without a network component) can be defined by set
     "cache": "config/sample/cache/buffer.json",
     "comm": null
 }
+```
+
+Additional endpoint examples are collected in `config/sample/endpoint_examples.json`.
+
+### 1b. Endpoint Container Configuration
+
+`EndpointContainer` uses a container file to map a `nodeId` to a list of endpoints.
+
+**Example:**
+```json
+[
+  {
+    "nodeId": "node_1",
+    "endpoints": [
+      { "id": "ep_tcp_server", "config_path": "config/sample/endpoint_tcp_server.json" },
+      { "id": "ep_udp_inout", "config_path": "config/sample/endpoint_udp_inout.json" }
+    ]
+  }
+]
 ```
 
 ### 2. Cache Configuration
@@ -219,6 +255,21 @@ int main() {
 
 The library is built on a modular, layered architecture that emphasizes a strong separation of concerns. This design provides excellent versatility and extensibility.
 
+### Key Classes and Lifecycle
+
+-   **`EndpointContainer`**: Loads a container config (list of endpoints) for a given `nodeId`, opens each endpoint, and manages lifecycle in bulk.
+    -   Typical flow: `create_pdu_lchannels()` (optional) → `initialize()` → `start_all()` → `post_start_all()` → `stop_all()`.
+-   **`Endpoint` lifecycle**: `open()` configures cache/comm and loads optional PDU definitions.
+    -   `create_pdu_lchannels()` pre-creates SHM channels when required by the comm implementation.
+    -   `post_start()` is a post-start hook (used by SHM to register recv events).
+    -   `process_recv_events()` is only meaningful for SHM poll implementations (others are no-op).
+
+### API Notes
+
+-   Name-based API (`send/recv(PduKey)`) requires `pdu_def_path`. Without it, these calls return `HAKO_PDU_ERR_UNSUPPORTED`.
+-   ID-based API (`send/recv(PduResolvedKey)`) works without PDU definitions.
+-   For `comm_shm` with `impl_type: "poll"`, you must call `Endpoint::process_recv_events()` periodically to dispatch receive callbacks.
+
 ### Class Diagram
 
 ```mermaid
@@ -226,11 +277,21 @@ classDiagram
     direction LR
 
     class Endpoint {
+        +create_pdu_lchannels(config_path)
         +open(config_path)
+        +post_start()
+        +process_recv_events()
         +send(PduKey, data)
         +recv(PduKey, buffer, len)
         +send(PduResolvedKey, data)
         +recv(PduResolvedKey, buffer, len)
+    }
+    class EndpointContainer {
+        +create_pdu_lchannels()
+        +initialize()
+        +start_all()
+        +post_start_all()
+        +stop_all()
     }
 
     class PduDefinition {
@@ -259,6 +320,7 @@ classDiagram
     Endpoint "1" o-- "0..1" PduDefinition : owns
     Endpoint "1" o-- "1" PduCache : owns
     Endpoint "1" o-- "0..1" PduComm : owns
+    EndpointContainer "1" o-- "1..*" Endpoint : owns
     Endpoint ..> PduDefinition : uses
 
     PduComm <|-- PduCommShm

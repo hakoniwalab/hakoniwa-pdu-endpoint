@@ -9,3 +9,8 @@ enable_testing()
 if(HAKO_PDU_ENDPOINT_BUILD_TESTS)
   add_subdirectory(test)
 endif()
+
+option(HAKO_PDU_ENDPOINT_BUILD_EXAMPLES "Build example programs" OFF)
+if(HAKO_PDU_ENDPOINT_BUILD_EXAMPLES)
+  add_subdirectory(examples)
+endif()

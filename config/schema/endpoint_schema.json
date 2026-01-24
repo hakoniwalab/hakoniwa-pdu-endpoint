@@ -12,14 +12,14 @@
       "maxLength": 256
     },
     "cache": {
-      "type": ["string", "null"],
-      "description": "Path to the cache configuration file, or null if no cache is used.",
-      "pattern": "^(cache\/)?.*\.json$"
+      "type": "string",
+      "description": "Path to the cache configuration file.",
+      "pattern": ".*\\.json$"
     },
     "comm": {
       "type": ["string", "null"],
       "description": "Path to the communication configuration file, or null if no communication is used (e.g., for internal endpoints).",
-      "pattern": "^(comm\/)?.*\.json$"
+      "pattern": ".*\\.json$"
     },
     "pdu_def_path": {
       "type": ["string", "null"],

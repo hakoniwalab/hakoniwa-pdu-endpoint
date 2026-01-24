@@ -1,0 +1,10 @@
+{
+  "protocol": "tcp",
+  "name": "tutorial_tcp_server_in",
+  "direction": "in",
+  "role": "server",
+  "local": {
+    "address": "0.0.0.0",
+    "port": 9000
+  }
+}

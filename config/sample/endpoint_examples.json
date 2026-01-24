@@ -1,0 +1,62 @@
+[
+  {
+    "name": "tcp_server_buffer_endpoint",
+    "cache": "cache/buffer.json",
+    "comm": "comm/tcp_server_inout_comm.json"
+  },
+  {
+    "name": "tcp_client_buffer_endpoint",
+    "cache": "cache/buffer.json",
+    "comm": "comm/tcp_client_inout_comm.json"
+  },
+  {
+    "name": "udp_inout_buffer_endpoint",
+    "cache": "cache/queue.json",
+    "comm": "comm/udp_inout_comm.json"
+  },
+  {
+    "name": "internal_buffer_endpoint",
+    "cache": "cache/internal_buffer.json",
+    "comm": null
+  },
+  {
+    "name": "internal_queue_endpoint",
+    "cache": "cache/internal_queue.json",
+    "comm": null
+  },
+  {
+    "name": "tcp_client_out_endpoint",
+    "cache": "cache/buffer.json",
+    "comm": "comm/tcp_client_out_comm.json"
+  },
+  {
+    "name": "tcp_server_in_endpoint",
+    "cache": "cache/queue.json",
+    "comm": "comm/tcp_server_in_comm.json"
+  },
+  {
+    "name": "udp_client_out_endpoint",
+    "cache": "cache/buffer.json",
+    "comm": "comm/udp_client_out_comm.json"
+  },
+  {
+    "name": "udp_server_in_endpoint",
+    "cache": "cache/queue.json",
+    "comm": "comm/udp_server_in_comm.json"
+  },
+  {
+    "name": "udp_inout_remote_endpoint",
+    "cache": "cache/queue.json",
+    "comm": "comm/udp_inout_remote_comm.json"
+  },
+  {
+    "name": "udp_mcast_in_endpoint",
+    "cache": "cache/queue.json",
+    "comm": "comm/udp_mcast_in_comm.json"
+  },
+  {
+    "name": "udp_bcast_out_endpoint",
+    "cache": "cache/buffer.json",
+    "comm": "comm/udp_bcast_out_comm.json"
+  }
+]

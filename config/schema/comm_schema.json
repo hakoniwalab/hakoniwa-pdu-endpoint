@@ -3,7 +3,7 @@
   "title": "Communication Endpoint Configuration",
   "description": "Schema for communication endpoints (TCP, UDP, SHM, WebSocket).",
   "type": "object",
-  "required": ["protocol", "direction"],
+  "required": ["protocol"],
   "properties": {
     "protocol": {
       "type": "string",
@@ -21,6 +21,15 @@
       "enum": ["in", "out", "inout"],
       "description": "Communication direction."
     },
+    "pdu_key": {
+      "type": "object",
+      "description": "PDU key for UDP framing.",
+      "required": ["robot", "channel_id"],
+      "properties": {
+        "robot": { "type": "string", "minLength": 1 },
+        "channel_id": { "type": "integer", "minimum": 0 }
+      }
+    },
     "impl_type": {
       "type": "string",
       "enum": ["callback", "poll"],
@@ -30,11 +39,6 @@
       "type": "string",
       "description": "Target asset name for SHM poll implementation.",
       "minLength": 1
-    },
-    "poll_interval_ms": {
-      "type": "integer",
-      "description": "Polling interval in milliseconds for SHM poll implementation.",
-      "minimum": 1
     },
     "role": {
       "type": "string",
@@ -48,11 +52,6 @@
     "remote": {
       "type": "object",
       "description": "Remote endpoint settings."
-    },
-    "pdu_config_path": {
-      "type": "string",
-      "description": "Optional PDU definition path for SHM configurations.",
-      "minLength": 1
     },
     "io": {
       "$ref": "#/$defs/shm_io"
@@ -93,9 +92,7 @@
           "required": ["enabled"],
           "if": { "properties": { "enabled": { "const": true } } },
           "then": { "required": ["group"] }
-        },
-        "ping_interval_sec": { "type": "integer", "description": "WebSocket ping interval (seconds)." },
-        "handshake_timeout_ms": { "type": "integer", "description": "WebSocket handshake timeout (ms)." }
+        }
       }
     }
   },
@@ -103,7 +100,7 @@
     {
       "if": { "properties": { "protocol": { "const": "tcp" } } },
       "then": {
-        "required": ["name", "role"],
+        "required": ["role", "direction"],
         "properties": {
           "local": { "$ref": "#/$defs/endpoint" },
           "remote": { "$ref": "#/$defs/endpoint" }
@@ -133,7 +130,7 @@
     {
       "if": { "properties": { "protocol": { "const": "udp" } } },
       "then": {
-        "required": ["name"],
+        "required": ["direction", "pdu_key"],
         "properties": {
           "local": { "$ref": "#/$defs/endpoint" },
           "remote": { "$ref": "#/$defs/endpoint" }
@@ -148,7 +145,7 @@
     {
       "if": { "properties": { "protocol": { "const": "websocket" } } },
       "then": {
-        "required": ["role"],
+        "required": ["role", "direction"],
         "properties": {
           "local": { "$ref": "#/$defs/ws_local" },
           "remote": { "$ref": "#/$defs/ws_remote" }
@@ -178,7 +175,7 @@
     {
       "if": { "properties": { "protocol": { "const": "shm" } } },
       "then": {
-        "required": ["name", "io", "impl_type"],
+        "required": ["io", "impl_type"],
         "properties": {
           "io": { "$ref": "#/$defs/shm_io" }
         },
@@ -244,10 +241,6 @@
           "description": "WebSocket path.",
           "minLength": 1,
           "default": "/"
-        },
-        "secure": {
-          "type": "boolean",
-          "description": "Enable secure WebSocket (wss)."
         }
       }
     },

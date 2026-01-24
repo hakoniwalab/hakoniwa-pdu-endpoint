@@ -1,0 +1,10 @@
+{
+  "protocol": "udp",
+  "name": "tutorial_udp_client_out",
+  "direction": "out",
+  "pdu_key": { "robot": "TutorialRobo", "channel_id": 0 },
+  "remote": {
+    "address": "127.0.0.1",
+    "port": 9001
+  }
+}

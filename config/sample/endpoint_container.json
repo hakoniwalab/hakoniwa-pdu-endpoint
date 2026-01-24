@@ -1,0 +1,15 @@
+[
+  {
+    "nodeId": "node_1",
+    "endpoints": [
+      {
+        "id": "tcp_server_endpoint",
+        "config_path": "config/sample/endpoint_tcp_server.json"
+      },
+      {
+        "id": "udp_inout_endpoint",
+        "config_path": "config/sample/endpoint_udp_inout.json"
+      }
+    ]
+  }
+]

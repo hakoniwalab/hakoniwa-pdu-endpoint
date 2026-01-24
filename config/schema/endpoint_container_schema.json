@@ -1,0 +1,49 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Endpoint Container Configuration",
+  "description": "Schema for endpoint container files consumed by EndpointContainer.",
+  "type": "array",
+  "minItems": 1,
+  "items": { "$ref": "#/$defs/container_entry" },
+  "$defs": {
+    "container_entry": {
+      "type": "object",
+      "required": ["nodeId", "endpoints"],
+      "properties": {
+        "nodeId": {
+          "type": "string",
+          "minLength": 1
+        },
+        "endpoints": {
+          "type": "array",
+          "minItems": 1,
+          "items": { "$ref": "#/$defs/endpoint_entry" }
+        }
+      }
+    },
+    "endpoint_entry": {
+      "type": "object",
+      "required": ["id", "config_path"],
+      "properties": {
+        "id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "config_path": {
+          "type": "string",
+          "description": "Path to endpoint config JSON.",
+          "pattern": ".*\\.json$"
+        },
+        "direction": {
+          "type": "string",
+          "enum": ["in", "out", "inout"],
+          "description": "Optional endpoint direction override."
+        },
+        "mode": {
+          "type": "string",
+          "description": "Optional mode field (stored but not interpreted by container)."
+        }
+      }
+    }
+  }
+}

@@ -3,7 +3,6 @@
   "impl_type": "callback",
   "name": "hakoniwa_shared_memory",
   "direction": "inout",
-  "pdu_config_path": "config/sample/comm/hakoniwa/pdudef.json",
   "io": {
     "robots": [
       {

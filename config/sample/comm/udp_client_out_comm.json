@@ -2,6 +2,7 @@
   "protocol": "udp",
   "name": "udp_client_out",
   "direction": "out",
+  "pdu_key": { "robot": "TestRobo", "channel_id": 0 },
   "remote": {
     "address": "192.168.1.100",
     "port": 8080

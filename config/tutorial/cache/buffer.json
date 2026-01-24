@@ -1,0 +1,7 @@
+{
+  "type": "buffer",
+  "name": "tutorial_latest_buffer",
+  "store": {
+    "mode": "latest"
+  }
+}

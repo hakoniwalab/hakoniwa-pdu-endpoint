@@ -1,0 +1,10 @@
+{
+  "protocol": "udp",
+  "name": "tutorial_udp_server_in",
+  "direction": "in",
+  "pdu_key": { "robot": "TutorialRobo", "channel_id": 0 },
+  "local": {
+    "address": "0.0.0.0",
+    "port": 9001
+  }
+}
