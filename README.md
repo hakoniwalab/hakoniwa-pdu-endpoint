@@ -81,6 +81,7 @@ python tools/validate_json.py --schema config/schema/endpoint_container_schema.j
 Tutorials:
 - `docs/tutorials/endpoint.md`
 
+
 ### 1. Endpoint Configuration
 
 This is the main entry point. It defines an endpoint and links to the desired cache, communication, and (optionally) PDU definition configurations.
