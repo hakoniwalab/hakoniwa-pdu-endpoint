@@ -42,6 +42,7 @@ target_include_directories(hakoniwa_pdu_endpoint
   PUBLIC
     ${CMAKE_CURRENT_LIST_DIR}/../include
     /usr/local/hakoniwa/include
+    /usr/local/hakoniwa/include/hakoniwa
     /usr/local/hakoniwa/include/hakoniwa/pdu
 )
 if(APPLE)
