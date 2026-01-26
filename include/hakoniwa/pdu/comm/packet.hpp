@@ -98,11 +98,15 @@ public:
     const MetaPdu& get_meta() const { return meta_pdu_; }
     bool is_pdu_data_type(const std::string& version) const noexcept {
         if (version == "v1") {
+            // v1 has no explicit type field; we infer "data" by excluding known control magic numbers.
+            // This is best-effort and can misclassify payloads that start with those values.
             if (body_data_.size() < sizeof(uint32_t)) {
-                return false;
+                return true;
             }
             const uint32_t type = read_le32(body_data_.data());
-            return type == static_cast<uint32_t>(MetaRequestType::PDU_DATA_TYPE);
+            return type != static_cast<uint32_t>(MetaRequestType::DECLARE_PDU_FOR_READ)
+                && type != static_cast<uint32_t>(MetaRequestType::DECLARE_PDU_FOR_WRITE)
+                && type != static_cast<uint32_t>(MetaRequestType::REQUEST_PDU_READ);
         }
         return meta_pdu_.meta_request_type == static_cast<uint32_t>(MetaRequestType::PDU_DATA_TYPE);
     }
@@ -272,12 +276,11 @@ private:
     }
 
     // V1 Implementation
-    std::vector<std::byte> encode_v1(MetaRequestType request_type) const {
+    std::vector<std::byte> encode_v1(MetaRequestType /*request_type*/) const {
         std::string name_str(meta_pdu_.robot_name);
         uint32_t name_len = static_cast<uint32_t>(name_str.length());
         uint32_t body_len = static_cast<uint32_t>(body_data_.size());
-        uint32_t total_body_len = body_len + 4;
-        uint32_t header_len = 4 + name_len + 4 + total_body_len;
+        uint32_t header_len = 4 + name_len + 4 + body_len;
         uint32_t total_len = 4 + header_len;
 
         std::vector<std::byte> result(total_len);
@@ -293,9 +296,6 @@ private:
         offset += name_len;
 
         write_le32(result.data() + offset, meta_pdu_.channel_id);
-        offset += 4;
-
-        write_le32(result.data() + offset, static_cast<uint32_t>(request_type));
         offset += 4;
 
         if (!body_data_.empty()) {
