@@ -21,6 +21,11 @@
       "enum": ["in", "out", "inout"],
       "description": "Communication direction."
     },
+    "comm_raw_version": {
+      "type": "string",
+      "enum": ["v1", "v2"],
+      "description": "Optional raw packet format version for TCP/UDP/WebSocket."
+    },
     "pdu_key": {
       "type": "object",
       "description": "PDU key for UDP framing.",

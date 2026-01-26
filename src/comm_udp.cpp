@@ -57,6 +57,18 @@ HakoPduErrorType UdpComm::raw_open(const std::string& config_path)
         return HAKO_PDU_ERR_INVALID_ARGUMENT;
     }
     config_direction_ = parse_direction(config_json.at("direction").get<std::string>());
+
+    if (config_json.contains("comm_raw_version")) {
+        if (!config_json.at("comm_raw_version").is_string()) {
+            std::cerr << "UDP Comm config error: 'comm_raw_version' must be a string." << std::endl;
+            return HAKO_PDU_ERR_INVALID_ARGUMENT;
+        }
+        const std::string version = config_json.at("comm_raw_version").get<std::string>();
+        if (!set_packet_version(version)) {
+            std::cerr << "UDP Comm config error: unsupported comm_raw_version '" << version << "'." << std::endl;
+            return HAKO_PDU_ERR_INVALID_ARGUMENT;
+        }
+    }
     
     if (!config_json.contains("pdu_key")) {
         std::cerr << "UDP Comm config error: missing 'pdu_key'." << std::endl;

@@ -270,6 +270,17 @@ HakoPduErrorType WebSocketComm::raw_open(const std::string& config_path) {
     }
 
     config_direction_ = parse_direction(config_json.at("direction").get<std::string>());
+    if (config_json.contains("comm_raw_version")) {
+        if (!config_json.at("comm_raw_version").is_string()) {
+            std::cerr << "WebSocket Comm config error: 'comm_raw_version' must be a string." << std::endl;
+            return HAKO_PDU_ERR_INVALID_ARGUMENT;
+        }
+        const std::string version = config_json.at("comm_raw_version").get<std::string>();
+        if (!set_packet_version(version)) {
+            std::cerr << "WebSocket Comm config error: unsupported comm_raw_version '" << version << "'." << std::endl;
+            return HAKO_PDU_ERR_INVALID_ARGUMENT;
+        }
+    }
     const std::string role_value = config_json.at("role").get<std::string>();
     if (role_value == "server") {
         role_ = Role::Server;

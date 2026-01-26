@@ -11,6 +11,8 @@
 #include <netinet/tcp.h>
 #include <poll.h>
 #include <iostream>
+#include <array>
+#include <cstddef>
 
 namespace hakoniwa {
 namespace pdu {
@@ -18,6 +20,32 @@ namespace comm {
 
 namespace {
 constexpr int kTcpSocketType = SOCK_STREAM;
+constexpr uint32_t kMaxV1PacketSize = 4 * 1024 * 1024;
+
+uint32_t read_le32(const std::byte* data) noexcept
+{
+    return static_cast<uint32_t>(std::to_integer<unsigned char>(data[0]))
+        | (static_cast<uint32_t>(std::to_integer<unsigned char>(data[1])) << 8)
+        | (static_cast<uint32_t>(std::to_integer<unsigned char>(data[2])) << 16)
+        | (static_cast<uint32_t>(std::to_integer<unsigned char>(data[3])) << 24);
+}
+
+uint32_t bswap32(uint32_t value) noexcept
+{
+    return ((value & 0x000000FFu) << 24)
+        | ((value & 0x0000FF00u) << 8)
+        | ((value & 0x00FF0000u) >> 8)
+        | ((value & 0xFF000000u) >> 24);
+}
+
+uint32_t from_le32(uint32_t value) noexcept
+{
+#if defined(__BYTE_ORDER__) && (__BYTE_ORDER__ == __ORDER_BIG_ENDIAN__)
+    return bswap32(value);
+#else
+    return value;
+#endif
+}
 }
 
 TcpComm::TcpComm() {}
@@ -53,6 +81,18 @@ HakoPduErrorType TcpComm::raw_open(const std::string& config_path) {
         return HAKO_PDU_ERR_INVALID_ARGUMENT;
     }
     config_direction_ = parse_direction(config_json.at("direction").get<std::string>());
+
+    if (config_json.contains("comm_raw_version")) {
+        if (!config_json.at("comm_raw_version").is_string()) {
+            std::cerr << "TCP Comm config error: 'comm_raw_version' must be a string." << std::endl;
+            return HAKO_PDU_ERR_INVALID_ARGUMENT;
+        }
+        const std::string version = config_json.at("comm_raw_version").get<std::string>();
+        if (!set_packet_version(version)) {
+            std::cerr << "TCP Comm config error: unsupported comm_raw_version '" << version << "'." << std::endl;
+            return HAKO_PDU_ERR_INVALID_ARGUMENT;
+        }
+    }
     
     const std::string role_value = config_json.at("role").get<std::string>();
     if (role_value == "server") {
@@ -232,6 +272,29 @@ void TcpComm::server_loop() {
         is_connected_ = true;
 
         while (is_running_flag_) {
+            if (packet_version() == "v1") {
+                std::array<std::byte, 4> header_len_buf{};
+                HakoPduErrorType err = read_data(client_fd_.load(), header_len_buf.data(), header_len_buf.size());
+                if (err != HAKO_PDU_ERR_OK) {
+                    std::cerr << "TCP Comm read v1 header length failed: " << static_cast<int>(err) << std::endl;
+                    break;
+                }
+                uint32_t header_len = read_le32(header_len_buf.data());
+                if (header_len == 0 || header_len > kMaxV1PacketSize) {
+                    std::cerr << "TCP Comm v1 header length invalid: " << header_len << std::endl;
+                    break;
+                }
+                std::vector<std::byte> packet_buf(4 + header_len);
+                std::memcpy(packet_buf.data(), header_len_buf.data(), header_len_buf.size());
+                err = read_data(client_fd_.load(), packet_buf.data() + 4, header_len);
+                if (err != HAKO_PDU_ERR_OK) {
+                    std::cerr << "TCP Comm read v1 payload failed: " << static_cast<int>(err) << std::endl;
+                    break;
+                }
+                on_raw_data_received(packet_buf);
+                continue;
+            }
+
             std::vector<std::byte> header_buf(sizeof(MetaPdu));
             HakoPduErrorType err = read_data(client_fd_.load(), header_buf.data(), header_buf.size());
             if (err != HAKO_PDU_ERR_OK) {
@@ -244,7 +307,7 @@ void TcpComm::server_loop() {
             #endif
             MetaPdu meta;
             std::memcpy(&meta, header_buf.data(), sizeof(MetaPdu));
-            meta.body_len = ntohl(meta.body_len); // Assuming body_len is what we need
+            meta.body_len = from_le32(meta.body_len);
 
             if (meta.body_len > 0) {
                 std::vector<std::byte> body_buf(meta.body_len);
@@ -297,6 +360,29 @@ void TcpComm::client_loop() {
         is_connected_ = true;
 
         while (is_running_flag_) {
+            if (packet_version() == "v1") {
+                std::array<std::byte, 4> header_len_buf{};
+                HakoPduErrorType err = read_data(client_fd_.load(), header_len_buf.data(), header_len_buf.size());
+                if (err != HAKO_PDU_ERR_OK) {
+                    std::cerr << "TCP Comm read v1 header length failed: " << static_cast<int>(err) << std::endl;
+                    break;
+                }
+                uint32_t header_len = read_le32(header_len_buf.data());
+                if (header_len == 0 || header_len > kMaxV1PacketSize) {
+                    std::cerr << "TCP Comm v1 header length invalid: " << header_len << std::endl;
+                    break;
+                }
+                std::vector<std::byte> packet_buf(4 + header_len);
+                std::memcpy(packet_buf.data(), header_len_buf.data(), header_len_buf.size());
+                err = read_data(client_fd_.load(), packet_buf.data() + 4, header_len);
+                if (err != HAKO_PDU_ERR_OK) {
+                    std::cerr << "TCP Comm read v1 payload failed: " << static_cast<int>(err) << std::endl;
+                    break;
+                }
+                on_raw_data_received(packet_buf);
+                continue;
+            }
+
             std::vector<std::byte> header_buf(sizeof(MetaPdu));
             HakoPduErrorType err = read_data(client_fd_.load(), header_buf.data(), header_buf.size());
             if (err != HAKO_PDU_ERR_OK) {
@@ -308,7 +394,7 @@ void TcpComm::client_loop() {
             #endif
             MetaPdu meta;
             std::memcpy(&meta, header_buf.data(), sizeof(MetaPdu));
-            meta.body_len = ntohl(meta.body_len);
+            meta.body_len = from_le32(meta.body_len);
 
             std::vector<std::byte> body_buf;
             if (meta.body_len > 0) {

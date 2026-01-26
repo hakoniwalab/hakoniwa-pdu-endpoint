@@ -1,6 +1,7 @@
 #pragma once
 
 #include <cstdint>
+#include <cstddef>
 #include <string>
 #include <vector>
 #include <memory>
@@ -115,27 +116,105 @@ private:
     MetaPdu meta_pdu_;
     std::vector<std::byte> body_data_;
 
+    static uint32_t read_le32(const std::byte* data) noexcept {
+        return static_cast<uint32_t>(std::to_integer<unsigned char>(data[0]))
+            | (static_cast<uint32_t>(std::to_integer<unsigned char>(data[1])) << 8)
+            | (static_cast<uint32_t>(std::to_integer<unsigned char>(data[2])) << 16)
+            | (static_cast<uint32_t>(std::to_integer<unsigned char>(data[3])) << 24);
+    }
+
+    static void write_le32(std::byte* out, uint32_t value) noexcept {
+        out[0] = static_cast<std::byte>(value & 0xFF);
+        out[1] = static_cast<std::byte>((value >> 8) & 0xFF);
+        out[2] = static_cast<std::byte>((value >> 16) & 0xFF);
+        out[3] = static_cast<std::byte>((value >> 24) & 0xFF);
+    }
+
+    static uint16_t bswap16(uint16_t value) noexcept {
+        return static_cast<uint16_t>((value >> 8) | (value << 8));
+    }
+
+    static uint32_t bswap32(uint32_t value) noexcept {
+        return ((value & 0x000000FFu) << 24)
+            | ((value & 0x0000FF00u) << 8)
+            | ((value & 0x00FF0000u) >> 8)
+            | ((value & 0xFF000000u) >> 24);
+    }
+
+    static uint64_t bswap64(uint64_t value) noexcept {
+        return ((value & 0x00000000000000FFULL) << 56)
+            | ((value & 0x000000000000FF00ULL) << 40)
+            | ((value & 0x0000000000FF0000ULL) << 24)
+            | ((value & 0x00000000FF000000ULL) << 8)
+            | ((value & 0x000000FF00000000ULL) >> 8)
+            | ((value & 0x0000FF0000000000ULL) >> 24)
+            | ((value & 0x00FF000000000000ULL) >> 40)
+            | ((value & 0xFF00000000000000ULL) >> 56);
+    }
+
+    static uint16_t to_le16(uint16_t value) noexcept {
+    #if defined(__BYTE_ORDER__) && (__BYTE_ORDER__ == __ORDER_BIG_ENDIAN__)
+        return bswap16(value);
+    #else
+        return value;
+    #endif
+    }
+
+    static uint32_t to_le32(uint32_t value) noexcept {
+    #if defined(__BYTE_ORDER__) && (__BYTE_ORDER__ == __ORDER_BIG_ENDIAN__)
+        return bswap32(value);
+    #else
+        return value;
+    #endif
+    }
+
+    static uint64_t to_le64(uint64_t value) noexcept {
+    #if defined(__BYTE_ORDER__) && (__BYTE_ORDER__ == __ORDER_BIG_ENDIAN__)
+        return bswap64(value);
+    #else
+        return value;
+    #endif
+    }
+
+    static uint16_t from_le16(uint16_t value) noexcept {
+    #if defined(__BYTE_ORDER__) && (__BYTE_ORDER__ == __ORDER_BIG_ENDIAN__)
+        return bswap16(value);
+    #else
+        return value;
+    #endif
+    }
+
+    static uint32_t from_le32(uint32_t value) noexcept {
+    #if defined(__BYTE_ORDER__) && (__BYTE_ORDER__ == __ORDER_BIG_ENDIAN__)
+        return bswap32(value);
+    #else
+        return value;
+    #endif
+    }
+
+    static uint64_t from_le64(uint64_t value) noexcept {
+    #if defined(__BYTE_ORDER__) && (__BYTE_ORDER__ == __ORDER_BIG_ENDIAN__)
+        return bswap64(value);
+    #else
+        return value;
+    #endif
+    }
+
     // V2 Implementation
     std::vector<std::byte> encode_v2(MetaRequestType request_type) const {
         MetaPdu meta_to_send = meta_pdu_;
 
         uint32_t body_len = body_data_.size();
-        meta_to_send.magicno = HAKO_META_MAGIC;
-        meta_to_send.version = HAKO_META_VER_V2;
-        meta_to_send.flags = 0;
-        meta_to_send.meta_request_type = request_type;
-        meta_to_send.body_len = body_len;
-        meta_to_send.total_len = (META_V2_FIXED_SIZE - 4) + body_len;
-
-        // Network byte order conversion
-        meta_to_send.magicno = htonl(meta_to_send.magicno);
-        meta_to_send.version = htons(meta_to_send.version);
-        meta_to_send.flags = htonl(meta_to_send.flags);
-        meta_to_send.meta_request_type = htonl(meta_to_send.meta_request_type);
-        meta_to_send.total_len = htonl(meta_to_send.total_len);
-        meta_to_send.body_len = htonl(meta_to_send.body_len);
-        meta_to_send.channel_id = htonl(meta_to_send.channel_id);
-        // Assuming timestamps are already in a network-compatible format or don't need conversion.
+        meta_to_send.magicno = to_le32(HAKO_META_MAGIC);
+        meta_to_send.version = to_le16(HAKO_META_VER_V2);
+        meta_to_send.flags = to_le32(0);
+        meta_to_send.meta_request_type = to_le32(static_cast<uint32_t>(request_type));
+        meta_to_send.body_len = to_le32(body_len);
+        meta_to_send.total_len = to_le32((META_V2_FIXED_SIZE - 4) + body_len);
+        meta_to_send.hako_time_us = static_cast<int64_t>(to_le64(static_cast<uint64_t>(meta_to_send.hako_time_us)));
+        meta_to_send.asset_time_us = static_cast<int64_t>(to_le64(static_cast<uint64_t>(meta_to_send.asset_time_us)));
+        meta_to_send.real_time_us = static_cast<int64_t>(to_le64(static_cast<uint64_t>(meta_to_send.real_time_us)));
+        meta_to_send.channel_id = to_le32(meta_to_send.channel_id);
 
         std::vector<std::byte> encoded_data(sizeof(MetaPdu));
         std::memcpy(encoded_data.data(), &meta_to_send, sizeof(MetaPdu));
@@ -152,19 +231,20 @@ private:
         MetaPdu received_meta;
         std::memcpy(&received_meta, data.data(), sizeof(MetaPdu));
 
-        // Network byte order conversion
-        received_meta.magicno = ntohl(received_meta.magicno);
-        received_meta.version = ntohs(received_meta.version);
-
+        received_meta.magicno = from_le32(received_meta.magicno);
+        received_meta.version = from_le16(received_meta.version);
         if (received_meta.magicno != HAKO_META_MAGIC || received_meta.version != HAKO_META_VER_V2) {
             return nullptr;
         }
-        
-        received_meta.flags = ntohl(received_meta.flags);
-        received_meta.meta_request_type = ntohl(received_meta.meta_request_type);
-        received_meta.total_len = ntohl(received_meta.total_len);
-        received_meta.body_len = ntohl(received_meta.body_len);
-        received_meta.channel_id = ntohl(received_meta.channel_id);
+
+        received_meta.flags = from_le32(received_meta.flags);
+        received_meta.meta_request_type = from_le32(received_meta.meta_request_type);
+        received_meta.total_len = from_le32(received_meta.total_len);
+        received_meta.body_len = from_le32(received_meta.body_len);
+        received_meta.hako_time_us = static_cast<int64_t>(from_le64(static_cast<uint64_t>(received_meta.hako_time_us)));
+        received_meta.asset_time_us = static_cast<int64_t>(from_le64(static_cast<uint64_t>(received_meta.asset_time_us)));
+        received_meta.real_time_us = static_cast<int64_t>(from_le64(static_cast<uint64_t>(received_meta.real_time_us)));
+        received_meta.channel_id = from_le32(received_meta.channel_id);
 
         size_t expected_body_size = received_meta.body_len;
         size_t actual_body_size = data.size() - sizeof(MetaPdu);
@@ -184,26 +264,29 @@ private:
     // V1 Implementation
     std::vector<std::byte> encode_v1() const {
         std::string name_str(meta_pdu_.robot_name);
-        uint32_t name_len = name_str.length();
-        uint32_t header_len = 4 + name_len + 4; // name_len_field + name + channel_id_field
-        
-        std::vector<std::byte> result;
-        result.reserve(4 + header_len + body_data_.size());
+        uint32_t name_len = static_cast<uint32_t>(name_str.length());
+        uint32_t body_len = static_cast<uint32_t>(body_data_.size());
+        uint32_t header_len = 4 + name_len + 4 + body_len;
+        uint32_t total_len = 4 + header_len;
 
-        auto append_uint32 = [&](uint32_t val) {
-            val = htonl(val); // Assuming network byte order for v1 too
-            const std::byte* bytes = reinterpret_cast<const std::byte*>(&val);
-            result.insert(result.end(), bytes, bytes + sizeof(val));
-        };
-        
-        append_uint32(header_len);
-        append_uint32(name_len);
-        
+        std::vector<std::byte> result(total_len);
+        size_t offset = 0;
+
+        write_le32(result.data() + offset, header_len);
+        offset += 4;
+        write_le32(result.data() + offset, name_len);
+        offset += 4;
+
         const std::byte* name_bytes = reinterpret_cast<const std::byte*>(name_str.c_str());
-        result.insert(result.end(), name_bytes, name_bytes + name_len);
-        
-        append_uint32(meta_pdu_.channel_id);
-        result.insert(result.end(), body_data_.begin(), body_data_.end());
+        std::memcpy(result.data() + offset, name_bytes, name_len);
+        offset += name_len;
+
+        write_le32(result.data() + offset, meta_pdu_.channel_id);
+        offset += 4;
+
+        if (!body_data_.empty()) {
+            std::memcpy(result.data() + offset, body_data_.data(), body_data_.size());
+        }
 
         return result;
     }
@@ -212,23 +295,26 @@ private:
         if (data.size() < 4) return nullptr;
 
         size_t index = 0;
-        auto read_uint32 = [&](uint32_t& val) {
+        auto read_uint32_le = [&](uint32_t& val) {
             if (index + sizeof(uint32_t) > data.size()) return false;
-            std::memcpy(&val, data.data() + index, sizeof(uint32_t));
-            val = ntohl(val);
+            val = read_le32(reinterpret_cast<const std::byte*>(data.data() + index));
             index += sizeof(uint32_t);
             return true;
         };
-        
-        uint32_t header_len, name_len, channel_id;
-        if (!read_uint32(header_len)) return nullptr;
-        if (!read_uint32(name_len)) return nullptr;
+
+        uint32_t header_len = 0;
+        uint32_t name_len = 0;
+        uint32_t channel_id = 0;
+        if (!read_uint32_le(header_len)) return nullptr;
+        if (data.size() < 4 + header_len) return nullptr;
+        if (!read_uint32_le(name_len)) return nullptr;
         if (index + name_len + 4 > data.size()) return nullptr;
-        
+        if (header_len < (4 + name_len + 4)) return nullptr;
+
         std::string robot_name(reinterpret_cast<const char*>(data.data() + index), name_len);
         index += name_len;
 
-        if (!read_uint32(channel_id)) return nullptr;
+        if (!read_uint32_le(channel_id)) return nullptr;
 
         std::vector<std::byte> body(data.begin() + index, data.end());
 

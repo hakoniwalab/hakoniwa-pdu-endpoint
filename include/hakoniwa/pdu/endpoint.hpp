@@ -388,7 +388,7 @@ private:
             }
         }
         if (!is_found) {
-            std::cerr << "ERROR: No subscribers found for Robot: " << pdu_key.robot << " Channel ID: " << pdu_key.channel_id << std::endl;
+            std::cerr << "WARNING: No subscribers found for Robot: " << pdu_key.robot << " Channel ID: " << pdu_key.channel_id << std::endl;
             return;
         }
         for (auto& cb : targets) {

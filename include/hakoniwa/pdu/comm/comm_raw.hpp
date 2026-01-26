@@ -45,7 +45,7 @@ class PduCommRaw : public PduComm {
          DataPacket packet(pdu_key.robot, pdu_key.channel_id, {data.begin(), data.end()});
          // TODO: Timestamps should be set here if needed.
          std::lock_guard<std::mutex> lock(send_mutex_); // Add lock
-         auto encoded_data = packet.encode("v2"); // Encode data while holding lock
+         auto encoded_data = packet.encode(packet_version_); // Encode data while holding lock
          #ifdef ENABLE_DEBUG_MESSAGES
          std::cout << "DEBUG: PduCommRaw sending PDU: robot=" << pdu_key.robot
                    << " channel=" << pdu_key.channel_id
@@ -62,6 +62,15 @@ class PduCommRaw : public PduComm {
      }
  
  protected:
+     bool set_packet_version(const std::string& version) {
+         if (version == "v1" || version == "v2") {
+             packet_version_ = version;
+             return true;
+         }
+         return false;
+     }
+     const std::string& packet_version() const noexcept { return packet_version_; }
+
      // Pure virtual interface for derived classes (UdpComm, TcpComm)
      // These methods deal with raw, framed byte buffers.
  
@@ -74,7 +83,7 @@ class PduCommRaw : public PduComm {
      
      // Method for derived classes to call when a raw packet is received
      void on_raw_data_received(const std::vector<std::byte>& raw_data) {
-         auto packet = DataPacket::decode(raw_data, "v2");
+         auto packet = DataPacket::decode(raw_data, packet_version_);
          if (!packet) {
              // Decode error, maybe log it.
              return;
@@ -97,7 +106,8 @@ class PduCommRaw : public PduComm {
  
  private:
      std::mutex send_mutex_; // Add mutex member
- 
+     std::string packet_version_ = "v2";
+
      // Removed queue for synchronous recv
  };
  

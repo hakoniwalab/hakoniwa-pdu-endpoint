@@ -10,13 +10,18 @@
 #include <sys/socket.h>
 #include <netinet/in.h>
 #include <iostream>
+#include <cerrno>
+#include <cstring>
 
 // Test Utilities
 namespace {
     // Finds an available UDP or TCP port.
     int find_available_port(int type) {
         int sock = socket(AF_INET, type, 0);
-        if (sock < 0) return -1;
+        if (sock < 0) {
+            std::cerr << "find_available_port: socket() failed: " << std::strerror(errno) << std::endl;
+            return -1;
+        }
 
         sockaddr_in addr{};
         addr.sin_family = AF_INET;
@@ -24,12 +29,14 @@ namespace {
         addr.sin_port = 0; // 0 means assign any free port
 
         if (bind(sock, reinterpret_cast<struct sockaddr*>(&addr), sizeof(addr)) < 0) {
+            std::cerr << "find_available_port: bind() failed: " << std::strerror(errno) << std::endl;
             close(sock);
             return -1;
         }
 
         socklen_t addr_len = sizeof(addr);
         if (getsockname(sock, reinterpret_cast<struct sockaddr*>(&addr), &addr_len) < 0) {
+            std::cerr << "find_available_port: getsockname() failed: " << std::strerror(errno) << std::endl;
             close(sock);
             return -1;
         }
@@ -223,6 +230,50 @@ TEST_F(EndpointTest, TcpCommunicationTest) {
     
 }
 
+TEST_F(EndpointTest, TcpCommunicationV1Test) {
+    int server_port = find_available_port(SOCK_STREAM);
+    ASSERT_GT(server_port, 0);
+
+    hakoniwa::pdu::Endpoint server("tcp_server_v1", HAKO_PDU_ENDPOINT_DIRECTION_INOUT);
+    hakoniwa::pdu::Endpoint client("tcp_client_v1", HAKO_PDU_ENDPOINT_DIRECTION_INOUT);
+
+    ASSERT_EQ(server.open("test/test_endpoint_tcp_server_v1.json"), HAKO_PDU_ERR_OK);
+    ASSERT_EQ(client.open("test/test_endpoint_tcp_client_v1.json"), HAKO_PDU_ERR_OK);
+    ASSERT_EQ(server.start(), HAKO_PDU_ERR_OK);
+    ASSERT_EQ(client.start(), HAKO_PDU_ERR_OK);
+
+    std::this_thread::sleep_for(std::chrono::milliseconds(100));
+
+    auto key = create_key("robot_tcp_v1", 11);
+    std::vector<std::byte> client_msg = {(std::byte)'v', (std::byte)'1', (std::byte)'p', (std::byte)'i', (std::byte)'n', (std::byte)'g'};
+
+    ASSERT_EQ(client.send(key, client_msg), HAKO_PDU_ERR_OK);
+    std::this_thread::sleep_for(std::chrono::milliseconds(100));
+
+    std::vector<std::byte> server_buf(16);
+    size_t server_len = 0;
+    ASSERT_EQ(server.recv(key, server_buf, server_len), HAKO_PDU_ERR_OK);
+    ASSERT_EQ(server_len, client_msg.size());
+    server_buf.resize(server_len);
+    EXPECT_EQ(server_buf, client_msg);
+
+    std::vector<std::byte> server_msg = {(std::byte)'v', (std::byte)'1', (std::byte)'p', (std::byte)'o', (std::byte)'n', (std::byte)'g'};
+    ASSERT_EQ(server.send(key, server_msg), HAKO_PDU_ERR_OK);
+    std::this_thread::sleep_for(std::chrono::milliseconds(100));
+
+    std::vector<std::byte> client_buf(16);
+    size_t client_len = 0;
+    ASSERT_EQ(client.recv(key, client_buf, client_len), HAKO_PDU_ERR_OK);
+    ASSERT_EQ(client_len, server_msg.size());
+    client_buf.resize(client_len);
+    EXPECT_EQ(client_buf, server_msg);
+
+    ASSERT_EQ(server.stop(), HAKO_PDU_ERR_OK);
+    ASSERT_EQ(client.stop(), HAKO_PDU_ERR_OK);
+    ASSERT_EQ(server.close(), HAKO_PDU_ERR_OK);
+    ASSERT_EQ(client.close(), HAKO_PDU_ERR_OK);
+}
+
 TEST_F(EndpointTest, UdpCommunicationTest) {
     int server_port = find_available_port(SOCK_DGRAM);
     ASSERT_GT(server_port, 0);
@@ -358,5 +409,3 @@ TEST_F(EndpointTest, WebSocketCommunicationInOutTest) {
     ASSERT_EQ(client.close(), HAKO_PDU_ERR_OK);
     
 }
-
-
