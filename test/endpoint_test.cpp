@@ -12,6 +12,7 @@
 #include <iostream>
 #include <cerrno>
 #include <cstring>
+#include "hakoniwa/pdu/comm/packet.hpp"
 
 // Test Utilities
 namespace {
@@ -253,9 +254,14 @@ TEST_F(EndpointTest, TcpCommunicationV1Test) {
     std::vector<std::byte> server_buf(16);
     size_t server_len = 0;
     ASSERT_EQ(server.recv(key, server_buf, server_len), HAKO_PDU_ERR_OK);
-    ASSERT_EQ(server_len, client_msg.size());
+    ASSERT_EQ(server_len, client_msg.size() + 4);
     server_buf.resize(server_len);
-    EXPECT_EQ(server_buf, client_msg);
+    EXPECT_EQ(server_buf[0], std::byte(0x43));
+    EXPECT_EQ(server_buf[1], std::byte(0x50));
+    EXPECT_EQ(server_buf[2], std::byte(0x55));
+    EXPECT_EQ(server_buf[3], std::byte(0x42));
+    std::vector<std::byte> server_payload(server_buf.begin() + 4, server_buf.end());
+    EXPECT_EQ(server_payload, client_msg);
 
     std::vector<std::byte> server_msg = {(std::byte)'v', (std::byte)'1', (std::byte)'p', (std::byte)'o', (std::byte)'n', (std::byte)'g'};
     ASSERT_EQ(server.send(key, server_msg), HAKO_PDU_ERR_OK);
@@ -264,9 +270,14 @@ TEST_F(EndpointTest, TcpCommunicationV1Test) {
     std::vector<std::byte> client_buf(16);
     size_t client_len = 0;
     ASSERT_EQ(client.recv(key, client_buf, client_len), HAKO_PDU_ERR_OK);
-    ASSERT_EQ(client_len, server_msg.size());
+    ASSERT_EQ(client_len, server_msg.size() + 4);
     client_buf.resize(client_len);
-    EXPECT_EQ(client_buf, server_msg);
+    EXPECT_EQ(client_buf[0], std::byte(0x43));
+    EXPECT_EQ(client_buf[1], std::byte(0x50));
+    EXPECT_EQ(client_buf[2], std::byte(0x55));
+    EXPECT_EQ(client_buf[3], std::byte(0x42));
+    std::vector<std::byte> client_payload(client_buf.begin() + 4, client_buf.end());
+    EXPECT_EQ(client_payload, server_msg);
 
     ASSERT_EQ(server.stop(), HAKO_PDU_ERR_OK);
     ASSERT_EQ(client.stop(), HAKO_PDU_ERR_OK);

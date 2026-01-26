@@ -88,6 +88,10 @@ class PduCommRaw : public PduComm {
              // Decode error, maybe log it.
              return;
          }
+         if (!packet->is_pdu_data_type(packet_version_)) {
+             std::cerr << "WARNING: PDU packet ignored (non PDU_DATA_TYPE)." << std::endl;
+             return;
+         }
  
          if (on_recv_callback_) {
              PduResolvedKey key;
