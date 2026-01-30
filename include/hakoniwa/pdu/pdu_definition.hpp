@@ -6,6 +6,7 @@
 #include <vector>
 #include <map>
 #include <memory>
+#include <filesystem>
 #include <nlohmann/json.hpp>
 
 namespace hakoniwa {
@@ -73,6 +74,9 @@ public:
         return true;
     }
 private:
+    bool load_legacy_(const nlohmann::json& config);
+    bool load_compact_(const nlohmann::json& config, const std::filesystem::path& base_dir);
+
     // A nested map to store PDU definitions:
     // map<robot_name, map<pdu_org_name, PduDef>>
     std::map<std::string, std::map<std::string, PduDef>> pdu_definitions_;

@@ -64,6 +64,8 @@ The schemas for these can be found in `config/schema/`:
 - `cache_schema.json`
 - `comm_schema.json`
 - `pdu_def_schema.json`
+- `pdudef.schema.json` (legacy or compact)
+- `pdutypes.schema.json` (compact PDU list)
 
 ### Configuration Workflow
 
@@ -76,6 +78,7 @@ You can validate configs with the JSON schema checker:
 ```bash
 python tools/validate_json.py --schema config/schema/endpoint_schema.json --check-paths config/sample/endpoint.json
 python tools/validate_json.py --schema config/schema/endpoint_container_schema.json --check-paths config/sample/endpoint_container.json
+python tools/validate_pdudef.py config/sample/comm/hakoniwa
 ```
 
 Tutorials:
@@ -146,7 +149,7 @@ These files define the network protocol and parameters. See `config/sample/comm/
 This file maps human-readable PDU names to their channel IDs, sizes, and types. Providing this file in the endpoint configuration enables the high-level, name-based API.
 When using SHM communication, a PDU definition file is required so the shared-memory channel IDs can be resolved.
 
-**`pdudef.json` (Excerpt):**
+**Legacy `pdudef.json` (Excerpt):**
 ```json
 {
     "robots": [
@@ -166,6 +169,34 @@ When using SHM communication, a PDU definition file is required so the shared-me
     ]
 }
 ```
+
+**Compact format (recommended for new configs):**
+
+This splits shared PDU definitions into a separate file and references them by ID, which avoids duplication when you have many robots with the same PDU set.
+The schema treats a file as compact when it contains the `paths` field; otherwise it is validated as legacy.
+
+`config/sample/comm/hakoniwa/new-pdudef.json`:
+```json
+{
+  "paths": [
+    { "id": "default", "path": "new-pdutypes.json" }
+  ],
+  "robots": [
+    { "name": "Drone", "pdutypes_id": "default" },
+    { "name": "Drone2", "pdutypes_id": "default" }
+  ]
+}
+```
+
+`config/sample/comm/hakoniwa/new-pdutypes.json`:
+```json
+[
+  { "channel_id": 0, "pdu_size": 112, "name": "motor", "type": "hako_mavlink_msgs/HakoHilActuatorControls" },
+  { "channel_id": 1, "pdu_size": 72, "name": "pos", "type": "geometry_msgs/Twist" }
+]
+```
+
+We recommend using the compact format for new configurations to keep large robot fleets manageable.
 
 ### 5. Time Source Types
 
