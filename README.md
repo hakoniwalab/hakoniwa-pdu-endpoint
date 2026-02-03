@@ -44,6 +44,34 @@ You can build the project using standard CMake commands.
     ```
     This will compile the static library `libhakoniwa_pdu_endpoint.a` into the `build/src` directory.
 
+## Install / Uninstall
+
+Install the headers and static library into `/usr/local/hakoniwa` (macOS / Ubuntu):
+
+```bash
+bash build.bash
+sudo bash install.bash
+```
+
+Install destinations:
+
+- Headers: `/usr/local/hakoniwa/include`
+- Library: `/usr/local/hakoniwa/lib/libhakoniwa_pdu_endpoint.a`
+
+Uninstall (removes only the files installed by this project):
+
+```bash
+sudo bash uninstall.bash
+```
+
+### Build Example (CMake)
+
+```cmake
+target_include_directories(app PRIVATE /usr/local/hakoniwa/include)
+target_link_directories(app PRIVATE /usr/local/hakoniwa/lib)
+target_link_libraries(app PRIVATE hakoniwa_pdu_endpoint)
+```
+
 ## How to Run Tests
 
 The project includes a test suite built with GoogleTest. After a successful build, run the tests from the `build` directory:
