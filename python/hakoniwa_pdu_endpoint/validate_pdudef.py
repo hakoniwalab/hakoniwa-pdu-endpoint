@@ -116,6 +116,12 @@ def validate_pdudef(pdudef_validator, pdutypes_validator, pdudef_path: Path):
 
 
 def main():
+    def default_schema_path(filename: str) -> str:
+        module_schema = Path(__file__).resolve().parent / "schema" / filename
+        if module_schema.exists():
+            return str(module_schema)
+        return str(Path("config/schema") / filename)
+
     parser = argparse.ArgumentParser(
         description="Validate pdudef.json (legacy or compact) and referenced pdutypes files."
     )
@@ -126,12 +132,12 @@ def main():
     )
     parser.add_argument(
         "--schema-pdudef",
-        default="config/schema/pdudef.schema.json",
+        default=default_schema_path("pdudef.schema.json"),
         help="Path to pdudef schema.",
     )
     parser.add_argument(
         "--schema-pdutypes",
-        default="config/schema/pdutypes.schema.json",
+        default=default_schema_path("pdutypes.schema.json"),
         help="Path to pdutypes schema.",
     )
     args = parser.parse_args()

@@ -4,6 +4,7 @@ set -euo pipefail
 PREFIX=${PREFIX:-/usr/local/hakoniwa}
 PROJECT_ROOT=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
 LIB_NAME=libhakoniwa_pdu_endpoint.a
+PY_INSTALL_DIR="${PREFIX}/share/hakoniwa-pdu-endpoint/python"
 
 say() {
   printf "%s\n" "$*"
@@ -38,6 +39,11 @@ done < <(find "${PROJECT_ROOT}/include" -type f \( -name "*.h" -o -name "*.hpp" 
 
 if [[ -d "${PREFIX}/include/hakoniwa" ]]; then
   find "${PREFIX}/include/hakoniwa" -type d -empty -delete
+fi
+
+if [[ -d "${PY_INSTALL_DIR}" ]]; then
+  say "Removing Python package from ${PY_INSTALL_DIR}"
+  rm -rf "${PY_INSTALL_DIR}"
 fi
 
 say "Done."

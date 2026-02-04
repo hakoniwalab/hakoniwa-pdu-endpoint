@@ -5,6 +5,8 @@ PREFIX=${PREFIX:-/usr/local/hakoniwa}
 PROJECT_ROOT=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
 BUILD_DIR=${BUILD_DIR:-"${PROJECT_ROOT}/build"}
 LIB_NAME=libhakoniwa_pdu_endpoint.a
+PY_PACKAGE_DIR=python
+PY_INSTALL_DIR="${PREFIX}/share/hakoniwa-pdu-endpoint/python"
 
 say() {
   printf "%s\n" "$*"
@@ -49,4 +51,16 @@ say "Installing ${LIB_NAME} to ${PREFIX}/lib"
 install -d "${PREFIX}/lib"
 install -m 644 "${LIB_SRC}" "${PREFIX}/lib/${LIB_NAME}"
 
+if [[ -d "${PROJECT_ROOT}/${PY_PACKAGE_DIR}/hakoniwa_pdu_endpoint" ]]; then
+  say "Installing Python package to ${PY_INSTALL_DIR}"
+  install -d "${PY_INSTALL_DIR}"
+  cp -R "${PROJECT_ROOT}/${PY_PACKAGE_DIR}/hakoniwa_pdu_endpoint" "${PY_INSTALL_DIR}/"
+  if [[ -d "${PROJECT_ROOT}/config/schema" ]]; then
+    install -d "${PY_INSTALL_DIR}/hakoniwa_pdu_endpoint/schema"
+    cp -R "${PROJECT_ROOT}/config/schema/." "${PY_INSTALL_DIR}/hakoniwa_pdu_endpoint/schema/"
+  fi
+fi
+
 say "Done."
+say "For python -m usage:"
+say "  export PYTHONPATH=\"${PY_INSTALL_DIR}:\$PYTHONPATH\""

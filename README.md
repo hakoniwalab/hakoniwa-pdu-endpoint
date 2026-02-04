@@ -57,8 +57,9 @@ Install destinations:
 
 - Headers: `/usr/local/hakoniwa/include`
 - Library: `/usr/local/hakoniwa/lib/libhakoniwa_pdu_endpoint.a`
+- Python package (validators): `/usr/local/hakoniwa/share/hakoniwa-pdu-endpoint/python`
 
-Uninstall (removes only the files installed by this project):
+Uninstall (removes only the files installed by this project, including the Python validators):
 
 ```bash
 sudo bash uninstall.bash
@@ -102,12 +103,16 @@ The schemas for these can be found in `config/schema/`:
 3. Create a single endpoint config (e.g., `config/sample/endpoint.json`) that references the cache and comm files.
 4. Optional: create a container config (e.g., `config/sample/endpoint_container.json`) to manage multiple endpoints under a `nodeId`.
 
-You can validate configs with the JSON schema checker:
+You can validate configs with the JSON schema checker (after install, set `PYTHONPATH`):
 ```bash
-python tools/validate_json.py --schema config/schema/endpoint_schema.json --check-paths config/sample/endpoint.json
-python tools/validate_json.py --schema config/schema/endpoint_container_schema.json --check-paths config/sample/endpoint_container.json
-python tools/validate_pdudef.py config/sample/comm/hakoniwa
+export PYTHONPATH="/usr/local/hakoniwa/share/hakoniwa-pdu-endpoint/python:$PYTHONPATH"
+python -m hakoniwa_pdu_endpoint.validate_json --schema config/schema/endpoint_schema.json --check-paths config/sample/endpoint.json
+python -m hakoniwa_pdu_endpoint.validate_json --schema config/schema/endpoint_container_schema.json --check-paths config/sample/endpoint_container.json
+python -m hakoniwa_pdu_endpoint.validate_pdudef config/sample/comm/hakoniwa
 ```
+
+Python dependency for validators:
+- `jsonschema` (install with `pip install jsonschema`)
 
 Tutorials:
 - `docs/tutorials/endpoint.md`
