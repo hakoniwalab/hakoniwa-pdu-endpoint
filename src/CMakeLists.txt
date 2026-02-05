@@ -5,19 +5,36 @@ if(POLICY CMP0167)
   cmake_policy(SET CMP0167 NEW)
 endif()
 
+if(POLICY CMP0169)
+  cmake_policy(SET CMP0169 OLD)
+endif()
+
 cmake_policy(SET CMP0144 NEW) # Use new <PACKAGENAME>_ROOT variable behavior
 
 project(hakoniwa_pdu_endpoint LANGUAGES CXX)
 
-include(FetchContent)
+find_package(nlohmann_json 3.11.3 CONFIG QUIET)
+if(NOT TARGET nlohmann_json::nlohmann_json)
+  include(FetchContent)
 
-FetchContent_Declare(
-  nlohmann_json
-  GIT_REPOSITORY https://github.com/nlohmann/json.git
-  GIT_TAG v3.11.3
-)
+  FetchContent_Declare(
+    nlohmann_json
+    GIT_REPOSITORY https://github.com/nlohmann/json.git
+    GIT_TAG v3.11.3
+  )
 
-FetchContent_MakeAvailable(nlohmann_json)
+  FetchContent_GetProperties(nlohmann_json)
+  if(NOT nlohmann_json_POPULATED)
+    FetchContent_Populate(nlohmann_json)
+  endif()
+
+  add_library(nlohmann_json::nlohmann_json INTERFACE IMPORTED)
+  set_target_properties(nlohmann_json::nlohmann_json PROPERTIES
+    INTERFACE_INCLUDE_DIRECTORIES "${nlohmann_json_SOURCE_DIR}/include"
+  )
+
+  set(HAKO_NLOHMANN_JSON_INCLUDE_DIR "${nlohmann_json_SOURCE_DIR}/include" PARENT_SCOPE)
+endif()
 
 # システムのBoostを使用（ヘッダーオンリー）
 find_package(Boost 1.70 REQUIRED)
@@ -38,9 +55,12 @@ add_library(hakoniwa_pdu_endpoint
   endpoint_container.cpp
 )
 
+add_library(hakoniwa_pdu_endpoint::hakoniwa_pdu_endpoint ALIAS hakoniwa_pdu_endpoint)
+
 target_include_directories(hakoniwa_pdu_endpoint
   PUBLIC
-    ${CMAKE_CURRENT_LIST_DIR}/../include
+    $<BUILD_INTERFACE:${CMAKE_CURRENT_LIST_DIR}/../include>
+    $<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}>
     /usr/local/hakoniwa/include
     /usr/local/hakoniwa/include/hakoniwa
     /usr/local/hakoniwa/include/hakoniwa/pdu

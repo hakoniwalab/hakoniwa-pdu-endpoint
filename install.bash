@@ -7,6 +7,7 @@ BUILD_DIR=${BUILD_DIR:-"${PROJECT_ROOT}/build"}
 LIB_NAME=libhakoniwa_pdu_endpoint.a
 PY_PACKAGE_DIR=python
 PY_INSTALL_DIR="${PREFIX}/share/hakoniwa-pdu-endpoint/python"
+CM_INSTALL_DIR="${PREFIX}/lib/cmake/hakoniwa_pdu_endpoint"
 
 say() {
   printf "%s\n" "$*"
@@ -25,31 +26,16 @@ if [[ ! -w "${PREFIX}" ]]; then
   say "Note: writing to ${PREFIX} usually requires sudo."
 fi
 
-LIB_SRC=""
-for candidate in "${BUILD_DIR}/src/${LIB_NAME}" "${BUILD_DIR}/${LIB_NAME}"; do
-  if [[ -f "${candidate}" ]]; then
-    LIB_SRC="${candidate}"
-    break
-  fi
-done
-
-if [[ -z "${LIB_SRC}" ]]; then
-  die "${LIB_NAME} not found. Build first (expected in ${BUILD_DIR}/src or ${BUILD_DIR})."
+if [[ ! -d "${BUILD_DIR}" || ! -f "${BUILD_DIR}/CMakeCache.txt" ]]; then
+  die "CMake build directory not found at ${BUILD_DIR}. Run cmake configure/build first."
 fi
 
-say "Installing headers to ${PREFIX}/include"
-install -d "${PREFIX}/include"
+say "Installing CMake package to ${PREFIX}"
+cmake --install "${BUILD_DIR}" --prefix "${PREFIX}"
 
-while IFS= read -r src; do
-  rel=${src#"${PROJECT_ROOT}/include/"}
-  dest="${PREFIX}/include/${rel}"
-  install -d "$(dirname "${dest}")"
-  install -m 644 "${src}" "${dest}"
-done < <(find "${PROJECT_ROOT}/include" -type f \( -name "*.h" -o -name "*.hpp" \) | sort)
-
-say "Installing ${LIB_NAME} to ${PREFIX}/lib"
-install -d "${PREFIX}/lib"
-install -m 644 "${LIB_SRC}" "${PREFIX}/lib/${LIB_NAME}"
+if [[ ! -d "${CM_INSTALL_DIR}" ]]; then
+  die "CMake package files not found at ${CM_INSTALL_DIR}. Check install output."
+fi
 
 if [[ -d "${PROJECT_ROOT}/${PY_PACKAGE_DIR}/hakoniwa_pdu_endpoint" ]]; then
   say "Installing Python package to ${PY_INSTALL_DIR}"
