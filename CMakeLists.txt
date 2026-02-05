@@ -49,8 +49,20 @@ configure_package_config_file(
   INSTALL_DESTINATION ${hakoniwa_pdu_endpoint_cmake_dir}
 )
 
+configure_package_config_file(
+  ${CMAKE_CURRENT_LIST_DIR}/cmake/HakoniwaPduEndpointConfig.cmake.in
+  ${CMAKE_CURRENT_BINARY_DIR}/HakoniwaPduEndpointConfig.cmake
+  INSTALL_DESTINATION ${hakoniwa_pdu_endpoint_cmake_dir}
+)
+
 write_basic_package_version_file(
   ${CMAKE_CURRENT_BINARY_DIR}/hakoniwa_pdu_endpointConfigVersion.cmake
+  VERSION ${HAKONIWA_PDU_ENDPOINT_VERSION}
+  COMPATIBILITY SameMajorVersion
+)
+
+write_basic_package_version_file(
+  ${CMAKE_CURRENT_BINARY_DIR}/HakoniwaPduEndpointConfigVersion.cmake
   VERSION ${HAKONIWA_PDU_ENDPOINT_VERSION}
   COMPATIBILITY SameMajorVersion
 )
@@ -66,5 +78,7 @@ install(
   FILES
     ${CMAKE_CURRENT_BINARY_DIR}/hakoniwa_pdu_endpointConfig.cmake
     ${CMAKE_CURRENT_BINARY_DIR}/hakoniwa_pdu_endpointConfigVersion.cmake
+    ${CMAKE_CURRENT_BINARY_DIR}/HakoniwaPduEndpointConfig.cmake
+    ${CMAKE_CURRENT_BINARY_DIR}/HakoniwaPduEndpointConfigVersion.cmake
   DESTINATION ${hakoniwa_pdu_endpoint_cmake_dir}
 )
