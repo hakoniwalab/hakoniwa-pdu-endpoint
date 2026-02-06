@@ -1,0 +1,5 @@
+{
+  "name": "sample_tcp_client",
+  "cache": "cache/queue.json",
+  "comm": "comm/tcp_client_inout_comm.json"
+}

@@ -1,0 +1,5 @@
+{
+  "name": "sample_ws_client",
+  "cache": "cache/queue.json",
+  "comm": "comm/websocket_client_inout_comm.json"
+}

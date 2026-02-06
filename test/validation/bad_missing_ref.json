@@ -1,0 +1,5 @@
+{
+  "name": "bad_missing_ref",
+  "cache": "cache/queue.json",
+  "comm": "comm/does_not_exist.json"
+}

@@ -38,21 +38,45 @@ def iter_ref_paths_from_json(data):
     if isinstance(data, dict):
         for key in ("cache", "comm", "pdu_def_path"):
             if key in data and data[key] is not None:
-                yield data[key]
+                yield f"/{key}", key, data[key]
         if "endpoints" in data and isinstance(data["endpoints"], list):
-            for entry in data["endpoints"]:
+            for idx, entry in enumerate(data["endpoints"]):
                 if isinstance(entry, dict) and "config_path" in entry:
-                    yield entry["config_path"]
+                    yield f"/endpoints/{idx}/config_path", "config_path", entry["config_path"]
     elif isinstance(data, list):
-        for item in data:
+        for idx, item in enumerate(data):
             if isinstance(item, dict):
                 for key in ("cache", "comm", "pdu_def_path"):
                     if key in item and item[key] is not None:
-                        yield item[key]
+                        yield f"/{idx}/{key}", key, item[key]
                 if "endpoints" in item and isinstance(item["endpoints"], list):
-                    for entry in item["endpoints"]:
+                    for eidx, entry in enumerate(item["endpoints"]):
                         if isinstance(entry, dict) and "config_path" in entry:
-                            yield entry["config_path"]
+                            yield f"/{idx}/endpoints/{eidx}/config_path", "config_path", entry["config_path"]
+
+
+def json_pointer_from_path(path_seq):
+    if not path_seq:
+        return "/"
+    def esc(seg):
+        return str(seg).replace("~", "~0").replace("/", "~1")
+    return "/" + "/".join(esc(p) for p in path_seq)
+
+
+def explain_field(key: str) -> str:
+    explanations = {
+        "cache": "Cache is required because data lifetime and overwrite semantics must be explicit.",
+        "comm": "Comm is required because delivery semantics and failure modes must be explicit. Use null for cache-only endpoints.",
+        "pdu_def_path": "PDU definitions provide shared meaning of bytes (name → channel_id/size).",
+        "config_path": "Container entries must point to a concrete endpoint config to keep semantics explicit.",
+        "direction": "Direction defines data flow semantics and must be explicit.",
+        "role": "Role defines client/server behavior and connection responsibility.",
+        "local": "Local binding makes the listening side explicit.",
+        "remote": "Remote address defines the target side explicitly.",
+        "pdu_key": "UDP framing requires an explicit PDU key to identify data.",
+        "expected_clients": "Expected clients gates readiness and makes connection semantics explicit.",
+    }
+    return explanations.get(key, "This field is part of explicit simulation semantics and must not be implicit.")
 
 
 def validate_file(schema, schema_path: Path, json_path: Path, check_paths: bool):
@@ -67,18 +91,37 @@ def validate_file(schema, schema_path: Path, json_path: Path, check_paths: bool)
     errors = sorted(validator.iter_errors(data), key=lambda e: e.path)
     messages = []
     for e in errors:
-        loc = "/".join([str(x) for x in e.path]) or "(root)"
-        messages.append(f"{json_path}: {loc}: {e.message}")
+        pointer = json_pointer_from_path(e.path)
+        rule = e.validator or "validation"
+        missing_key = None
+        if rule == "required" and isinstance(e.message, str):
+            if "'" in e.message:
+                missing_key = e.message.split("'")[1]
+        if missing_key:
+            missing_ptr = pointer.rstrip("/") + "/" + missing_key
+            reason = explain_field(missing_key)
+            messages.append(
+                f"{json_path}: {missing_ptr}: rule=required: {e.message} Reason: {reason}"
+            )
+        else:
+            key_hint = e.path[-1] if e.path else None
+            reason = explain_field(str(key_hint)) if key_hint is not None else "This field is part of explicit simulation semantics and must not be implicit."
+            messages.append(
+                f"{json_path}: {pointer}: rule={rule}: {e.message} Reason: {reason}"
+            )
 
     if check_paths:
         base_dir = json_path.parent
-        for ref in iter_ref_paths_from_json(data):
+        for pointer, key, ref in iter_ref_paths_from_json(data):
             if not isinstance(ref, str):
-                messages.append(f"{json_path}: invalid path reference (not string): {ref}")
+                messages.append(f"{json_path}: {pointer}: rule=type: invalid path reference (not string). Reason: {explain_field(key)}")
                 continue
             resolved = resolve_ref_path(base_dir, ref)
             if not resolved.exists():
-                messages.append(f"{json_path}: missing referenced file: {ref}")
+                messages.append(
+                    f"{json_path}: {pointer}: rule=exists: missing referenced file '{ref}'. "
+                    f"Reason: {explain_field(key)} Suggested fix: update '{key}' or create the file."
+                )
 
     if not messages:
         return True, f"{json_path}: OK ({schema_path})"

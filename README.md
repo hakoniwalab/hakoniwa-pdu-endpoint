@@ -1,6 +1,17 @@
 # hakoniwa-pdu-endpoint
 
-`hakoniwa-pdu-endpoint` is a C++ library that provides a modular, file-based configuration for communication endpoints, designed for Hakoniwa PDU (Protocol Data Unit) communication. It allows for flexible setup by composing `Cache` and `Communication` modules via simple JSON files.
+`hakoniwa-pdu-endpoint` is a core infrastructure component for Hakoniwa distributed simulation. It is not “just a messaging library”: an Endpoint defines the causality boundary between simulation participants and makes semantics explicit. The design intentionally separates `Cache`, `Communication`, and optional `PDU Definition` so that lifetime, delivery, and meaning are never implicit.
+
+## Why Endpoint?
+
+Hakoniwa systems often require many communication links (TCP/UDP/SHM/WebSocket) across multiple assets.
+Without a common abstraction, each protocol tends to introduce its own lifecycle, configuration, and error handling.
+The `Endpoint` abstraction provides one uniform API and configuration model that:
+- decouples cache and transport concerns,
+- makes protocol swaps a config change instead of a code change,
+- and allows higher-level systems (like bridge orchestrators) to manage many links consistently.
+It also enables network-free testing: you can set `comm: null` and use only the internal cache to simplify unit and integration tests.
+Explicit configuration is a feature here: `cache` defines data lifetime and overwrite semantics; `comm` defines delivery guarantees and failure modes; `pdu_def` defines shared meaning of bytes (name → channel_id/size). Implicit behavior is rejected because it hides simulation semantics.
 
 ## Features
 
@@ -86,6 +97,10 @@ You should see output indicating that all tests have passed.
 ## Configuration
 
 The endpoint configuration is modular, consisting of up to four parts: the main **Endpoint** config, a **Cache** config, a **Communication** (`comm`) config, and an optional **PDU Definition** (`pdu_def`) config.
+
+### Why so many configuration files?
+
+Each file represents a separate semantic decision: storage lifetime/overwrite behavior (cache), delivery guarantees and failure modes (comm), and shared meaning of bytes (pdu_def). Keeping these decisions explicit avoids ambiguity and makes distributed-simulation causality auditable. Validators are provided to enforce this semantic clarity.
 
 The schemas for these can be found in `config/schema/`:
 - `endpoint_schema.json`
@@ -283,6 +298,27 @@ int main() {
 }
 ```
 
+## Examples
+
+Example programs live in `examples/`. Build with `-DHAKO_PDU_ENDPOINT_BUILD_EXAMPLES=ON`.
+See `examples/README.md` for usage.
+These are minimal executable reference configurations (not tutorials). Use them as starting points, and validate any edits with the JSON schema tools described below.
+
+TCP (inout) examples:
+- `examples/endpoint_tcp_server.cpp` uses `config/sample/endpoint_tcp_server.json`
+- `examples/endpoint_tcp_client.cpp` uses `config/sample/endpoint_tcp_client.json`
+
+UDP (one-way) examples:
+- `examples/endpoint_udp_server.cpp` uses `config/tutorial/endpoint_udp_server.json`
+- `examples/endpoint_udp_client.cpp` uses `config/tutorial/endpoint_udp_client.json`
+
+WebSocket (inout) examples:
+- `examples/endpoint_ws_server.cpp` uses `config/sample/endpoint_websocket_server.json`
+- `examples/endpoint_ws_client.cpp` uses `config/sample/endpoint_websocket_client.json`
+
+TCP mux example:
+- `examples/endpoint_tcp_mux.cpp` uses `config/sample/endpoint_mux.json`
+
 ### Low-Level API (ID-based)
 
 If you do not provide a `pdu_def_path`, you can still use the library by manually specifying the integer channel ID. This is suitable for simpler setups where you manage channel mappings yourself.
@@ -328,10 +364,11 @@ Key behavior:
 - Endpoint names are generated as `<mux_name>_<seq>` (sequence starts at 1).
 - `options` in the mux comm config follow the same keys as the standard TCP server comm config.
 - In mux mode, `local` and `expected_clients` are used for accepting connections; session endpoints only use `direction`, `comm_raw_version`, and `options`.
+- The JSON schema allows TCP mux configs via `expected_clients`.
 
 ### Example
 
-`test/mux/endpoint_tcp_mux.json`:
+`config/sample/endpoint_mux.json`:
 ```json
 {
     "name": "tcp_mux",
@@ -340,7 +377,7 @@ Key behavior:
 }
 ```
 
-`test/mux/comm_tcp_mux.json`:
+`config/sample/comm/tcp_mux.json`:
 ```json
 {
   "protocol": "tcp",
@@ -363,7 +400,7 @@ Key behavior:
 
 int main() {
     hakoniwa::pdu::EndpointCommMultiplexer mux("tcp_mux", HAKO_PDU_ENDPOINT_DIRECTION_INOUT);
-    if (mux.open("test/mux/endpoint_tcp_mux.json") != HAKO_PDU_ERR_OK) return -1;
+    if (mux.open("config/sample/endpoint_mux.json") != HAKO_PDU_ERR_OK) return -1;
     if (mux.start() != HAKO_PDU_ERR_OK) return -1;
 
     while (true) {

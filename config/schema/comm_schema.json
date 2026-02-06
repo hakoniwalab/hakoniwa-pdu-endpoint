@@ -58,6 +58,11 @@
       "type": "object",
       "description": "Remote endpoint settings."
     },
+    "expected_clients": {
+      "type": "integer",
+      "minimum": 1,
+      "description": "Expected client count for TCP mux."
+    },
     "io": {
       "$ref": "#/$defs/shm_io"
     },
@@ -105,29 +110,36 @@
     {
       "if": { "properties": { "protocol": { "const": "tcp" } } },
       "then": {
-        "required": ["role", "direction"],
+        "required": ["direction"],
         "properties": {
           "local": { "$ref": "#/$defs/endpoint" },
           "remote": { "$ref": "#/$defs/endpoint" }
         },
         "anyOf": [
           {
-            "if": { "properties": { "direction": { "const": "in" } } },
-            "then": { "required": ["local"], "properties": { "role": { "const": "server" } } }
+            "required": ["expected_clients", "local"]
           },
           {
-            "if": { "properties": { "direction": { "const": "out" } } },
-            "then": { "required": ["remote"], "properties": { "role": { "const": "client" } } }
-          },
-          {
-            "if": { "properties": { "direction": { "const": "inout" } } },
-            "then": {
-              "required": ["role"],
-              "anyOf": [
-                { "if": { "properties": { "role": { "const": "server" } } }, "then": { "required": ["local"] } },
-                { "if": { "properties": { "role": { "const": "client" } } }, "then": { "required": ["remote"] } }
-              ]
-            }
+            "required": ["role"],
+            "anyOf": [
+              {
+                "if": { "properties": { "direction": { "const": "in" } } },
+                "then": { "required": ["local"], "properties": { "role": { "const": "server" } } }
+              },
+              {
+                "if": { "properties": { "direction": { "const": "out" } } },
+                "then": { "required": ["remote"], "properties": { "role": { "const": "client" } } }
+              },
+              {
+                "if": { "properties": { "direction": { "const": "inout" } } },
+                "then": {
+                  "anyOf": [
+                    { "if": { "properties": { "role": { "const": "server" } } }, "then": { "required": ["local"] } },
+                    { "if": { "properties": { "role": { "const": "client" } } }, "then": { "required": ["remote"] } }
+                  ]
+                }
+              }
+            ]
           }
         ]
       }

@@ -1,0 +1,5 @@
+{
+  "name": "internal_cache",
+  "cache": "cache/buffer.json",
+  "comm": null
+}
