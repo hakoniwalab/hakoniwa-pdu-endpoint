@@ -22,13 +22,16 @@ public:
     // - Returned endpoints are already opened and started; the caller can use them immediately.
     // - Endpoint names are generated as "<mux_name>_<seq>" (seq starts at 1).
     // - expected/connected counts are managed by the comm multiplexer (e.g., TCP mux).
+    // Load mux endpoint config and initialize comm multiplexer.
     HakoPduErrorType open(const std::string& endpoint_mux_config_path);
     HakoPduErrorType close() noexcept;
     HakoPduErrorType start() noexcept;
     HakoPduErrorType stop() noexcept;
 
+    // Non-blocking: returns any newly accepted endpoints; empty if none.
     std::vector<std::unique_ptr<Endpoint>> take_endpoints();
 
+    // Connection counters are driven by comm multiplexer (e.g., TCP mux).
     size_t connected_count() const noexcept;
     size_t expected_count() const noexcept;
     bool is_ready() const noexcept;

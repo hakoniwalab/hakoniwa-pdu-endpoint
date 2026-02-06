@@ -9,6 +9,8 @@ namespace hakoniwa {
 namespace pdu {
 namespace comm {
 
+// TCP mux comm: accept multiple TCP clients and expose each as a session comm.
+// Sessions are consumed via take_sessions() by the EndpointCommMultiplexer.
 class TcpCommMultiplexer final : public CommMultiplexer
 {
 public:

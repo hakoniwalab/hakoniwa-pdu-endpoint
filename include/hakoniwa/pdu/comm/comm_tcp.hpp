@@ -12,6 +12,8 @@ namespace hakoniwa {
 namespace pdu {
 namespace comm {
 
+// TCP comm: stream-based transport with optional client/server role.
+// Packet framing is handled by PduCommRaw (v1/v2).
 class TcpComm final : public PduCommRaw
 {
 public:

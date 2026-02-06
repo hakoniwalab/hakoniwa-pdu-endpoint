@@ -32,6 +32,8 @@ using OnRecvCallback = std::function<void(const PduResolvedKey&, std::span<const
  * - send/recv may be called from multiple threads, but callers must serialize access if needed.
  * - Comm implementations may use background threads; close/stop can be used to interrupt blocking I/O.
  */
+// Endpoint composes Cache + Comm (+ optional PDU definition) into a single API.
+// Semantics are defined by explicit configuration and must not be implicit.
 class Endpoint
 {
 public:
@@ -57,6 +59,7 @@ public:
 
     // Optional: call before open() when the comm layer needs PDU channels created upfront.
     // open() without this call is also supported.
+    // Pre-create PDU channels when required by comm (e.g., SHM). Optional.
     virtual HakoPduErrorType create_pdu_lchannels(const std::string& endpoint_config_path)
     {
         nlohmann::json config;
@@ -100,6 +103,7 @@ public:
         return HAKO_PDU_ERR_OK;
     }
     
+    // Load cache/comm (and optional PDU definition) from endpoint config.
     virtual HakoPduErrorType open(const std::string& endpoint_config_path) 
     {
         nlohmann::json config;
@@ -167,6 +171,7 @@ public:
         return HAKO_PDU_ERR_OK;
     }
     
+    // Close cache/comm and release resources. Safe to call even if not started.
     virtual HakoPduErrorType close() noexcept
     {
         HakoPduErrorType err = HAKO_PDU_ERR_OK;
@@ -183,6 +188,7 @@ public:
         return err;
     }
     
+    // Start cache/comm processing threads if any.
     virtual HakoPduErrorType start() noexcept
     {
         if (cache_) {
@@ -206,6 +212,7 @@ public:
         return HAKO_PDU_ERR_OK;
     }
     
+    // Stop cache/comm processing threads if any.
     virtual HakoPduErrorType stop() noexcept
     {
         HakoPduErrorType err = HAKO_PDU_ERR_OK;
@@ -221,6 +228,7 @@ public:
         return err;
     }
     
+    // Report whether both cache and comm are running.
     virtual HakoPduErrorType is_running(bool& running) noexcept
     {        
         bool cache_running = false;
@@ -259,7 +267,8 @@ public:
         }
     }
 
-    // High-level API using PDU names (requires pdu_def to be loaded)
+    // High-level API using PDU names (requires pdu_def to be loaded).
+    // Returns HAKO_PDU_ERR_UNSUPPORTED if pdu_def is not provided.
     virtual HakoPduErrorType send(const PduKey& pdu_key, std::span<const std::byte> data) noexcept
     {
         if (!pdu_def_) {
@@ -273,6 +282,7 @@ public:
         return send(resolved_key, data);
     }
     
+    // High-level recv by PDU name (requires pdu_def to be loaded).
     virtual HakoPduErrorType recv(const PduKey& pdu_key, std::span<std::byte> data, size_t& received_size) noexcept
     {
         if (!pdu_def_) {
@@ -286,7 +296,7 @@ public:
         return recv(resolved_key, data, received_size);
     }
 
-    // Low-level API using resolved channel IDs
+    // Low-level API using resolved channel IDs (always available).
     virtual HakoPduErrorType send(const PduResolvedKey& pdu_key, std::span<const std::byte> data) noexcept
     {
         if (comm_) {
@@ -306,6 +316,7 @@ public:
             return HAKO_PDU_ERR_OK;
         }
     }
+    // Low-level recv by channel ID (cache-backed).
     virtual HakoPduErrorType recv(const PduResolvedKey& pdu_key, std::span<std::byte> data, size_t& received_size) noexcept
     {
         auto errcode = cache_->read(pdu_key, data, received_size);

@@ -15,6 +15,12 @@ A: No. An Endpoint defines the causality boundary between components and fixes s
 **Q: If configuration is explicit, why provide a generator?**
 A: The generator removes boilerplate while keeping semantics explicit. It never guesses cache or delivery behavior; it only fills protocol basics and prints what still requires a deliberate choice.
 
+**Q: Why is configuration split across multiple JSON files instead of a single file or code-based API?**
+A: The split encodes separable semantic decisions (cache/comm/pdu_def), enables runtime switching without recompilation, and improves auditability via validators and generators. Single-file or code-based approaches can be simpler locally, but they trade away runtime flexibility or push coupling elsewhere. This choice is intentional for distributed simulation semantics.
+
+**Q: Isn’t it risky that `pdu_def_path` toggles the API level?**
+A: The behavior is explicit by configuration, and `validate_json --check-paths` catches missing paths early. SHM requires PDU definitions by design. The approach favors runtime declarative composition over compile-time enforcement; use the generator + validator in CI to keep configs correct.
+
 **Q: Can I use this without Hakoniwa?**
 A: Yes. TCP/UDP/WebSocket modes do not depend on Hakoniwa. SHM and Hakoniwa time sources require the Hakoniwa core libraries.
 

@@ -1,6 +1,7 @@
 # hakoniwa-pdu-endpoint
 
 `hakoniwa-pdu-endpoint` is a core infrastructure component for Hakoniwa distributed simulation. It is not “just a messaging library”: an Endpoint defines the causality boundary between simulation participants and makes semantics explicit. The design intentionally separates `Cache`, `Communication`, and optional `PDU Definition` so that lifetime, delivery, and meaning are never implicit.
+For visual summaries, see `docs/diagrams/README.md`.
 
 ## Why Endpoint?
 
@@ -306,8 +307,9 @@ See `examples/README.md` for usage.
 These are minimal executable reference configurations (not tutorials). Use them as starting points, and validate any edits with the JSON schema tools described below.
 See `FAQ.md` for design rationale and common questions.
 See `docs/design_notes.md` for a concise summary of design trade-offs.
-See `docs/diagrams/README.md` for visual summaries.
 If you want “preset-style” configurations, see `config/sample/endpoint_examples.json` as a curated set of working combinations.
+For a smooth first-run path, use: generator → validator → examples.
+For a deeper discussion of configuration trade-offs (multi-file JSON vs single-file vs code-based), see `docs/design_tradeoffs.md`.
 
 ## Config Generator
 

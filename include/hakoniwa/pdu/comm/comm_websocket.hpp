@@ -24,6 +24,8 @@ using tcp = net::ip::tcp;
 // Forward declaration for the session class that handles a single WebSocket connection
 class WebSocketSession;
 
+// WebSocket comm: stream semantics over WebSocket (client/server roles).
+// Packet framing is handled by PduCommRaw (v1/v2).
 class WebSocketComm final : public PduCommRaw
 {
     friend class WebSocketSession;

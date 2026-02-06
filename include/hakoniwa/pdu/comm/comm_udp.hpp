@@ -13,6 +13,8 @@ namespace hakoniwa {
 namespace pdu {
 namespace comm { // Add comm namespace
 
+// UDP comm: connectionless transport with explicit direction and PDU key.
+// Framing uses PduCommRaw (v1/v2) and a configured PDU key for routing.
 class UdpComm final : public PduCommRaw // Change base class
 {
 public:

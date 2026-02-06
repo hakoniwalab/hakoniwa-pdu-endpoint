@@ -17,6 +17,8 @@ namespace hakoniwa {
 namespace pdu {
 namespace comm {
 
+// SHM comm: shared-memory transport for Hakoniwa assets.
+// impl_type controls callback vs poll behavior; poll requires process_recv_events().
 class PduCommShm : public PduComm {
 public:
     PduCommShm();

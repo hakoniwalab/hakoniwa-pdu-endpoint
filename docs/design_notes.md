@@ -21,6 +21,10 @@ Implicit behavior is rejected because it hides simulation semantics and makes re
 
 In SHM poll mode, users must call `process_recv_events()` explicitly. This is intentional: it avoids hidden background threads and allows integration with external event loops (e.g., game or simulation engines) that require ownership of scheduling.
 
+## Why Multiple Files (Readability)
+
+The split configuration acts as executable documentation. Each file is small, scoped to one semantic decision, and can be reviewed independently. Tooling (examples, generators, validators) is intended to make navigating these files routine rather than error-prone.
+
 ## Scope
 
 This architecture is a strong fit for complex distributed simulations. For simple point-to-point messaging where defaults are acceptable, the explicit configuration may feel heavy.
