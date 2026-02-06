@@ -119,8 +119,9 @@ def validate_file(schema, schema_path: Path, json_path: Path, check_paths: bool)
             resolved = resolve_ref_path(base_dir, ref)
             if not resolved.exists():
                 messages.append(
-                    f"{json_path}: {pointer}: rule=exists: missing referenced file '{ref}'. "
-                    f"Reason: {explain_field(key)} Suggested fix: update '{key}' or create the file."
+                    f"{json_path}: {pointer}: rule=exists: missing referenced file '{ref}' "
+                    f"(resolved: '{resolved}'). Reason: {explain_field(key)} "
+                    f"Suggested fix: update '{key}' or create the file at the resolved path."
                 )
 
     if not messages:

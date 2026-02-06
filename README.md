@@ -303,6 +303,7 @@ int main() {
 Example programs live in `examples/`. Build with `-DHAKO_PDU_ENDPOINT_BUILD_EXAMPLES=ON`.
 See `examples/README.md` for usage.
 These are minimal executable reference configurations (not tutorials). Use them as starting points, and validate any edits with the JSON schema tools described below.
+See `FAQ.md` for design rationale and common questions.
 
 TCP (inout) examples:
 - `examples/endpoint_tcp_server.cpp` uses `config/sample/endpoint_tcp_server.json`
