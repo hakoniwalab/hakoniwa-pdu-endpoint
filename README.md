@@ -12,6 +12,7 @@ The `Endpoint` abstraction provides one uniform API and configuration model that
 - and allows higher-level systems (like bridge orchestrators) to manage many links consistently.
 It also enables network-free testing: you can set `comm: null` and use only the internal cache to simplify unit and integration tests.
 Explicit configuration is a feature here: `cache` defines data lifetime and overwrite semantics; `comm` defines delivery guarantees and failure modes; `pdu_def` defines shared meaning of bytes (name → channel_id/size). Implicit behavior is rejected because it hides simulation semantics.
+This design is intentionally biased toward large, multi-asset simulations: it favors long-term auditability and extensibility over a minimal first-run experience. Some APIs (e.g., SHM poll with `process_recv_events()`) expose integration control to fit external event loops, which is a deliberate trade-off rather than an accident.
 
 ## Features
 
@@ -304,6 +305,9 @@ Example programs live in `examples/`. Build with `-DHAKO_PDU_ENDPOINT_BUILD_EXAM
 See `examples/README.md` for usage.
 These are minimal executable reference configurations (not tutorials). Use them as starting points, and validate any edits with the JSON schema tools described below.
 See `FAQ.md` for design rationale and common questions.
+See `docs/design_notes.md` for a concise summary of design trade-offs.
+See `docs/diagrams/README.md` for visual summaries.
+If you want “preset-style” configurations, see `config/sample/endpoint_examples.json` as a curated set of working combinations.
 
 ## Config Generator
 

@@ -12,8 +12,14 @@ A: They are executable reference configurations, not tutorials. Small examples m
 **Q: Is this just a messaging library?**
 A: No. An Endpoint defines the causality boundary between components and fixes semantics such as data lifetime and delivery behavior, which a generic messaging API does not enforce.
 
+**Q: If configuration is explicit, why provide a generator?**
+A: The generator removes boilerplate while keeping semantics explicit. It never guesses cache or delivery behavior; it only fills protocol basics and prints what still requires a deliberate choice.
+
 **Q: Can I use this without Hakoniwa?**
 A: Yes. TCP/UDP/WebSocket modes do not depend on Hakoniwa. SHM and Hakoniwa time sources require the Hakoniwa core libraries.
 
 **Q: When should I NOT use this component?**
 A: If you want a lightweight messaging API with implicit defaults and minimal configuration, or if you do not need explicit simulation semantics, this is likely heavier than necessary.
+
+**Q: Why do I have to call `process_recv_events()` for SHM poll?**
+A: SHM poll mode is designed to integrate with external event loops (e.g., game/simulation loops) that control threading. The explicit call avoids hidden background threads and makes scheduling responsibility visible.
