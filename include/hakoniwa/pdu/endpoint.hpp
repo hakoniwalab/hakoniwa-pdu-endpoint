@@ -461,9 +461,12 @@ private:
             if (!pdu_def_) {
                 pdu_def_ = std::make_shared<PduDefinition>();
                 auto resolved_pdu_def_path = resolve_under_base(base_dir, config["pdu_def_path"].get<std::string>());
+                std::cout << "PDU Definition: loading from " << resolved_pdu_def_path << std::endl;
                 if (!pdu_def_->load(resolved_pdu_def_path)) {
+                    std::cerr << "PDU Definition: failed to load from " << resolved_pdu_def_path << std::endl;
                     return HAKO_PDU_ERR_INVALID_CONFIG;
                 }
+                std::cout << "PDU Definition: loaded successfully" << std::endl;
             }
             return HAKO_PDU_ERR_OK;
         }

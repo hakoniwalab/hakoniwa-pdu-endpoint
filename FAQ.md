@@ -21,6 +21,13 @@ A: The split encodes separable semantic decisions (cache/comm/pdu_def), enables 
 **Q: Isn’t it risky that `pdu_def_path` toggles the API level?**
 A: The behavior is explicit by configuration, and `validate_json --check-paths` catches missing paths early. SHM requires PDU definitions by design. The approach favors runtime declarative composition over compile-time enforcement; use the generator + validator in CI to keep configs correct.
 
+**Q: What does a missing or unreadable `pdu_def_path` error look like?**
+A: Example:
+```
+[ERROR] pdu_def_path: file not found: ./pdu/new_pdudef.json
+Name-based API requires valid PDU definitions. Fix the path or remove pdu_def_path to use ID-based API.
+```
+
 **Q: Can I use this without Hakoniwa?**
 A: Yes. TCP/UDP/WebSocket modes do not depend on Hakoniwa. SHM and Hakoniwa time sources require the Hakoniwa core libraries.
 
