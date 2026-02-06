@@ -43,6 +43,7 @@ add_library(hakoniwa_pdu_endpoint
   socket_utils.cpp
   comm_udp.cpp
   comm_tcp.cpp
+  comm_tcp_mux.cpp
   comm_websocket.cpp
   pdu_factory.cpp
   comm_shm.cpp 
@@ -53,6 +54,7 @@ add_library(hakoniwa_pdu_endpoint
   hakoniwa_time_source_poll.cpp
   hakoniwa_time_source_callback.cpp
   endpoint_container.cpp
+  endpoint_comm_multiplexer.cpp
 )
 
 add_library(hakoniwa_pdu_endpoint::hakoniwa_pdu_endpoint ALIAS hakoniwa_pdu_endpoint)

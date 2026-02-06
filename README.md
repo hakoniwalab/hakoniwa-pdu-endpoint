@@ -316,6 +316,66 @@ int main() {
 }
 ```
 
+## Endpoint Comm Multiplexer (TCP Mux)
+
+When you want a single server endpoint to accept multiple bridge connections, use the comm multiplexer.
+This keeps the Endpoint API unchanged and reduces configuration declarations.
+
+Key behavior:
+- `take_endpoints()` is non-blocking; if no new connections are ready, it returns an empty vector.
+- Returned endpoints are already `open()` and `start()`-ed and can be used immediately.
+- Readiness is determined by `expected_clients` in the comm mux config.
+- Endpoint names are generated as `<mux_name>_<seq>` (sequence starts at 1).
+- `options` in the mux comm config follow the same keys as the standard TCP server comm config.
+- In mux mode, `local` and `expected_clients` are used for accepting connections; session endpoints only use `direction`, `comm_raw_version`, and `options`.
+
+### Example
+
+`test/mux/endpoint_tcp_mux.json`:
+```json
+{
+    "name": "tcp_mux",
+    "cache": "cache/buffer.json",
+    "comm": "comm/tcp_mux.json"
+}
+```
+
+`test/mux/comm_tcp_mux.json`:
+```json
+{
+  "protocol": "tcp",
+  "name": "tcp_mux",
+  "direction": "inout",
+  "local": {
+    "address": "0.0.0.0",
+    "port": 54001
+  },
+  "expected_clients": 2,
+  "options": {
+    "read_timeout_ms": 1000,
+    "write_timeout_ms": 1000
+  }
+}
+```
+
+```cpp
+#include "hakoniwa/pdu/endpoint_comm_multiplexer.hpp"
+
+int main() {
+    hakoniwa::pdu::EndpointCommMultiplexer mux("tcp_mux", HAKO_PDU_ENDPOINT_DIRECTION_INOUT);
+    if (mux.open("test/mux/endpoint_tcp_mux.json") != HAKO_PDU_ERR_OK) return -1;
+    if (mux.start() != HAKO_PDU_ERR_OK) return -1;
+
+    while (true) {
+        auto endpoints = mux.take_endpoints();
+        for (auto& ep : endpoints) {
+            // ep is ready to use (open/start already called)
+        }
+        // ... do other work ...
+    }
+}
+```
+
 ## Architectural Design
 
 The library is built on a modular, layered architecture that emphasizes a strong separation of concerns. This design provides excellent versatility and extensibility.

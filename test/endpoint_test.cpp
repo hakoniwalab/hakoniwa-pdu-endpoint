@@ -13,6 +13,7 @@
 #include <cerrno>
 #include <cstring>
 #include "hakoniwa/pdu/comm/packet.hpp"
+#include "hakoniwa/pdu/endpoint_comm_multiplexer.hpp"
 
 // Test Utilities
 namespace {
@@ -304,6 +305,98 @@ TEST_F(EndpointTest, TcpCommunicationV1Test) {
     ASSERT_EQ(client.stop(), HAKO_PDU_ERR_OK);
     ASSERT_EQ(server.close(), HAKO_PDU_ERR_OK);
     ASSERT_EQ(client.close(), HAKO_PDU_ERR_OK);
+}
+
+TEST_F(EndpointTest, TcpMuxTwoClientsTest) {
+    hakoniwa::pdu::EndpointCommMultiplexer mux("tcp_mux", HAKO_PDU_ENDPOINT_DIRECTION_INOUT);
+    ASSERT_EQ(mux.open("test/mux/endpoint_tcp_mux.json"), HAKO_PDU_ERR_OK);
+    ASSERT_EQ(mux.start(), HAKO_PDU_ERR_OK);
+
+    hakoniwa::pdu::Endpoint client1("tcp_mux_client1", HAKO_PDU_ENDPOINT_DIRECTION_INOUT);
+    hakoniwa::pdu::Endpoint client2("tcp_mux_client2", HAKO_PDU_ENDPOINT_DIRECTION_INOUT);
+
+    ASSERT_EQ(client1.open("test/mux/endpoint_tcp_mux_client1.json"), HAKO_PDU_ERR_OK);
+    ASSERT_EQ(client2.open("test/mux/endpoint_tcp_mux_client2.json"), HAKO_PDU_ERR_OK);
+    ASSERT_EQ(client1.start(), HAKO_PDU_ERR_OK);
+    ASSERT_EQ(client2.start(), HAKO_PDU_ERR_OK);
+
+    std::vector<std::unique_ptr<hakoniwa::pdu::Endpoint>> endpoints;
+    for (int i = 0; i < 30 && endpoints.size() < 2; ++i) {
+        auto batch = mux.take_endpoints();
+        for (auto& ep : batch) {
+            endpoints.push_back(std::move(ep));
+        }
+        if (endpoints.size() < 2) {
+            std::this_thread::sleep_for(std::chrono::milliseconds(100));
+        }
+    }
+
+    ASSERT_EQ(endpoints.size(), 2u);
+
+    auto key1 = create_key("robot_mux_1", 101);
+    auto key2 = create_key("robot_mux_2", 102);
+    std::vector<std::byte> msg1 = {(std::byte)'m', (std::byte)'u', (std::byte)'x', (std::byte)'1'};
+    std::vector<std::byte> msg2 = {(std::byte)'m', (std::byte)'u', (std::byte)'x', (std::byte)'2'};
+
+    ASSERT_EQ(client1.send(key1, msg1), HAKO_PDU_ERR_OK);
+    ASSERT_EQ(client2.send(key2, msg2), HAKO_PDU_ERR_OK);
+
+    auto find_endpoint = [&](const hakoniwa::pdu::PduResolvedKey& key,
+                             const std::vector<std::byte>& expected) -> int {
+        for (int attempt = 0; attempt < 20; ++attempt) {
+            for (size_t i = 0; i < endpoints.size(); ++i) {
+                std::vector<std::byte> buf(64);
+                size_t len = 0;
+                auto err = endpoints[i]->recv(key, buf, len);
+                if (err == HAKO_PDU_ERR_OK) {
+                    buf.resize(len);
+                    if (buf == expected) {
+                        return static_cast<int>(i);
+                    }
+                }
+            }
+            std::this_thread::sleep_for(std::chrono::milliseconds(50));
+        }
+        return -1;
+    };
+
+    int idx1 = find_endpoint(key1, msg1);
+    int idx2 = find_endpoint(key2, msg2);
+    ASSERT_GE(idx1, 0);
+    ASSERT_GE(idx2, 0);
+    ASSERT_NE(idx1, idx2);
+
+    std::vector<std::byte> resp1 = {(std::byte)'r', (std::byte)'1'};
+    std::vector<std::byte> resp2 = {(std::byte)'r', (std::byte)'2'};
+    ASSERT_EQ(endpoints[static_cast<size_t>(idx1)]->send(key1, resp1), HAKO_PDU_ERR_OK);
+    ASSERT_EQ(endpoints[static_cast<size_t>(idx2)]->send(key2, resp2), HAKO_PDU_ERR_OK);
+
+    std::this_thread::sleep_for(std::chrono::milliseconds(100));
+
+    std::vector<std::byte> client_buf(8);
+    size_t client_len = 0;
+    ASSERT_EQ(client1.recv(key1, client_buf, client_len), HAKO_PDU_ERR_OK);
+    client_buf.resize(client_len);
+    EXPECT_EQ(client_buf, resp1);
+
+    client_buf.assign(8, std::byte{0});
+    client_len = 0;
+    ASSERT_EQ(client2.recv(key2, client_buf, client_len), HAKO_PDU_ERR_OK);
+    client_buf.resize(client_len);
+    EXPECT_EQ(client_buf, resp2);
+
+    for (auto& ep : endpoints) {
+        ASSERT_EQ(ep->stop(), HAKO_PDU_ERR_OK);
+        ASSERT_EQ(ep->close(), HAKO_PDU_ERR_OK);
+    }
+
+    ASSERT_EQ(client1.stop(), HAKO_PDU_ERR_OK);
+    ASSERT_EQ(client2.stop(), HAKO_PDU_ERR_OK);
+    ASSERT_EQ(client1.close(), HAKO_PDU_ERR_OK);
+    ASSERT_EQ(client2.close(), HAKO_PDU_ERR_OK);
+
+    ASSERT_EQ(mux.stop(), HAKO_PDU_ERR_OK);
+    ASSERT_EQ(mux.close(), HAKO_PDU_ERR_OK);
 }
 
 TEST_F(EndpointTest, UdpCommunicationTest) {

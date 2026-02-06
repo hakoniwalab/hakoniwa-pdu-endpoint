@@ -1,0 +1,14 @@
+{
+  "protocol": "tcp",
+  "name": "tcp_mux_test",
+  "direction": "inout",
+  "local": {
+    "address": "127.0.0.1",
+    "port": 54011
+  },
+  "expected_clients": 2,
+  "options": {
+    "read_timeout_ms": 1000,
+    "write_timeout_ms": 1000
+  }
+}

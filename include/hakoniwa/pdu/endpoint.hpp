@@ -49,6 +49,12 @@ public:
         return pdu_def_;
     }
 
+    // Inject comm before open(). Used by multiplexers to supply per-session comms.
+    void set_comm(std::shared_ptr<PduComm> comm)
+    {
+        comm_ = std::move(comm);
+    }
+
     // Optional: call before open() when the comm layer needs PDU channels created upfront.
     // open() without this call is also supported.
     virtual HakoPduErrorType create_pdu_lchannels(const std::string& endpoint_config_path)
