@@ -46,12 +46,49 @@ def build_validator(schema):
         return jsonschema.Draft7Validator(schema)
 
 
+def json_pointer_from_path(path_seq):
+    if not path_seq:
+        return "/"
+    def esc(seg):
+        return str(seg).replace("~", "~0").replace("/", "~1")
+    return "/" + "/".join(esc(p) for p in path_seq)
+
+
+def explain_field(key: str) -> str:
+    explanations = {
+        "robots": "Robots define the ownership boundary for PDU definitions and must be explicit.",
+        "name": "Names bind PDU definitions to concrete channels and must be explicit.",
+        "paths": "Paths map PDU type sets to files so byte layouts are shared and explicit.",
+        "pdutypes_id": "pdutypes_id links a robot to a concrete PDU type set.",
+        "channel_id": "channel_id fixes the on-wire identity of a PDU.",
+        "pdu_size": "pdu_size fixes the byte length for deterministic exchange.",
+        "type": "type binds a PDU to its schema/type name for shared meaning.",
+    }
+    return explanations.get(key, "This field is part of explicit PDU semantics and must not be implicit.")
+
+
 def validate_with_schema(validator, data, json_path: Path):
     errors = sorted(validator.iter_errors(data), key=lambda e: e.path)
     messages = []
     for e in errors:
-        loc = "/".join([str(x) for x in e.path]) or "(root)"
-        messages.append(f"{json_path}: {loc}: {e.message}")
+        pointer = json_pointer_from_path(e.path)
+        rule = e.validator or "validation"
+        missing_key = None
+        if rule == "required" and isinstance(e.message, str):
+            if "'" in e.message:
+                missing_key = e.message.split("'")[1]
+        if missing_key:
+            missing_ptr = pointer.rstrip("/") + "/" + missing_key
+            reason = explain_field(missing_key)
+            messages.append(
+                f"{json_path}: {missing_ptr}: rule=required: {e.message} Reason: {reason}"
+            )
+        else:
+            key_hint = e.path[-1] if e.path else None
+            reason = explain_field(str(key_hint)) if key_hint is not None else "This field is part of explicit PDU semantics and must not be implicit."
+            messages.append(
+                f"{json_path}: {pointer}: rule={rule}: {e.message} Reason: {reason}"
+            )
     return messages
 
 
@@ -83,23 +120,26 @@ def validate_pdudef(pdudef_validator, pdutypes_validator, pdudef_path: Path):
         id_map = {}
         for entry in paths:
             if not isinstance(entry, dict):
-                messages.append(f"{pdudef_path}: paths entry is not an object: {entry}")
+                messages.append(f"{pdudef_path}: /paths: rule=type: entry is not an object. Reason: {explain_field('paths')}")
                 continue
             pid = entry.get("id")
             ppath = entry.get("path")
             if not isinstance(pid, str) or not pid:
-                messages.append(f"{pdudef_path}: paths entry missing id: {entry}")
+                messages.append(f"{pdudef_path}: /paths: rule=required: paths entry missing id. Reason: {explain_field('paths')}")
                 continue
             if pid in id_map:
-                messages.append(f"{pdudef_path}: duplicate paths id: {pid}")
+                messages.append(f"{pdudef_path}: /paths: rule=unique: duplicate paths id '{pid}'. Reason: {explain_field('paths')}")
                 continue
             if not isinstance(ppath, str) or not ppath:
-                messages.append(f"{pdudef_path}: paths entry missing path for id {pid}")
+                messages.append(f"{pdudef_path}: /paths: rule=required: missing path for id '{pid}'. Reason: {explain_field('paths')}")
                 continue
             resolved = resolve_ref_path(base_dir, ppath)
             id_map[pid] = resolved
             if not resolved.exists():
-                messages.append(f"{pdudef_path}: missing pdutypes file: {ppath}")
+                messages.append(
+                    f"{pdudef_path}: /paths: rule=exists: missing pdutypes file '{ppath}' (resolved: '{resolved}'). "
+                    f"Reason: {explain_field('paths')} Suggested fix: update the path or create the file."
+                )
                 continue
             messages.extend(validate_pdutypes_file(pdutypes_validator, resolved))
 
@@ -110,7 +150,10 @@ def validate_pdudef(pdudef_validator, pdutypes_validator, pdudef_path: Path):
             rid = robot.get("pdutypes_id")
             if isinstance(rid, str) and rid:
                 if rid not in id_map:
-                    messages.append(f"{pdudef_path}: robots.pdutypes_id not found in paths: {rid}")
+                    messages.append(
+                        f"{pdudef_path}: /robots: rule=enum: pdutypes_id '{rid}' not found in paths. "
+                        f"Reason: {explain_field('pdutypes_id')} Suggested fix: add the id to paths or correct pdutypes_id."
+                    )
 
     return messages, had_schema_error
 

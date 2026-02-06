@@ -305,6 +305,21 @@ See `examples/README.md` for usage.
 These are minimal executable reference configurations (not tutorials). Use them as starting points, and validate any edits with the JSON schema tools described below.
 See `FAQ.md` for design rationale and common questions.
 
+## Config Generator
+
+A minimal generator is available for producing endpoint/comm config skeletons:
+
+```bash
+python -m hakoniwa_pdu_endpoint.gen_endpoint_config --protocol tcp --direction inout --role server --name demo --out-dir config/generated
+```
+
+Why this exists: it reduces boilerplate without hiding semantics. The generator never guesses semantic choices. The generator fills in protocol-specific basics and prints notes for any semantic decisions that should be chosen by the user (timeouts, pdu_def_path, etc.).
+
+SHM example:
+```bash
+python -m hakoniwa_pdu_endpoint.gen_endpoint_config --protocol shm --direction inout --name shm_demo --shm-impl poll --shm-asset-name Asset --shm-pdu Pdu --out-dir config/generated
+```
+
 TCP (inout) examples:
 - `examples/endpoint_tcp_server.cpp` uses `config/sample/endpoint_tcp_server.json`
 - `examples/endpoint_tcp_client.cpp` uses `config/sample/endpoint_tcp_client.json`

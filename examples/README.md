@@ -93,3 +93,4 @@ What this demonstrates: `comm: null` enables network-free unit/integration testi
 ```
 
 Note: for larger systems, configs are expected to be generated and validated programmatically. See the validation section in the top-level README for how to run the schema validators.
+If you are generating many configs, see the config generator in the top-level README.
