@@ -2,6 +2,7 @@
 
 `hakoniwa-pdu-endpoint` is a core infrastructure component for Hakoniwa distributed simulation. It is not “just a messaging library”: an Endpoint defines the causality boundary between simulation participants and makes semantics explicit. The design intentionally separates `Cache`, `Communication`, and optional `PDU Definition` so that lifetime, delivery, and meaning are never implicit.
 For visual summaries, see `docs/diagrams/README.md`.
+This component targets teams building multi-asset simulations that require explicit semantics and auditability; it is intentionally heavier than a minimal messaging library. If you want a simple API with implicit defaults, this is not the right tool.
 
 ## Why Endpoint?
 
