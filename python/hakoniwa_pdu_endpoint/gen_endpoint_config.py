@@ -85,12 +85,61 @@ def build_shm(args):
     return comm
 
 
+def apply_preset(args):
+    presets = {
+        "tcp_basic_server": {
+            "protocol": "tcp",
+            "direction": "inout",
+            "role": "server",
+            "address": "0.0.0.0",
+            "port": 54001,
+            "cache": "config/sample/cache/queue.json",
+        },
+        "tcp_basic_client": {
+            "protocol": "tcp",
+            "direction": "inout",
+            "role": "client",
+            "remote_address": "127.0.0.1",
+            "remote_port": 54001,
+            "cache": "config/sample/cache/queue.json",
+        },
+        "udp_oneway": {
+            "protocol": "udp",
+            "direction": "out",
+            "remote_address": "127.0.0.1",
+            "remote_port": 9001,
+            "robot": "ExampleRobot",
+            "channel_id": 0,
+            "cache": "config/sample/cache/buffer.json",
+        },
+        "internal_cache": {
+            "internal_cache": True,
+            "cache": "config/sample/cache/buffer.json",
+        },
+        "tcp_mux_basic": {
+            "protocol": "tcp",
+            "direction": "inout",
+            "tcp_mux": True,
+            "expected_clients": 2,
+            "address": "0.0.0.0",
+            "port": 54001,
+            "cache": "config/sample/cache/buffer.json",
+        },
+    }
+    preset = presets.get(args.preset)
+    if not preset:
+        return
+    for key, value in preset.items():
+        setattr(args, key, value)
+
+
 def main():
     parser = argparse.ArgumentParser(
         description="Generate minimal Endpoint + Comm config files."
     )
-    parser.add_argument("--protocol", required=True, choices=["tcp", "udp", "websocket", "shm"])
-    parser.add_argument("--direction", required=True, choices=["in", "out", "inout"])
+    parser.add_argument("--preset", choices=["tcp_basic_server", "tcp_basic_client", "udp_oneway", "internal_cache", "tcp_mux_basic"], help="Use a fixed preset (explicitly defined, no inference).")
+    parser.add_argument("--protocol", choices=["tcp", "udp", "websocket", "shm"])
+    parser.add_argument("--direction", choices=["in", "out", "inout"])
     parser.add_argument("--role", choices=["server", "client"], help="Required for tcp/websocket")
     parser.add_argument("--name", required=True, help="Base name for endpoint and comm")
 
@@ -117,6 +166,15 @@ def main():
     parser.add_argument("--comm-out", help="Comm output path (overrides --out-dir)")
     args = parser.parse_args()
 
+    if args.preset:
+        apply_preset(args)
+        print(f"Using preset: {args.preset}")
+        if args.protocol is None and not args.internal_cache:
+            parser.error("--preset requires protocol to be set by preset")
+    if args.protocol is None and not args.internal_cache:
+        parser.error("--protocol is required unless --internal-cache is used")
+    if args.direction is None and not args.internal_cache:
+        parser.error("--direction is required unless --internal-cache is used")
     if args.internal_cache and args.tcp_mux:
         parser.error("--internal-cache and --tcp-mux are mutually exclusive")
     if args.tcp_mux and args.protocol != "tcp":

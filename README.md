@@ -3,6 +3,7 @@
 `hakoniwa-pdu-endpoint` is a core infrastructure component for Hakoniwa distributed simulation. It is not “just a messaging library”: an Endpoint defines the causality boundary between simulation participants and makes semantics explicit. The design intentionally separates `Cache`, `Communication`, and optional `PDU Definition` so that lifetime, delivery, and meaning are never implicit.
 For visual summaries, see `docs/diagrams/README.md`.
 This component targets teams building multi-asset simulations that require explicit semantics and auditability; it is intentionally heavier than a minimal messaging library. If you want a simple API with implicit defaults, this is not the right tool.
+For a consolidated statement of intent, see `docs/design_philosophy.md`.
 
 ## Why Endpoint?
 
@@ -309,7 +310,7 @@ These are minimal executable reference configurations (not tutorials). Use them 
 See `FAQ.md` for design rationale and common questions.
 See `docs/design_notes.md` for a concise summary of design trade-offs.
 If you want “preset-style” configurations, see `config/sample/endpoint_examples.json` as a curated set of working combinations.
-For a smooth first-run path, use: generator → validator → examples.
+For a smooth first-run path, use: generator → validator → examples. Treat generator + validator as the default workflow.
 For a deeper discussion of configuration trade-offs (multi-file JSON vs single-file vs code-based), see `docs/design_tradeoffs.md`.
 
 ## Config Generator
@@ -321,6 +322,11 @@ python -m hakoniwa_pdu_endpoint.gen_endpoint_config --protocol tcp --direction i
 ```
 
 Why this exists: it reduces boilerplate without hiding semantics. The generator never guesses semantic choices. The generator fills in protocol-specific basics and prints notes for any semantic decisions that should be chosen by the user (timeouts, pdu_def_path, etc.).
+
+Preset mode (explicit, no inference):
+```bash
+python -m hakoniwa_pdu_endpoint.gen_endpoint_config --preset tcp_basic_server --name demo --out-dir config/generated
+```
 
 SHM example:
 ```bash
