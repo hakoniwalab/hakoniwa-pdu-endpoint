@@ -26,15 +26,6 @@
       "enum": ["v1", "v2"],
       "description": "Optional raw packet format version for TCP/UDP/WebSocket."
     },
-    "pdu_key": {
-      "type": "object",
-      "description": "PDU key for UDP framing.",
-      "required": ["robot", "channel_id"],
-      "properties": {
-        "robot": { "type": "string", "minLength": 1 },
-        "channel_id": { "type": "integer", "minimum": 0 }
-      }
-    },
     "impl_type": {
       "type": "string",
       "enum": ["callback", "poll"],
@@ -147,7 +138,7 @@
     {
       "if": { "properties": { "protocol": { "const": "udp" } } },
       "then": {
-        "required": ["direction", "pdu_key"],
+        "required": ["direction"],
         "properties": {
           "local": { "$ref": "#/$defs/endpoint" },
           "remote": { "$ref": "#/$defs/endpoint" }

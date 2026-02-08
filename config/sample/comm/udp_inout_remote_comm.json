@@ -2,7 +2,6 @@
   "protocol": "udp",
   "name": "udp_inout_remote",
   "direction": "inout",
-  "pdu_key": { "robot": "TestRobo", "channel_id": 0 },
   "local": {
     "address": "0.0.0.0",
     "port": 7001

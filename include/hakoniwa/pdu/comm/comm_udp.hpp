@@ -58,9 +58,6 @@ private:
     socklen_t last_client_addr_len_ = 0;
     HakoPduEndpointDirectionType config_direction_ = HAKO_PDU_ENDPOINT_DIRECTION_INOUT;
 
-    // PDUキー for this endpoint
-    hakoniwa::pdu::PduResolvedKey pdu_key_;
-
     // スレッド関連 (pdu_key_ is now in PduCommRaw)
     std::thread recv_thread_;
     std::atomic<bool> is_running_flag_{false}; // Renamed to avoid confusion with raw_is_running

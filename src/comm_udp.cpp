@@ -70,15 +70,6 @@ HakoPduErrorType UdpComm::raw_open(const std::string& config_path)
         }
     }
     
-    if (!config_json.contains("pdu_key")) {
-        std::cerr << "UDP Comm config error: missing 'pdu_key'." << std::endl;
-        return HAKO_PDU_ERR_INVALID_ARGUMENT;
-    }
-    const auto& key_json = config_json.at("pdu_key");
-    pdu_key_.robot = key_json.value("robot", "");
-    pdu_key_.channel_id = key_json.value("channel_id", 0);
-
-
     addrinfo* local_addr_info = nullptr;
     addrinfo* remote_addr_info = nullptr;
 

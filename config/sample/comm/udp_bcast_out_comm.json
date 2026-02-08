@@ -2,7 +2,6 @@
   "protocol": "udp",
   "name": "broadcast_sender",
   "direction": "out",
-  "pdu_key": { "robot": "TestRobo", "channel_id": 0 },
   "remote": {
     "address": "255.255.255.255",
     "port": 8888
