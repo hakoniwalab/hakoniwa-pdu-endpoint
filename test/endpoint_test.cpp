@@ -9,6 +9,7 @@
 #include <nlohmann/json.hpp>
 #include <sys/socket.h>
 #include <netinet/in.h>
+#include <atomic>
 #include <iostream>
 #include <cerrno>
 #include <cstring>
@@ -304,6 +305,52 @@ TEST_F(EndpointTest, TcpCommunicationV1Test) {
     ASSERT_EQ(server.stop(), HAKO_PDU_ERR_OK);
     ASSERT_EQ(client.stop(), HAKO_PDU_ERR_OK);
     ASSERT_EQ(server.close(), HAKO_PDU_ERR_OK);
+    ASSERT_EQ(client.close(), HAKO_PDU_ERR_OK);
+}
+
+TEST_F(EndpointTest, TcpDisconnectedCallbackTest) {
+    hakoniwa::pdu::Endpoint server("tcp_server_disconnect", HAKO_PDU_ENDPOINT_DIRECTION_INOUT);
+    hakoniwa::pdu::Endpoint client("tcp_client_disconnect", HAKO_PDU_ENDPOINT_DIRECTION_INOUT);
+
+    std::atomic<bool> disconnected_called{false};
+    std::atomic<int> reason_code{0};
+    std::string reason_text;
+
+    client.set_on_disconnected_callback(
+        [&](const hakoniwa::pdu::DisconnectEvent& ev) {
+            disconnected_called = true;
+            reason_code = ev.reason_code;
+            reason_text = ev.reason_text;
+        });
+
+    ASSERT_EQ(server.open("test/test_endpoint_tcp_server.json"), HAKO_PDU_ERR_OK);
+    ASSERT_EQ(client.open("test/test_endpoint_tcp_client.json"), HAKO_PDU_ERR_OK);
+    ASSERT_EQ(server.start(), HAKO_PDU_ERR_OK);
+    ASSERT_EQ(client.start(), HAKO_PDU_ERR_OK);
+
+    // Give time for connect and steady state.
+    std::this_thread::sleep_for(std::chrono::milliseconds(300));
+
+    // Force client-side disconnect detection by stopping server endpoint.
+    ASSERT_EQ(server.stop(), HAKO_PDU_ERR_OK);
+    ASSERT_EQ(server.close(), HAKO_PDU_ERR_OK);
+
+    bool notified = false;
+    for (int i = 0; i < 40; ++i) {
+        if (disconnected_called.load()) {
+            notified = true;
+            break;
+        }
+        std::this_thread::sleep_for(std::chrono::milliseconds(100));
+    }
+
+    EXPECT_TRUE(notified);
+    if (notified) {
+        EXPECT_NE(reason_code.load(), HAKO_PDU_ERR_OK);
+        EXPECT_FALSE(reason_text.empty());
+    }
+
+    ASSERT_EQ(client.stop(), HAKO_PDU_ERR_OK);
     ASSERT_EQ(client.close(), HAKO_PDU_ERR_OK);
 }
 

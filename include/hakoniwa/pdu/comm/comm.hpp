@@ -5,12 +5,18 @@
 #include <memory> 
 #include <span>
 #include <functional>
+#include <string>
 
 namespace hakoniwa {
 namespace pdu {
 
 // callbacks for communication
+struct CommDisconnectEvent {
+    int reason_code;
+    std::string reason_text;
+};
 
+using OnCommDisconnected = std::function<void(const CommDisconnectEvent&)>;
 
 // PduComm defines the transport contract used by Endpoint.
 // Implementations must make delivery semantics explicit via config.
@@ -53,6 +59,11 @@ public:
         on_recv_callback_ = callback;
         return HAKO_PDU_ERR_OK;
     }
+    virtual HakoPduErrorType set_on_disconnected_callback(OnCommDisconnected callback) noexcept
+    {
+        on_disconnected_callback_ = std::move(callback);
+        return HAKO_PDU_ERR_OK;
+    }
 
     // Only meaningful for SHM poll implementations. Other comm types are no-op.
     virtual void process_recv_events() noexcept {}
@@ -64,6 +75,15 @@ protected:
     std::shared_ptr<PduDefinition>  pdu_def_; // Moved to base class
     //callbacks can be added here
     std::function<void(const PduResolvedKey&, std::span<const std::byte>)> on_recv_callback_;
+    OnCommDisconnected on_disconnected_callback_;
+
+    void notify_disconnected_(int reason_code, std::string reason_text) noexcept
+    {
+        if (!on_disconnected_callback_) {
+            return;
+        }
+        on_disconnected_callback_({reason_code, std::move(reason_text)});
+    }
 };
 } // namespace pdu
 } // namespace hakoniwa

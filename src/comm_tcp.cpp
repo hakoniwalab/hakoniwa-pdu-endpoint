@@ -197,6 +197,7 @@ HakoPduErrorType TcpComm::raw_start() noexcept {
         std::cerr << "TCP Comm start requested while already running." << std::endl;
         return HAKO_PDU_ERR_BUSY;
     }
+    stopping_ = false;
     is_running_flag_ = true;
     if (role_ == Role::Server) {
         comm_thread_ = std::thread(&TcpComm::server_loop, this);
@@ -210,6 +211,7 @@ HakoPduErrorType TcpComm::raw_stop() noexcept {
     if (!is_running_flag_) {
         return HAKO_PDU_ERR_OK;
     }
+    stopping_ = true;
     is_running_flag_ = false;
 
     int current_listen_fd = listen_fd_.load();
@@ -227,6 +229,7 @@ HakoPduErrorType TcpComm::raw_stop() noexcept {
         comm_thread_.join();
     }
     is_connected_ = false;
+    disconnect_notified_ = false;
     return HAKO_PDU_ERR_OK;
 }
 
@@ -251,7 +254,11 @@ HakoPduErrorType TcpComm::raw_send(const std::vector<std::byte>& data) noexcept 
     #ifdef ENABLE_DEBUG_MESSAGES
     std::cout << "DEBUG: TCP Comm sending " << data.size() << " bytes." << std::endl;
     #endif
-    return write_data(current_client_fd, data.data(), data.size());
+    HakoPduErrorType err = write_data(current_client_fd, data.data(), data.size());
+    if (err != HAKO_PDU_ERR_OK) {
+        notify_disconnect_if_needed_(err, "send");
+    }
+    return err;
 }
 
 void TcpComm::server_loop() {
@@ -270,6 +277,7 @@ void TcpComm::server_loop() {
         client_fd_ = accepted_fd;
         configure_socket_options(client_fd_.load(), options_);
         is_connected_ = true;
+        disconnect_notified_ = false;
 
         while (is_running_flag_) {
             if (packet_version() == "v1") {
@@ -277,6 +285,7 @@ void TcpComm::server_loop() {
                 HakoPduErrorType err = read_data(client_fd_.load(), header_len_buf.data(), header_len_buf.size());
                 if (err != HAKO_PDU_ERR_OK) {
                     std::cerr << "TCP Comm read v1 header length failed: " << static_cast<int>(err) << std::endl;
+                    notify_disconnect_if_needed_(err, "server read v1 header");
                     break;
                 }
                 uint32_t header_len = read_le32(header_len_buf.data());
@@ -289,6 +298,7 @@ void TcpComm::server_loop() {
                 err = read_data(client_fd_.load(), packet_buf.data() + 4, header_len);
                 if (err != HAKO_PDU_ERR_OK) {
                     std::cerr << "TCP Comm read v1 payload failed: " << static_cast<int>(err) << std::endl;
+                    notify_disconnect_if_needed_(err, "server read v1 payload");
                     break;
                 }
                 on_raw_data_received(packet_buf);
@@ -300,6 +310,7 @@ void TcpComm::server_loop() {
             if (err != HAKO_PDU_ERR_OK) {
                 std::cerr << "TCP Comm read header failed: " << static_cast<int>(err) << std::endl;
                 // Connection closed or error
+                notify_disconnect_if_needed_(err, "server read header");
                 break;
             }
             #ifdef ENABLE_DEBUG_MESSAGES
@@ -315,6 +326,7 @@ void TcpComm::server_loop() {
                 if (err != HAKO_PDU_ERR_OK) {
                     std::cerr << "TCP Comm read body failed: " << static_cast<int>(err) << std::endl;
                     // Incomplete packet or error
+                    notify_disconnect_if_needed_(err, "server read body");
                     break;
                 }
                 header_buf.insert(header_buf.end(), body_buf.begin(), body_buf.end());
@@ -358,6 +370,7 @@ void TcpComm::client_loop() {
 
         configure_socket_options(client_fd_.load(), options_);
         is_connected_ = true;
+        disconnect_notified_ = false;
 
         while (is_running_flag_) {
             if (packet_version() == "v1") {
@@ -365,6 +378,7 @@ void TcpComm::client_loop() {
                 HakoPduErrorType err = read_data(client_fd_.load(), header_len_buf.data(), header_len_buf.size());
                 if (err != HAKO_PDU_ERR_OK) {
                     std::cerr << "TCP Comm read v1 header length failed: " << static_cast<int>(err) << std::endl;
+                    notify_disconnect_if_needed_(err, "client read v1 header");
                     break;
                 }
                 uint32_t header_len = read_le32(header_len_buf.data());
@@ -377,6 +391,7 @@ void TcpComm::client_loop() {
                 err = read_data(client_fd_.load(), packet_buf.data() + 4, header_len);
                 if (err != HAKO_PDU_ERR_OK) {
                     std::cerr << "TCP Comm read v1 payload failed: " << static_cast<int>(err) << std::endl;
+                    notify_disconnect_if_needed_(err, "client read v1 payload");
                     break;
                 }
                 on_raw_data_received(packet_buf);
@@ -387,6 +402,7 @@ void TcpComm::client_loop() {
             HakoPduErrorType err = read_data(client_fd_.load(), header_buf.data(), header_buf.size());
             if (err != HAKO_PDU_ERR_OK) {
                 std::cerr << "TCP Comm read header failed: " << static_cast<int>(err) << std::endl;
+                notify_disconnect_if_needed_(err, "client read header");
                 break; // Disconnected
             }
             #ifdef ENABLE_DEBUG_MESSAGES
@@ -402,6 +418,7 @@ void TcpComm::client_loop() {
                 err = read_data(client_fd_.load(), body_buf.data(), body_buf.size());
                 if (err != HAKO_PDU_ERR_OK) {
                     std::cerr << "TCP Comm read body failed: " << static_cast<int>(err) << std::endl;
+                    notify_disconnect_if_needed_(err, "client read body");
                     break; // Incomplete packet
                 }
             }
@@ -413,6 +430,19 @@ void TcpComm::client_loop() {
         ::close(client_fd_.load());
         client_fd_ = -1;
     }
+}
+
+void TcpComm::notify_disconnect_if_needed_(HakoPduErrorType reason, const char* context) noexcept
+{
+    if (stopping_.load() || !is_connected_.load()) {
+        return;
+    }
+    bool expected = false;
+    if (!disconnect_notified_.compare_exchange_strong(expected, true)) {
+        return;
+    }
+    is_connected_ = false;
+    notify_disconnected_(static_cast<int>(reason), std::string("tcp disconnected: ") + context);
 }
 
 HakoPduErrorType TcpComm::read_data(int fd, std::byte* buffer, size_t size) noexcept {

@@ -24,6 +24,12 @@ namespace fs = std::filesystem;
 namespace hakoniwa {
 namespace pdu {
 using OnRecvCallback = std::function<void(const PduResolvedKey&, std::span<const std::byte>)>;
+struct DisconnectEvent {
+    std::string endpoint_name;
+    int reason_code;
+    std::string reason_text;
+};
+using OnDisconnectedCallback = std::function<void(const DisconnectEvent&)>;
 
 /*
  * Threading assumptions:
@@ -55,6 +61,16 @@ public:
     void set_comm(std::shared_ptr<PduComm> comm)
     {
         comm_ = std::move(comm);
+    }
+    void set_on_disconnected_callback(OnDisconnectedCallback cb) noexcept
+    {
+        std::lock_guard<std::mutex> lock(disconnect_cb_mtx_);
+        on_disconnected_callback_ = std::move(cb);
+        if (comm_) {
+            (void)comm_->set_on_disconnected_callback([this](const CommDisconnectEvent& ev) {
+                this->notify_disconnected_(ev);
+            });
+        }
     }
 
     // Optional: call before open() when the comm layer needs PDU channels created upfront.
@@ -167,6 +183,9 @@ public:
             (void)comm_->set_on_recv_callback([this](const PduResolvedKey& pdu_key, std::span<const std::byte> data) {
                 this->recv_callback_(pdu_key, data);
             });
+            (void)comm_->set_on_disconnected_callback([this](const CommDisconnectEvent& ev) {
+                this->notify_disconnected_(ev);
+            });
         }
         return HAKO_PDU_ERR_OK;
     }
@@ -177,6 +196,7 @@ public:
         HakoPduErrorType err = HAKO_PDU_ERR_OK;
         if (comm_) {
             (void)comm_->set_on_recv_callback(nullptr);
+            (void)comm_->set_on_disconnected_callback(nullptr);
             err = comm_->close();
         }
         if (cache_) {
@@ -385,7 +405,22 @@ protected:
 
 private:
     mutable std::mutex cb_mtx_;
+    mutable std::mutex disconnect_cb_mtx_;
     std::vector<std::pair<PduResolvedKey, OnRecvCallback>> per_pdu_callbacks_;
+    OnDisconnectedCallback on_disconnected_callback_;
+
+    void notify_disconnected_(const CommDisconnectEvent& ev) noexcept
+    {
+        OnDisconnectedCallback cb;
+        {
+            std::lock_guard<std::mutex> lock(disconnect_cb_mtx_);
+            cb = on_disconnected_callback_;
+        }
+        if (!cb) {
+            return;
+        }
+        cb({name_, ev.reason_code, ev.reason_text});
+    }
     void notify_subscribers_(const PduResolvedKey& pdu_key,
                             std::span<const std::byte> data) noexcept
     {
