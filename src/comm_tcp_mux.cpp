@@ -413,8 +413,16 @@ HakoPduErrorType TcpCommMultiplexer::open(const std::string& config_path)
         }
     }
 
+    NameResolverConfig name_resolver{};
+    std::string name_resolver_error;
+    auto resolver_ret = load_name_resolver_config(config_json, config_path, name_resolver, name_resolver_error);
+    if (resolver_ret != HAKO_PDU_ERR_OK) {
+        std::cerr << "TCP Mux config error: " << name_resolver_error << std::endl;
+        return resolver_ret;
+    }
+
     addrinfo* local_addr_info = nullptr;
-    if (resolve_address(config_json.at("local"), kTcpSocketType, &local_addr_info) != HAKO_PDU_ERR_OK) {
+    if (resolve_address(config_json.at("local"), kTcpSocketType, &local_addr_info, &name_resolver) != HAKO_PDU_ERR_OK) {
         std::cerr << "TCP Mux config error: failed to resolve local address." << std::endl;
         return HAKO_PDU_ERR_INVALID_ARGUMENT;
     }

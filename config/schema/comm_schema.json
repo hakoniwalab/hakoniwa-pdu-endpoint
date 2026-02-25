@@ -49,6 +49,9 @@
       "type": "object",
       "description": "Remote endpoint settings."
     },
+    "name_resolver": {
+      "$ref": "#/$defs/name_resolver"
+    },
     "expected_clients": {
       "type": "integer",
       "minimum": 1,
@@ -203,17 +206,31 @@
       "properties": {
         "address": {
           "type": "string",
-          "description": "IP address (IPv4 or IPv6).",
-          "oneOf": [
-            { "format": "ipv4" },
-            { "format": "ipv6" }
-          ]
+          "description": "IP address or host name."
         },
         "port": {
           "type": "integer",
           "description": "Port number.",
           "minimum": 1,
           "maximum": 65535
+        }
+      }
+    },
+    "name_resolver": {
+      "type": "object",
+      "required": ["type", "path"],
+      "properties": {
+        "type": {
+          "type": "string",
+          "enum": ["file"]
+        },
+        "path": {
+          "type": "string",
+          "minLength": 1
+        },
+        "strict": {
+          "type": "boolean",
+          "description": "If true, unresolved host names are treated as errors."
         }
       }
     },

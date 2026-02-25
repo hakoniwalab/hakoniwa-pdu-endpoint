@@ -15,6 +15,8 @@
 #include <cstring>
 #include "hakoniwa/pdu/comm/packet.hpp"
 #include "hakoniwa/pdu/endpoint_comm_multiplexer.hpp"
+#include "hakoniwa/pdu/socket_utils.hpp"
+#include <filesystem>
 
 // Test Utilities
 namespace {
@@ -216,6 +218,144 @@ TEST_F(EndpointTest, PduDefinitionCompactTest) {
 
     ASSERT_EQ(endpoint.stop(), HAKO_PDU_ERR_OK);
     ASSERT_EQ(endpoint.close(), HAKO_PDU_ERR_OK);
+}
+
+TEST_F(EndpointTest, NameResolverFileMapResolvesHostForAddressLookup) {
+    namespace fs = std::filesystem;
+    const auto temp_base = fs::temp_directory_path() / "hako_pdu_endpoint_name_resolver_test";
+    fs::create_directories(temp_base);
+    const auto map_path = temp_base / "node-ip-map.json";
+    const auto comm_path = temp_base / "comm.json";
+
+    {
+        std::ofstream ofs(map_path);
+        ASSERT_TRUE(ofs.is_open());
+        ofs << R"({"srv-01":"127.0.0.1"})";
+    }
+    {
+        std::ofstream ofs(comm_path);
+        ASSERT_TRUE(ofs.is_open());
+        ofs << R"({"protocol":"tcp","name_resolver":{"type":"file","path":"node-ip-map.json"}})";
+    }
+
+    nlohmann::json comm_json;
+    {
+        std::ifstream ifs(comm_path);
+        ASSERT_TRUE(ifs.is_open());
+        ifs >> comm_json;
+    }
+    hakoniwa::pdu::NameResolverConfig resolver{};
+    std::string err;
+    ASSERT_EQ(hakoniwa::pdu::load_name_resolver_config(comm_json, comm_path.string(), resolver, err), HAKO_PDU_ERR_OK)
+        << err;
+    ASSERT_TRUE(resolver.enabled);
+
+    nlohmann::json endpoint_json = {
+        {"address", "srv-01"},
+        {"port", 64011}
+    };
+    addrinfo* resolved = nullptr;
+    std::string resolved_address;
+    ASSERT_EQ(hakoniwa::pdu::resolve_address(endpoint_json,
+                                             SOCK_STREAM,
+                                             &resolved,
+                                             &resolver,
+                                             &resolved_address),
+              HAKO_PDU_ERR_OK);
+    ASSERT_TRUE(resolved != nullptr);
+    EXPECT_EQ(resolved_address, "127.0.0.1");
+    freeaddrinfo(resolved);
+}
+
+TEST_F(EndpointTest, NameResolverStrictModeFailsOnUnknownHost) {
+    namespace fs = std::filesystem;
+    const auto temp_base = fs::temp_directory_path() / "hako_pdu_endpoint_name_resolver_strict_test";
+    fs::create_directories(temp_base);
+    const auto map_path = temp_base / "node-ip-map.json";
+    const auto comm_path = temp_base / "comm.json";
+
+    {
+        std::ofstream ofs(map_path);
+        ASSERT_TRUE(ofs.is_open());
+        ofs << R"({"srv-01":"127.0.0.1"})";
+    }
+    {
+        std::ofstream ofs(comm_path);
+        ASSERT_TRUE(ofs.is_open());
+        ofs << R"({"protocol":"tcp","name_resolver":{"type":"file","path":"node-ip-map.json","strict":true}})";
+    }
+
+    nlohmann::json comm_json;
+    {
+        std::ifstream ifs(comm_path);
+        ASSERT_TRUE(ifs.is_open());
+        ifs >> comm_json;
+    }
+    hakoniwa::pdu::NameResolverConfig resolver{};
+    std::string err;
+    ASSERT_EQ(hakoniwa::pdu::load_name_resolver_config(comm_json, comm_path.string(), resolver, err), HAKO_PDU_ERR_OK)
+        << err;
+    ASSERT_TRUE(resolver.strict);
+
+    nlohmann::json endpoint_json = {
+        {"address", "unknown-node"},
+        {"port", 64011}
+    };
+    addrinfo* resolved = nullptr;
+    EXPECT_EQ(hakoniwa::pdu::resolve_address(endpoint_json,
+                                             SOCK_STREAM,
+                                             &resolved,
+                                             &resolver,
+                                             nullptr),
+              HAKO_PDU_ERR_INVALID_ARGUMENT);
+    EXPECT_EQ(resolved, nullptr);
+}
+
+TEST_F(EndpointTest, NameResolverUsesEnvPathWhenConfigOmitted) {
+    namespace fs = std::filesystem;
+    const auto temp_base = fs::temp_directory_path() / "hako_pdu_endpoint_name_resolver_env_test";
+    fs::create_directories(temp_base);
+    const auto map_path = temp_base / "node-ip-map.json";
+    const auto comm_path = temp_base / "comm.json";
+
+    {
+        std::ofstream ofs(map_path);
+        ASSERT_TRUE(ofs.is_open());
+        ofs << R"({"srv-01":"127.0.0.1"})";
+    }
+    {
+        std::ofstream ofs(comm_path);
+        ASSERT_TRUE(ofs.is_open());
+        ofs << R"({"protocol":"tcp"})";
+    }
+
+    ASSERT_EQ(setenv("HAKO_PDU_NAME_RESOLVER_PATH", map_path.c_str(), 1), 0);
+    nlohmann::json comm_json;
+    {
+        std::ifstream ifs(comm_path);
+        ASSERT_TRUE(ifs.is_open());
+        ifs >> comm_json;
+    }
+    hakoniwa::pdu::NameResolverConfig resolver{};
+    std::string err;
+    ASSERT_EQ(hakoniwa::pdu::load_name_resolver_config(comm_json, comm_path.string(), resolver, err), HAKO_PDU_ERR_OK)
+        << err;
+    ASSERT_TRUE(resolver.enabled);
+
+    nlohmann::json endpoint_json = {
+        {"address", "srv-01"},
+        {"port", 64011}
+    };
+    addrinfo* resolved = nullptr;
+    ASSERT_EQ(hakoniwa::pdu::resolve_address(endpoint_json,
+                                             SOCK_STREAM,
+                                             &resolved,
+                                             &resolver,
+                                             nullptr),
+              HAKO_PDU_ERR_OK);
+    ASSERT_TRUE(resolved != nullptr);
+    freeaddrinfo(resolved);
+    unsetenv("HAKO_PDU_NAME_RESOLVER_PATH");
 }
 
 TEST_F(EndpointTest, TcpCommunicationTest) {
