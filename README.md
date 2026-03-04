@@ -196,6 +196,41 @@ These files define the in-memory storage strategy (e.g., `latest` mode or `queue
 
 These files define the network protocol and parameters. See `config/sample/comm/` for examples for TCP, UDP, SHM, and WebSocket.
 
+#### Optional: host name resolver for TCP/UDP
+
+For TCP/UDP comm configs, you can resolve host names (e.g. `srv-01`) via a local map file:
+
+```json
+{
+  "protocol": "tcp",
+  "direction": "out",
+  "role": "client",
+  "name_resolver": {
+    "type": "file",
+    "path": "../node-ip-map.json",
+    "strict": false
+  },
+  "remote": {
+    "address": "srv-01",
+    "port": 64011
+  }
+}
+```
+
+Map file example:
+
+```json
+{
+  "srv-01": "192.168.10.20",
+  "cli-01": "192.168.10.21"
+}
+```
+
+Notes:
+- `path` is resolved relative to the comm config file.
+- IP literals are used as-is and do not require mapping.
+- `strict=true` makes unresolved host names a config error.
+
 ### 4. PDU Definition File (Optional)
 
 This file maps human-readable PDU names to their channel IDs, sizes, and types. Providing this file in the endpoint configuration enables the high-level, name-based API.

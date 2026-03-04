@@ -33,6 +33,7 @@ private:
     // Main loop for client/server threads
     void server_loop();
     void client_loop();
+    void notify_disconnect_if_needed_(HakoPduErrorType reason, const char* context) noexcept;
 
     // Helper methods
     HakoPduErrorType read_data(int fd, std::byte* buffer, size_t size) noexcept;
@@ -76,6 +77,8 @@ private:
     socklen_t remote_addr_len_ = 0;
 
     std::atomic<bool> is_connected_{false};
+    std::atomic<bool> stopping_{false};
+    std::atomic<bool> disconnect_notified_{false};
 };
 
 } // namespace comm

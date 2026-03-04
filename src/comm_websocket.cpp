@@ -97,6 +97,7 @@ public:
         std::cout << "Session: Client handshake successful." << std::endl;
         handshake_done_.store(true);
         if (auto parent = comm_parent_.lock()) {
+            parent->disconnect_notified_ = false;
             do_read();
         } else {
             std::cerr << "Session: Parent comm object is no longer valid during handshake completion. Terminating session." << std::endl;
@@ -114,6 +115,7 @@ public:
         std::cout << "Session: Server connection accepted." << std::endl;
         handshake_done_.store(true);
         if (auto parent = comm_parent_.lock()) {
+            parent->disconnect_notified_ = false;
             do_read();
         } else {
             std::cerr << "Session: Parent comm object is no longer valid after accept. Terminating session." << std::endl;
@@ -323,6 +325,7 @@ HakoPduErrorType WebSocketComm::raw_start() noexcept {
         std::cerr << "WebSocket Comm start requested while already running." << std::endl;
         return HAKO_PDU_ERR_BUSY;
     }
+    stopping_ = false;
     is_running_flag_ = true;
     
     comm_thread_ = std::thread([this]() { ioc_.run(); });
@@ -339,6 +342,7 @@ HakoPduErrorType WebSocketComm::raw_start() noexcept {
 
 HakoPduErrorType WebSocketComm::raw_stop() noexcept {
     if (!is_running_flag_) return HAKO_PDU_ERR_OK;
+    stopping_ = true;
     is_running_flag_ = false;
 
     // Close acceptor to stop accepting new connections
@@ -371,6 +375,7 @@ HakoPduErrorType WebSocketComm::raw_stop() noexcept {
     if (comm_thread_.joinable()) comm_thread_.join(); // Wait for the communication thread to finish
 
     ioc_.restart(); // Prepare for possible reuse
+    disconnect_notified_ = false;
     
     return HAKO_PDU_ERR_OK;
 }
@@ -384,6 +389,9 @@ void WebSocketComm::remove_session(std::shared_ptr<WebSocketSession> session_to_
         std::lock_guard<std::mutex> lock(sessions_mtx_);
         sessions_.erase(std::remove(sessions_.begin(), sessions_.end(), session_to_remove), sessions_.end());
         remaining = sessions_.size();
+    }
+    if (remaining == 0) {
+        notify_disconnect_if_needed_(HAKO_PDU_ERR_IO_ERROR, "websocket session closed");
     }
     std::cout << "Session removed. Current active sessions: " << remaining << std::endl;
 }
@@ -451,6 +459,18 @@ void WebSocketComm::on_resolve(beast::error_code ec, tcp::resolver::results_type
     auto session = std::make_shared<WebSocketSession>(this->ioc_, std::static_pointer_cast<WebSocketComm>(this->shared_from_this()));
     this->sessions_.push_back(session);
     session->start_client_session(this->remote_host_, this->remote_path_, results);
+}
+
+void WebSocketComm::notify_disconnect_if_needed_(int reason_code, const std::string& reason_text) noexcept
+{
+    if (stopping_.load()) {
+        return;
+    }
+    bool expected = false;
+    if (!disconnect_notified_.compare_exchange_strong(expected, true)) {
+        return;
+    }
+    notify_disconnected_(reason_code, reason_text);
 }
 
 } // namespace comm

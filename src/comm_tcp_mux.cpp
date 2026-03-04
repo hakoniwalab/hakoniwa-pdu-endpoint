@@ -130,7 +130,9 @@ protected:
         if (is_running_) {
             return HAKO_PDU_ERR_BUSY;
         }
+        stopping_ = false;
         is_running_ = true;
+        disconnect_notified_ = false;
         recv_thread_ = std::thread(&TcpSessionComm::recv_loop_, this);
         return HAKO_PDU_ERR_OK;
     }
@@ -140,6 +142,7 @@ protected:
         if (!is_running_) {
             return HAKO_PDU_ERR_OK;
         }
+        stopping_ = true;
         is_running_ = false;
         if (fd_ >= 0) {
             ::shutdown(fd_, SHUT_RDWR);
@@ -147,6 +150,7 @@ protected:
         if (recv_thread_.joinable()) {
             recv_thread_.join();
         }
+        disconnect_notified_ = false;
         return HAKO_PDU_ERR_OK;
     }
 
@@ -289,6 +293,7 @@ private:
                 std::array<std::byte, 4> header_len_buf{};
                 HakoPduErrorType err = read_data_(fd_, header_len_buf.data(), header_len_buf.size());
                 if (err != HAKO_PDU_ERR_OK) {
+                    notify_disconnect_if_needed_(err, "mux session read v1 header");
                     break;
                 }
                 uint32_t header_len = read_le32(header_len_buf.data());
@@ -299,6 +304,7 @@ private:
                 std::memcpy(packet_buf.data(), header_len_buf.data(), header_len_buf.size());
                 err = read_data_(fd_, packet_buf.data() + 4, header_len);
                 if (err != HAKO_PDU_ERR_OK) {
+                    notify_disconnect_if_needed_(err, "mux session read v1 payload");
                     break;
                 }
                 on_raw_data_received(packet_buf);
@@ -308,6 +314,7 @@ private:
             std::vector<std::byte> header_buf(sizeof(MetaPdu));
             HakoPduErrorType err = read_data_(fd_, header_buf.data(), header_buf.size());
             if (err != HAKO_PDU_ERR_OK) {
+                notify_disconnect_if_needed_(err, "mux session read header");
                 break;
             }
             MetaPdu meta;
@@ -318,6 +325,7 @@ private:
                 std::vector<std::byte> body_buf(meta.body_len);
                 err = read_data_(fd_, body_buf.data(), body_buf.size());
                 if (err != HAKO_PDU_ERR_OK) {
+                    notify_disconnect_if_needed_(err, "mux session read body");
                     break;
                 }
                 header_buf.insert(header_buf.end(), body_buf.begin(), body_buf.end());
@@ -326,9 +334,22 @@ private:
         }
         is_running_ = false;
     }
+    void notify_disconnect_if_needed_(HakoPduErrorType reason, const char* context) noexcept
+    {
+        if (stopping_.load()) {
+            return;
+        }
+        bool expected = false;
+        if (!disconnect_notified_.compare_exchange_strong(expected, true)) {
+            return;
+        }
+        notify_disconnected_(static_cast<int>(reason), std::string(context));
+    }
 
     int fd_ = -1;
     std::atomic<bool> is_running_{false};
+    std::atomic<bool> stopping_{false};
+    std::atomic<bool> disconnect_notified_{false};
     std::thread recv_thread_;
     HakoPduEndpointDirectionType config_direction_ = HAKO_PDU_ENDPOINT_DIRECTION_INOUT;
     Options options_{};
@@ -392,8 +413,16 @@ HakoPduErrorType TcpCommMultiplexer::open(const std::string& config_path)
         }
     }
 
+    NameResolverConfig name_resolver{};
+    std::string name_resolver_error;
+    auto resolver_ret = load_name_resolver_config(config_json, config_path, name_resolver, name_resolver_error);
+    if (resolver_ret != HAKO_PDU_ERR_OK) {
+        std::cerr << "TCP Mux config error: " << name_resolver_error << std::endl;
+        return resolver_ret;
+    }
+
     addrinfo* local_addr_info = nullptr;
-    if (resolve_address(config_json.at("local"), kTcpSocketType, &local_addr_info) != HAKO_PDU_ERR_OK) {
+    if (resolve_address(config_json.at("local"), kTcpSocketType, &local_addr_info, &name_resolver) != HAKO_PDU_ERR_OK) {
         std::cerr << "TCP Mux config error: failed to resolve local address." << std::endl;
         return HAKO_PDU_ERR_INVALID_ARGUMENT;
     }

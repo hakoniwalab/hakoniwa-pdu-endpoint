@@ -88,6 +88,11 @@ protected:
 public:
     // Method for session to call back to when it's closed
     void remove_session(std::shared_ptr<WebSocketSession> session_to_remove);
+    void notify_disconnect_if_needed_(int reason_code, const std::string& reason_text) noexcept;
+
+private:
+    std::atomic<bool> stopping_{false};
+    std::atomic<bool> disconnect_notified_{false};
 };
 
 } // namespace comm

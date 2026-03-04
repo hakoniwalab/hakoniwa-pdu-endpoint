@@ -9,11 +9,14 @@
 #include <nlohmann/json.hpp>
 #include <sys/socket.h>
 #include <netinet/in.h>
+#include <atomic>
 #include <iostream>
 #include <cerrno>
 #include <cstring>
 #include "hakoniwa/pdu/comm/packet.hpp"
 #include "hakoniwa/pdu/endpoint_comm_multiplexer.hpp"
+#include "hakoniwa/pdu/socket_utils.hpp"
+#include <filesystem>
 
 // Test Utilities
 namespace {
@@ -217,6 +220,144 @@ TEST_F(EndpointTest, PduDefinitionCompactTest) {
     ASSERT_EQ(endpoint.close(), HAKO_PDU_ERR_OK);
 }
 
+TEST_F(EndpointTest, NameResolverFileMapResolvesHostForAddressLookup) {
+    namespace fs = std::filesystem;
+    const auto temp_base = fs::temp_directory_path() / "hako_pdu_endpoint_name_resolver_test";
+    fs::create_directories(temp_base);
+    const auto map_path = temp_base / "node-ip-map.json";
+    const auto comm_path = temp_base / "comm.json";
+
+    {
+        std::ofstream ofs(map_path);
+        ASSERT_TRUE(ofs.is_open());
+        ofs << R"({"srv-01":"127.0.0.1"})";
+    }
+    {
+        std::ofstream ofs(comm_path);
+        ASSERT_TRUE(ofs.is_open());
+        ofs << R"({"protocol":"tcp","name_resolver":{"type":"file","path":"node-ip-map.json"}})";
+    }
+
+    nlohmann::json comm_json;
+    {
+        std::ifstream ifs(comm_path);
+        ASSERT_TRUE(ifs.is_open());
+        ifs >> comm_json;
+    }
+    hakoniwa::pdu::NameResolverConfig resolver{};
+    std::string err;
+    ASSERT_EQ(hakoniwa::pdu::load_name_resolver_config(comm_json, comm_path.string(), resolver, err), HAKO_PDU_ERR_OK)
+        << err;
+    ASSERT_TRUE(resolver.enabled);
+
+    nlohmann::json endpoint_json = {
+        {"address", "srv-01"},
+        {"port", 64011}
+    };
+    addrinfo* resolved = nullptr;
+    std::string resolved_address;
+    ASSERT_EQ(hakoniwa::pdu::resolve_address(endpoint_json,
+                                             SOCK_STREAM,
+                                             &resolved,
+                                             &resolver,
+                                             &resolved_address),
+              HAKO_PDU_ERR_OK);
+    ASSERT_TRUE(resolved != nullptr);
+    EXPECT_EQ(resolved_address, "127.0.0.1");
+    freeaddrinfo(resolved);
+}
+
+TEST_F(EndpointTest, NameResolverStrictModeFailsOnUnknownHost) {
+    namespace fs = std::filesystem;
+    const auto temp_base = fs::temp_directory_path() / "hako_pdu_endpoint_name_resolver_strict_test";
+    fs::create_directories(temp_base);
+    const auto map_path = temp_base / "node-ip-map.json";
+    const auto comm_path = temp_base / "comm.json";
+
+    {
+        std::ofstream ofs(map_path);
+        ASSERT_TRUE(ofs.is_open());
+        ofs << R"({"srv-01":"127.0.0.1"})";
+    }
+    {
+        std::ofstream ofs(comm_path);
+        ASSERT_TRUE(ofs.is_open());
+        ofs << R"({"protocol":"tcp","name_resolver":{"type":"file","path":"node-ip-map.json","strict":true}})";
+    }
+
+    nlohmann::json comm_json;
+    {
+        std::ifstream ifs(comm_path);
+        ASSERT_TRUE(ifs.is_open());
+        ifs >> comm_json;
+    }
+    hakoniwa::pdu::NameResolverConfig resolver{};
+    std::string err;
+    ASSERT_EQ(hakoniwa::pdu::load_name_resolver_config(comm_json, comm_path.string(), resolver, err), HAKO_PDU_ERR_OK)
+        << err;
+    ASSERT_TRUE(resolver.strict);
+
+    nlohmann::json endpoint_json = {
+        {"address", "unknown-node"},
+        {"port", 64011}
+    };
+    addrinfo* resolved = nullptr;
+    EXPECT_EQ(hakoniwa::pdu::resolve_address(endpoint_json,
+                                             SOCK_STREAM,
+                                             &resolved,
+                                             &resolver,
+                                             nullptr),
+              HAKO_PDU_ERR_INVALID_ARGUMENT);
+    EXPECT_EQ(resolved, nullptr);
+}
+
+TEST_F(EndpointTest, NameResolverUsesEnvPathWhenConfigOmitted) {
+    namespace fs = std::filesystem;
+    const auto temp_base = fs::temp_directory_path() / "hako_pdu_endpoint_name_resolver_env_test";
+    fs::create_directories(temp_base);
+    const auto map_path = temp_base / "node-ip-map.json";
+    const auto comm_path = temp_base / "comm.json";
+
+    {
+        std::ofstream ofs(map_path);
+        ASSERT_TRUE(ofs.is_open());
+        ofs << R"({"srv-01":"127.0.0.1"})";
+    }
+    {
+        std::ofstream ofs(comm_path);
+        ASSERT_TRUE(ofs.is_open());
+        ofs << R"({"protocol":"tcp"})";
+    }
+
+    ASSERT_EQ(setenv("HAKO_PDU_NAME_RESOLVER_PATH", map_path.c_str(), 1), 0);
+    nlohmann::json comm_json;
+    {
+        std::ifstream ifs(comm_path);
+        ASSERT_TRUE(ifs.is_open());
+        ifs >> comm_json;
+    }
+    hakoniwa::pdu::NameResolverConfig resolver{};
+    std::string err;
+    ASSERT_EQ(hakoniwa::pdu::load_name_resolver_config(comm_json, comm_path.string(), resolver, err), HAKO_PDU_ERR_OK)
+        << err;
+    ASSERT_TRUE(resolver.enabled);
+
+    nlohmann::json endpoint_json = {
+        {"address", "srv-01"},
+        {"port", 64011}
+    };
+    addrinfo* resolved = nullptr;
+    ASSERT_EQ(hakoniwa::pdu::resolve_address(endpoint_json,
+                                             SOCK_STREAM,
+                                             &resolved,
+                                             &resolver,
+                                             nullptr),
+              HAKO_PDU_ERR_OK);
+    ASSERT_TRUE(resolved != nullptr);
+    freeaddrinfo(resolved);
+    unsetenv("HAKO_PDU_NAME_RESOLVER_PATH");
+}
+
 TEST_F(EndpointTest, TcpCommunicationTest) {
     int server_port = find_available_port(SOCK_STREAM);
     ASSERT_GT(server_port, 0);
@@ -304,6 +445,52 @@ TEST_F(EndpointTest, TcpCommunicationV1Test) {
     ASSERT_EQ(server.stop(), HAKO_PDU_ERR_OK);
     ASSERT_EQ(client.stop(), HAKO_PDU_ERR_OK);
     ASSERT_EQ(server.close(), HAKO_PDU_ERR_OK);
+    ASSERT_EQ(client.close(), HAKO_PDU_ERR_OK);
+}
+
+TEST_F(EndpointTest, TcpDisconnectedCallbackTest) {
+    hakoniwa::pdu::Endpoint server("tcp_server_disconnect", HAKO_PDU_ENDPOINT_DIRECTION_INOUT);
+    hakoniwa::pdu::Endpoint client("tcp_client_disconnect", HAKO_PDU_ENDPOINT_DIRECTION_INOUT);
+
+    std::atomic<bool> disconnected_called{false};
+    std::atomic<int> reason_code{0};
+    std::string reason_text;
+
+    client.set_on_disconnected_callback(
+        [&](const hakoniwa::pdu::DisconnectEvent& ev) {
+            disconnected_called = true;
+            reason_code = ev.reason_code;
+            reason_text = ev.reason_text;
+        });
+
+    ASSERT_EQ(server.open("test/test_endpoint_tcp_server.json"), HAKO_PDU_ERR_OK);
+    ASSERT_EQ(client.open("test/test_endpoint_tcp_client.json"), HAKO_PDU_ERR_OK);
+    ASSERT_EQ(server.start(), HAKO_PDU_ERR_OK);
+    ASSERT_EQ(client.start(), HAKO_PDU_ERR_OK);
+
+    // Give time for connect and steady state.
+    std::this_thread::sleep_for(std::chrono::milliseconds(300));
+
+    // Force client-side disconnect detection by stopping server endpoint.
+    ASSERT_EQ(server.stop(), HAKO_PDU_ERR_OK);
+    ASSERT_EQ(server.close(), HAKO_PDU_ERR_OK);
+
+    bool notified = false;
+    for (int i = 0; i < 40; ++i) {
+        if (disconnected_called.load()) {
+            notified = true;
+            break;
+        }
+        std::this_thread::sleep_for(std::chrono::milliseconds(100));
+    }
+
+    EXPECT_TRUE(notified);
+    if (notified) {
+        EXPECT_NE(reason_code.load(), HAKO_PDU_ERR_OK);
+        EXPECT_FALSE(reason_text.empty());
+    }
+
+    ASSERT_EQ(client.stop(), HAKO_PDU_ERR_OK);
     ASSERT_EQ(client.close(), HAKO_PDU_ERR_OK);
 }
 
