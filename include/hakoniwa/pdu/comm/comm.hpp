@@ -27,7 +27,11 @@ public:
 
     // Optional pre-open hook for comms that must create PDU channels in advance.
     // Callers may skip this and just use open(); implementations should handle both.
-    virtual HakoPduErrorType create_pdu_lchannels(const std::string& config_path) { return HAKO_PDU_ERR_OK; }
+    virtual HakoPduErrorType create_pdu_lchannels(const std::string& config_path)
+    {
+        (void)config_path;
+        return HAKO_PDU_ERR_OK;
+    }
     // Load comm configuration. Must be callable once per instance.
     virtual HakoPduErrorType open(const std::string& config_path) = 0;
     // Close and release resources. Should be idempotent.
