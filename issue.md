@@ -782,3 +782,48 @@ Reasoning:
 - `StorageComm` is the smallest conceptual extension and immediately useful
 - `ZenohComm` is a clean transport addition
 - ROS 2 should likely be designed as typed schema utilization, not only as one more `Comm`
+
+## New Direction: ROS Type Library Instead of Direct ROS 2 Runtime Integration
+
+### Goal
+
+Use ROS message definitions as a type library for dynamic pub/sub mapping, without making ROS 2 runtime integration the first dependency.
+
+### Motivation
+
+- generating typed code on every change is heavy
+- the immediate need is dynamic mapping between PDU definitions and pub/sub APIs
+- `PduDefinition.type` already stores ROS message type names
+- standard ROS message schemas are reusable even without ROS 2 runtime
+
+### Proposed Structure
+
+- maintain a project-owned `.txt` list of ROS standard message types
+- generate a precompiled standard type library from that list
+- link the generated type library into this project
+- load type descriptors dynamically at runtime to map PDU types to pub/sub behavior
+
+### Expected Split
+
+- project side:
+  - standard ROS message list
+  - descriptor generator
+  - generated standard type library
+- user side:
+  - custom message list
+  - same generator run by the user
+  - generated custom type library linked separately
+
+### Why This Looks Better Than Requiring ROS 2 First
+
+- works on platforms where ROS 2 runtime support is weak
+- keeps runtime dependency small
+- allows `PduDefinition.type` to become directly useful
+- supports dynamic mapping for Zenoh, Storage inspection, and future adapters
+
+### Main Open Questions
+
+- what descriptor format should be generated
+- how field metadata, fixed/variable size, and nesting are represented
+- how runtime registration and lookup should work
+- where the boundary is between standard library and user-generated library
