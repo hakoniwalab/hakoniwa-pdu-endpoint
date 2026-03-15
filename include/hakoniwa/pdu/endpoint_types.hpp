@@ -2,7 +2,10 @@
 
 #include "hakoniwa/pdu/endpoint_types.h"
 #include "hakoniwa/hako_primitive_types.h" // Added
+#include <cstddef>
+#include <cstdint>
 #include <string>
+#include <vector>
 
 
 namespace hakoniwa {
@@ -15,6 +18,12 @@ struct PduKey {
 struct PduResolvedKey {
     std::string robot;
     HakoPduChannelIdType channel_id; // Changed
+};
+
+struct PduRecord {
+    PduResolvedKey key;
+    std::uint64_t timestamp_ns;
+    std::vector<std::byte> payload;
 };
 
 // Common hash function and equality operator for PduResolvedKey

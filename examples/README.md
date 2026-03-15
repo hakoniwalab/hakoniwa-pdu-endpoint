@@ -92,5 +92,41 @@ What this demonstrates: `comm: null` enables network-free unit/integration testi
 ./build/examples/endpoint_internal_cache
 ```
 
+## Storage Queue
+
+- `endpoint_storage_queue`
+  - Config: `config/sample/endpoint_storage_queue.json`
+
+What this demonstrates: append-only storage logging for replay-style inspection.
+
+```bash
+./build/examples/endpoint_storage_queue
+build/tools/hako_pdu_storage_debug config/runtime/storage_queue.bin
+```
+
+If you want machine-readable metadata:
+
+```bash
+build/tools/hako_pdu_storage_debug config/runtime/storage_queue.bin --json
+```
+
+## Storage Latest
+
+- `endpoint_storage_latest`
+  - Config: `config/sample/endpoint_storage_latest.json`
+
+What this demonstrates: fixed-slot snapshot storage where one key keeps only its latest packet.
+
+```bash
+./build/examples/endpoint_storage_latest
+build/tools/hako_pdu_storage_debug config/runtime/storage_latest.bin
+```
+
+If you want machine-readable metadata:
+
+```bash
+build/tools/hako_pdu_storage_debug config/runtime/storage_latest.bin --json
+```
+
 Note: for larger systems, configs are expected to be generated and validated programmatically. See the validation section in the top-level README for how to run the schema validators.
 If you are generating many configs, see the config generator in the top-level README.

@@ -1,0 +1,3 @@
+[
+  { "channel_id": 0, "pdu_size": 8, "name": "sample_state", "type": "std_msgs/UInt64" }
+]

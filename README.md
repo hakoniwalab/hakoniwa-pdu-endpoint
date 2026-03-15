@@ -5,6 +5,29 @@ For visual summaries, see `docs/diagrams/README.md`.
 This component targets teams building multi-asset simulations that require explicit semantics and auditability; it is intentionally heavier than a minimal messaging library. If you want a simple API with implicit defaults, this is not the right tool.
 For a consolidated statement of intent, see `docs/design_philosophy.md`.
 
+## What This Is Good At
+
+This project is strongest when you need all of the following at once:
+
+- explicit simulation semantics
+- transport independence
+- replayable and inspectable communication
+- configuration-driven composition
+
+In practice, that means:
+
+- use `cache` to decide in-memory lifetime and overwrite behavior
+- use `comm` to decide delivery or persistence behavior
+- use `pdu_def` to make bytes semantically meaningful
+
+The recent `StorageComm` work pushes this further:
+
+- `storage.mode: "latest"` gives you a fixed-slot snapshot file, one current packet per key
+- `storage.mode: "queue"` gives you an append-only log in receive order
+- `recv(key, ...)` and `recv_next(...)` let the API reflect those two different semantics
+- `hako_pdu_storage_debug` lets you inspect either file format from the command line
+- `--json` output makes Python-side post-processing and custom parsers straightforward
+
 ## Why Endpoint?
 
 Hakoniwa systems often require many communication links (TCP/UDP/SHM/WebSocket) across multiple assets.
@@ -31,8 +54,13 @@ This design is intentionally biased toward large, multi-asset simulations: it fa
     -   **Shared Memory (SHM)**: Event-driven communication for high-performance, local IPC with Hakoniwa assets.
     -   **WebSocket**: Client and Server roles for stream-based communication over WebSocket.
     -   **Storage (File)**: Persistent communication backend for audit/replay use cases.
-        - `mode: queue` stores every send as an append-only framed record.
-        - `mode: latest` stores only the latest packet per `(robot, channel_id)`.
+        - `mode: queue` stores every send as an append-only framed log and is consumed primarily with `recv_next(...)`.
+        - `mode: latest` stores only the latest packet per `(robot, channel_id)` and is consumed primarily with `recv(key, ...)`.
+        - both modes are self-describing via `StorageHeader`
+        - both modes can be inspected with the C++ debug tool
+    -   **Replay / Inspection Tooling**:
+        - `build/tools/hako_pdu_storage_debug` prints human-readable summaries of storage files
+        - `--json` exposes offsets, sizes, keys, and timestamps for external tooling
 -   **Cross-platform**: Built with standard C++20 and CMake, making it portable across different operating systems.
 
 ## Requirements
@@ -61,6 +89,48 @@ You can build the project using standard CMake commands.
     cmake --build build
     ```
     This will compile the static library `libhakoniwa_pdu_endpoint.a` into the `build/src` directory.
+    It also builds `build/tools/hako_pdu_storage_debug` by default.
+
+## Quick Start For Storage
+
+If you want to try the new persistence and replay-oriented features first, start here.
+
+1. Build the project.
+
+```bash
+cmake -S . -B build
+cmake --build build
+```
+
+2. Use one of the sample storage comm configs:
+
+- `config/sample/comm/storage_latest_out_comm.json`
+- `config/sample/comm/storage_queue_out_comm.json`
+
+3. Write packets through an endpoint that uses `protocol: "storage"`.
+
+4. Inspect the resulting file:
+
+```bash
+build/tools/hako_pdu_storage_debug path/to/storage_latest.bin
+build/tools/hako_pdu_storage_debug path/to/storage_queue.bin
+```
+
+5. If you want offsets and metadata for Python-side tooling:
+
+```bash
+build/tools/hako_pdu_storage_debug path/to/storage_queue.bin --json > queue_index.json
+build/tools/hako_pdu_storage_debug path/to/storage_latest.bin --json > latest_index.json
+```
+
+Choose the mode by purpose:
+
+- `latest`: state snapshot, one current packet per key
+- `queue`: replay log, append-only receive order
+
+For the full storage format and API model, see `docs/storage_comm.md`.
+For runnable storage examples, see `examples/README.md`.
+For future work and design backlog, see `issue.md`.
 
 ## Install / Uninstall
 
@@ -208,18 +278,70 @@ Storage comm can be used for persistence-oriented pipelines.
 - `storage.mode: "queue" | "latest"`
 - `storage.path`: output/input file path (resolved relative to comm config)
 
-`queue` mode stores records as a repeated binary frame:
+Recommended mental model:
 
-```text
-<u32_le packet_size><packet_bytes>
-```
+- `latest`
+  - state snapshot
+  - one slot per `(robot, channel_id)`
+  - fixed file size after `open()`
+  - primary read API: `recv(key, ...)`
+- `queue`
+  - replay log
+  - append-only receive-order frames
+  - primary read API: `recv_next(...)`
 
-`latest` mode keeps one latest packet per `(robot, channel_id)` key.
+Current file formats:
+
+- `queue` stores a `StorageHeader` followed by repeated binary frames
+- `latest` stores a `StorageHeader`, a fixed `StorageEntry[]` table, and a packet area
 
 Sample configs:
 
 - `config/sample/comm/storage_queue_out_comm.json`
 - `config/sample/comm/storage_latest_out_comm.json`
+
+Formal storage format and API notes:
+
+- `docs/storage_comm.md`
+
+This document covers:
+
+- `latest` fixed-slot layout
+- current `queue` framed-log layout
+- `recv(key, ...)` vs `recv_next(...)`
+- storage metadata design direction
+
+Debug tool:
+
+- `build/tools/hako_pdu_storage_debug <storage-file>`
+- optional flags: `--limit N`, `--json`, `--verbose`
+- prints a human-readable summary of `latest` and `queue` files
+- `--json` prints a machine-readable index suitable for Python or replay tooling
+
+Typical usage:
+
+```bash
+build/tools/hako_pdu_storage_debug path/to/storage_latest.bin
+build/tools/hako_pdu_storage_debug path/to/storage_queue.bin --limit 20
+build/tools/hako_pdu_storage_debug path/to/storage_queue.bin --json > queue_index.json
+```
+
+Future considerations for Storage and related extensions are tracked in `issue.md`.
+
+Runnable examples:
+
+- `config/sample/endpoint_storage_queue.json`
+- `config/sample/endpoint_storage_latest.json`
+- `examples/endpoint_storage_queue.cpp`
+- `examples/endpoint_storage_latest.cpp`
+- `examples/README.md`
+
+Example commands:
+
+```bash
+./build/examples/endpoint_storage_queue
+./build/examples/endpoint_storage_latest
+```
 
 #### Optional: host name resolver for TCP/UDP
 

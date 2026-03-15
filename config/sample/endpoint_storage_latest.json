@@ -1,0 +1,6 @@
+{
+  "name": "storage_latest_out_endpoint",
+  "pdu_def_path": "comm/storage_example/pdudef.json",
+  "cache": "cache/buffer.json",
+  "comm": "comm/storage_latest_out_comm.json"
+}

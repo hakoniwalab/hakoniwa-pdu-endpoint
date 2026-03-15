@@ -56,6 +56,12 @@ public:
     virtual HakoPduErrorType send(const PduResolvedKey& pdu_key, std::span<const std::byte> data) noexcept = 0;
     // Recv PDU data for a resolved key (optional; raw comms may return UNSUPPORTED).
     virtual HakoPduErrorType recv(const PduResolvedKey& pdu_key, std::span<std::byte> data, size_t& received_size) noexcept = 0;
+    // Queue-oriented receive API for time-ordered record consumption.
+    virtual HakoPduErrorType recv_next(PduRecord& out) noexcept
+    {
+        (void)out;
+        return HAKO_PDU_ERR_UNSUPPORTED;
+    }
 
     virtual HakoPduErrorType set_on_recv_callback(
         std::function<void(const PduResolvedKey&, std::span<const std::byte>)> callback) noexcept

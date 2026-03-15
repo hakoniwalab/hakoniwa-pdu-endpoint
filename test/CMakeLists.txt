@@ -12,6 +12,11 @@ target_link_libraries(endpoint_test
     GTest::gtest_main
 )
 
+if(TARGET hako_pdu_storage_debug)
+  add_dependencies(endpoint_test hako_pdu_storage_debug)
+  target_compile_definitions(endpoint_test PRIVATE HAKO_PDU_STORAGE_DEBUG_EXE="$<TARGET_FILE:hako_pdu_storage_debug>")
+endif()
+
 # Add OS-specific logic for Hakoniwa core library for the test target
 if(APPLE)
   target_include_directories(endpoint_test

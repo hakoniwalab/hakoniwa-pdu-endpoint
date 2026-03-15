@@ -10,6 +10,11 @@ include(CMakePackageConfigHelpers)
 
 # add_subdirectory を使って src と test ディレクトリの CMakeLists.txt を含める
 add_subdirectory(src)
+option(HAKO_PDU_ENDPOINT_BUILD_TOOLS "Build debug and inspection tools" ON)
+if(HAKO_PDU_ENDPOINT_BUILD_TOOLS)
+  add_subdirectory(tools)
+endif()
+
 enable_testing()
 if(HAKO_PDU_ENDPOINT_BUILD_TESTS)
   add_subdirectory(test)

@@ -349,6 +349,15 @@ public:
         return errcode;
     }
 
+    // Queue-oriented receive API for time-ordered record consumption.
+    virtual HakoPduErrorType recv_next(PduRecord& out) noexcept
+    {
+        if (!comm_) {
+            return HAKO_PDU_ERR_UNSUPPORTED;
+        }
+        return comm_->recv_next(out);
+    }
+
     /**
      * @brief Get the PDU size for a given PduKey.
      * @param pdu_key The name-based PDU key.

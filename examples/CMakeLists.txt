@@ -7,6 +7,8 @@ add_executable(endpoint_ws_server endpoint_ws_server.cpp)
 add_executable(endpoint_ws_client endpoint_ws_client.cpp)
 add_executable(endpoint_tcp_mux endpoint_tcp_mux.cpp)
 add_executable(endpoint_internal_cache endpoint_internal_cache.cpp)
+add_executable(endpoint_storage_queue endpoint_storage_queue.cpp)
+add_executable(endpoint_storage_latest endpoint_storage_latest.cpp)
 
 set(example_targets
   endpoint_minimal
@@ -18,6 +20,8 @@ set(example_targets
   endpoint_ws_client
   endpoint_tcp_mux
   endpoint_internal_cache
+  endpoint_storage_queue
+  endpoint_storage_latest
 )
 
 foreach(target_name IN LISTS example_targets)

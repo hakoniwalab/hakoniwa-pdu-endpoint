@@ -1,6 +1,7 @@
 #pragma once
 
 #include "hakoniwa/pdu/comm/comm_raw.hpp"
+#include "hakoniwa/pdu/comm/storage_format.hpp"
 #include "hakoniwa/pdu/pdu_definition.hpp"
 #include "hakoniwa/pdu/socket_utils.hpp"
 #include <filesystem>
@@ -22,6 +23,7 @@ public:
     StorageComm() = default;
     ~StorageComm() override = default;
     HakoPduErrorType recv(const PduResolvedKey& pdu_key, std::span<std::byte> data, size_t& received_size) noexcept override;
+    HakoPduErrorType recv_next(PduRecord& out) noexcept override;
 
 protected:
     HakoPduErrorType raw_open(const std::string& config_path) override;
@@ -41,30 +43,8 @@ private:
     };
 
     using LatestKey = std::pair<std::string, HakoPduChannelIdType>;
-
-    struct LatestHeader {
-        std::uint32_t magic;
-        std::uint16_t version;
-        std::uint16_t mode;
-        std::uint16_t packet_version;
-        std::uint16_t flags;
-        std::uint16_t reserved0;
-        std::uint32_t reserved1;
-        std::uint64_t key_count;
-        std::uint64_t index_offset;
-        std::uint64_t data_offset;
-        std::uint64_t file_size;
-    };
-
-    struct LatestIndexEntry {
-        char robot_name[128];
-        std::uint32_t channel_id;
-        std::uint32_t reserved0;
-        std::uint64_t timestamp_ns;
-        std::uint64_t packet_offset;
-        std::uint32_t packet_size;
-        std::uint32_t reserved1;
-    };
+    using StorageHeader = storage::StorageHeader;
+    using StorageEntry = storage::StorageEntry;
 
     static std::filesystem::path resolve_under_base_(const std::filesystem::path& base_dir, const std::string& maybe_rel);
     static void write_le32_(std::ofstream& ofs, std::uint32_t value);
@@ -75,7 +55,7 @@ private:
     HakoPduErrorType initialize_latest_file_();
     HakoPduErrorType validate_queue_file_();
     HakoPduErrorType load_latest_file_();
-    HakoPduErrorType write_latest_header_(std::fstream& fs) noexcept;
+    HakoPduErrorType write_storage_header_(std::fstream& fs) noexcept;
     HakoPduErrorType write_latest_index_entry_(std::fstream& fs, const LatestKey& key) noexcept;
 
     Backend backend_{Backend::File};
@@ -87,8 +67,10 @@ private:
     bool is_running_{false};
     std::mutex io_mutex_;
     std::map<LatestKey, std::vector<std::byte>> latest_packets_;
-    std::map<LatestKey, LatestIndexEntry> latest_index_;
+    std::map<LatestKey, StorageEntry> latest_index_;
     std::map<LatestKey, std::uint64_t> queue_offsets_;
+    std::uint64_t queue_read_offset_{0};
+    std::uint64_t queue_data_offset_{0};
 };
 
 } // namespace comm

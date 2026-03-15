@@ -10,11 +10,6 @@ namespace pdu {
 namespace comm {
 
 namespace fs = std::filesystem;
-namespace {
-constexpr std::uint32_t kLatestHeaderMagic = 0x53445048; // HPDS
-constexpr std::uint16_t kStorageVersion = 1;
-constexpr std::uint16_t kStorageModeLatest = 2;
-}
 
 fs::path StorageComm::resolve_under_base_(const fs::path& base_dir, const std::string& maybe_rel)
 {
@@ -79,6 +74,8 @@ HakoPduErrorType StorageComm::raw_open(const std::string& config_path)
     latest_packets_.clear();
     latest_index_.clear();
     queue_offsets_.clear();
+    queue_read_offset_ = 0;
+    queue_data_offset_ = 0;
     if (mode_ == Mode::Latest) {
         if (direction_ == HAKO_PDU_ENDPOINT_DIRECTION_IN && !fs::exists(path_)) {
             return HAKO_PDU_ERR_FILE_NOT_FOUND;
@@ -91,12 +88,23 @@ HakoPduErrorType StorageComm::raw_open(const std::string& config_path)
         if (direction_ == HAKO_PDU_ENDPOINT_DIRECTION_IN && !fs::exists(path_)) {
             return HAKO_PDU_ERR_FILE_NOT_FOUND;
         }
-        if (fs::exists(path_)) {
+        if (!fs::exists(path_)) {
+            std::fstream fsio(path_, std::ios::binary | std::ios::out | std::ios::trunc);
+            if (!fsio.is_open()) {
+                return HAKO_PDU_ERR_IO_ERROR;
+            }
+            queue_data_offset_ = sizeof(StorageHeader);
+            HakoPduErrorType header_err = write_storage_header_(fsio);
+            if (header_err != HAKO_PDU_ERR_OK) {
+                return header_err;
+            }
+        } else {
             err = validate_queue_file_();
             if (err != HAKO_PDU_ERR_OK) {
                 return err;
             }
         }
+        queue_read_offset_ = queue_data_offset_;
     }
 
     is_open_ = true;
@@ -111,6 +119,8 @@ HakoPduErrorType StorageComm::raw_close() noexcept
     latest_packets_.clear();
     latest_index_.clear();
     queue_offsets_.clear();
+    queue_read_offset_ = 0;
+    queue_data_offset_ = 0;
     return HAKO_PDU_ERR_OK;
 }
 
@@ -158,6 +168,9 @@ HakoPduErrorType StorageComm::recv(const PduResolvedKey& pdu_key,
             return HAKO_PDU_ERR_IO_ERROR;
         }
         auto& read_offset = queue_offsets_[key];
+        if (read_offset == 0) {
+            read_offset = queue_data_offset_;
+        }
         ifs.seekg(static_cast<std::streamoff>(read_offset), std::ios::beg);
         if (!ifs.good()) {
             return HAKO_PDU_ERR_IO_ERROR;
@@ -229,6 +242,62 @@ HakoPduErrorType StorageComm::recv(const PduResolvedKey& pdu_key,
     return HAKO_PDU_ERR_OK;
 }
 
+HakoPduErrorType StorageComm::recv_next(PduRecord& out) noexcept
+{
+    std::lock_guard<std::mutex> lock(io_mutex_);
+    out.payload.clear();
+    out.timestamp_ns = 0;
+    out.key = {};
+    if (!is_running_) {
+        return HAKO_PDU_ERR_NOT_RUNNING;
+    }
+    if (mode_ != Mode::Queue) {
+        return HAKO_PDU_ERR_UNSUPPORTED;
+    }
+    if (direction_ == HAKO_PDU_ENDPOINT_DIRECTION_OUT) {
+        return HAKO_PDU_ERR_INVALID_ARGUMENT;
+    }
+
+    std::ifstream ifs(path_, std::ios::binary);
+    if (!ifs.is_open()) {
+        return HAKO_PDU_ERR_IO_ERROR;
+    }
+    if (queue_read_offset_ == 0) {
+        queue_read_offset_ = queue_data_offset_;
+    }
+    ifs.seekg(static_cast<std::streamoff>(queue_read_offset_), std::ios::beg);
+    if (!ifs.good()) {
+        return HAKO_PDU_ERR_IO_ERROR;
+    }
+
+    std::uint32_t packet_size = 0;
+    if (!read_le32_(ifs, packet_size)) {
+        if (ifs.eof()) {
+            ifs.clear();
+            ifs.seekg(0, std::ios::end);
+            queue_read_offset_ = static_cast<std::uint64_t>(ifs.tellg());
+            return HAKO_PDU_ERR_NO_ENTRY;
+        }
+        return HAKO_PDU_ERR_IO_ERROR;
+    }
+
+    std::vector<std::byte> packet(packet_size);
+    if (!ifs.read(reinterpret_cast<char*>(packet.data()), static_cast<std::streamsize>(packet.size()))) {
+        return HAKO_PDU_ERR_INVALID_CONFIG;
+    }
+    auto decoded = DataPacket::decode(packet, packet_version());
+    if (!decoded) {
+        return HAKO_PDU_ERR_INVALID_CONFIG;
+    }
+
+    out.key.robot = decoded->get_robot_name();
+    out.key.channel_id = static_cast<HakoPduChannelIdType>(decoded->get_channel_id());
+    out.payload = decoded->get_pdu_data();
+    out.timestamp_ns = 0;
+    queue_read_offset_ = static_cast<std::uint64_t>(ifs.tellg());
+    return HAKO_PDU_ERR_OK;
+}
+
 HakoPduErrorType StorageComm::raw_send(const std::vector<std::byte>& data) noexcept
 {
     std::lock_guard<std::mutex> lock(io_mutex_);
@@ -245,16 +314,24 @@ HakoPduErrorType StorageComm::raw_send(const std::vector<std::byte>& data) noexc
     }
 
     if (mode_ == Mode::Queue) {
-        std::ofstream ofs(path_, std::ios::binary | std::ios::app);
-        if (!ofs.is_open()) {
+        std::fstream fsio(path_, std::ios::binary | std::ios::in | std::ios::out);
+        if (!fsio.is_open()) {
             return HAKO_PDU_ERR_IO_ERROR;
         }
-        write_le32_(ofs, static_cast<std::uint32_t>(data.size()));
-        ofs.write(reinterpret_cast<const char*>(data.data()), static_cast<std::streamsize>(data.size()));
-        if (!ofs.good()) {
+        fsio.seekp(0, std::ios::end);
+        const std::uint32_t packet_size = static_cast<std::uint32_t>(data.size());
+        const char len_buf[4] = {
+            static_cast<char>(packet_size & 0xFFu),
+            static_cast<char>((packet_size >> 8) & 0xFFu),
+            static_cast<char>((packet_size >> 16) & 0xFFu),
+            static_cast<char>((packet_size >> 24) & 0xFFu)
+        };
+        fsio.write(len_buf, sizeof(len_buf));
+        fsio.write(reinterpret_cast<const char*>(data.data()), static_cast<std::streamsize>(data.size()));
+        if (!fsio.good()) {
             return HAKO_PDU_ERR_IO_ERROR;
         }
-        return HAKO_PDU_ERR_OK;
+        return write_storage_header_(fsio);
     }
 
     if (!pdu_def_) {
@@ -350,6 +427,26 @@ HakoPduErrorType StorageComm::validate_queue_file_()
         return HAKO_PDU_ERR_IO_ERROR;
     }
 
+    StorageHeader header{};
+    if (!ifs.read(reinterpret_cast<char*>(&header), sizeof(header))) {
+        return HAKO_PDU_ERR_IO_ERROR;
+    }
+    if (header.magic != storage::kStorageHeaderMagic
+        || header.version != storage::kStorageVersion
+        || header.mode != storage::kStorageModeQueue) {
+        return HAKO_PDU_ERR_INVALID_CONFIG;
+    }
+    std::error_code ec;
+    const auto actual_file_size = fs::file_size(path_, ec);
+    if (ec) {
+        return HAKO_PDU_ERR_IO_ERROR;
+    }
+    if (header.file_size != actual_file_size) {
+        return HAKO_PDU_ERR_INVALID_CONFIG;
+    }
+    queue_data_offset_ = header.data_offset;
+    ifs.seekg(static_cast<std::streamoff>(queue_data_offset_), std::ios::beg);
+
     while (true) {
         const auto frame_start = ifs.tellg();
         std::uint32_t packet_size = 0;
@@ -387,14 +484,14 @@ HakoPduErrorType StorageComm::initialize_latest_file_()
         }
 
         const auto entries = pdu_def_->list_entries();
-        LatestHeader header{};
-        header.magic = kLatestHeaderMagic;
-        header.version = kStorageVersion;
-        header.mode = kStorageModeLatest;
+        StorageHeader header{};
+        header.magic = storage::kStorageHeaderMagic;
+        header.version = storage::kStorageVersion;
+        header.mode = storage::kStorageModeLatest;
         header.packet_version = (packet_version() == "v1") ? 1 : 2;
         header.key_count = entries.size();
-        header.index_offset = sizeof(LatestHeader);
-        header.data_offset = header.index_offset + (sizeof(LatestIndexEntry) * entries.size());
+        header.index_offset = sizeof(StorageHeader);
+        header.data_offset = header.index_offset + (sizeof(StorageEntry) * entries.size());
 
         std::uint64_t next_offset = header.data_offset;
         for (const auto& entry : entries) {
@@ -404,7 +501,7 @@ HakoPduErrorType StorageComm::initialize_latest_file_()
                               std::vector<std::byte>(entry.def.pdu_size, std::byte{0}));
             auto encoded = packet.encode(packet_version());
 
-            LatestIndexEntry index{};
+            StorageEntry index{};
             std::memset(index.robot_name, 0, sizeof(index.robot_name));
             std::strncpy(index.robot_name, entry.robot_name.c_str(), sizeof(index.robot_name) - 1);
             index.channel_id = static_cast<std::uint32_t>(entry.def.channel_id);
@@ -416,8 +513,8 @@ HakoPduErrorType StorageComm::initialize_latest_file_()
             next_offset += index.packet_size;
         }
 
-        header.index_offset = sizeof(LatestHeader);
-        header.data_offset = sizeof(LatestHeader) + (sizeof(LatestIndexEntry) * latest_index_.size());
+        header.index_offset = sizeof(StorageHeader);
+        header.data_offset = sizeof(StorageHeader) + (sizeof(StorageEntry) * latest_index_.size());
         header.file_size = next_offset;
         fsio.write(reinterpret_cast<const char*>(&header), sizeof(header));
         for (const auto& [key, index] : latest_index_) {
@@ -443,11 +540,13 @@ HakoPduErrorType StorageComm::load_latest_file_()
         return HAKO_PDU_ERR_IO_ERROR;
     }
 
-    LatestHeader header{};
+    StorageHeader header{};
     if (!ifs.read(reinterpret_cast<char*>(&header), sizeof(header))) {
         return HAKO_PDU_ERR_IO_ERROR;
     }
-    if (header.magic != kLatestHeaderMagic || header.version != kStorageVersion || header.mode != kStorageModeLatest) {
+    if (header.magic != storage::kStorageHeaderMagic
+        || header.version != storage::kStorageVersion
+        || header.mode != storage::kStorageModeLatest) {
         return HAKO_PDU_ERR_INVALID_CONFIG;
     }
     std::error_code ec;
@@ -463,7 +562,7 @@ HakoPduErrorType StorageComm::load_latest_file_()
     latest_packets_.clear();
     ifs.seekg(static_cast<std::streamoff>(header.index_offset), std::ios::beg);
     for (std::uint64_t i = 0; i < header.key_count; ++i) {
-        LatestIndexEntry index{};
+        StorageEntry index{};
         if (!ifs.read(reinterpret_cast<char*>(&index), sizeof(index))) {
             return HAKO_PDU_ERR_IO_ERROR;
         }
@@ -520,21 +619,25 @@ HakoPduErrorType StorageComm::load_latest_file_()
     return HAKO_PDU_ERR_OK;
 }
 
-HakoPduErrorType StorageComm::write_latest_header_(std::fstream& fsio) noexcept
+HakoPduErrorType StorageComm::write_storage_header_(std::fstream& fsio) noexcept
 {
-    LatestHeader header{};
-    header.magic = kLatestHeaderMagic;
-    header.version = kStorageVersion;
-    header.mode = kStorageModeLatest;
+    StorageHeader header{};
+    header.magic = storage::kStorageHeaderMagic;
+    header.version = storage::kStorageVersion;
+    header.mode = (mode_ == Mode::Latest) ? storage::kStorageModeLatest : storage::kStorageModeQueue;
     header.packet_version = (packet_version() == "v1") ? 1 : 2;
-    header.key_count = latest_index_.size();
-    header.index_offset = sizeof(LatestHeader);
-    header.data_offset = sizeof(LatestHeader) + (sizeof(LatestIndexEntry) * latest_index_.size());
-    std::error_code ec;
-    header.file_size = fs::file_size(path_, ec);
-    if (ec) {
+    header.key_count = (mode_ == Mode::Latest) ? latest_index_.size() : 0;
+    header.index_offset = sizeof(StorageHeader);
+    header.data_offset = (mode_ == Mode::Latest)
+        ? (sizeof(StorageHeader) + (sizeof(StorageEntry) * latest_index_.size()))
+        : sizeof(StorageHeader);
+    fsio.flush();
+    fsio.seekp(0, std::ios::end);
+    const auto end_pos = fsio.tellp();
+    if (end_pos < 0) {
         return HAKO_PDU_ERR_IO_ERROR;
     }
+    header.file_size = static_cast<std::uint64_t>(end_pos);
 
     fsio.seekp(0, std::ios::beg);
     fsio.write(reinterpret_cast<const char*>(&header), sizeof(header));
@@ -547,8 +650,8 @@ HakoPduErrorType StorageComm::write_latest_index_entry_(std::fstream& fsio, cons
     if (it == latest_index_.end()) {
         return HAKO_PDU_ERR_INVALID_PDU_KEY;
     }
-    const auto index_pos = sizeof(LatestHeader)
-        + (static_cast<std::streamoff>(std::distance(latest_index_.begin(), it)) * static_cast<std::streamoff>(sizeof(LatestIndexEntry)));
+    const auto index_pos = sizeof(StorageHeader)
+        + (static_cast<std::streamoff>(std::distance(latest_index_.begin(), it)) * static_cast<std::streamoff>(sizeof(StorageEntry)));
     fsio.seekp(index_pos, std::ios::beg);
     fsio.write(reinterpret_cast<const char*>(&it->second), sizeof(it->second));
     return fsio.good() ? HAKO_PDU_ERR_OK : HAKO_PDU_ERR_IO_ERROR;

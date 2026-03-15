@@ -11,38 +11,19 @@
 #include <netinet/in.h>
 #include <atomic>
 #include <iostream>
+#include <cstdlib>
 #include <cerrno>
 #include <cstring>
 #include "hakoniwa/pdu/comm/packet.hpp"
+#include "hakoniwa/pdu/comm/storage_format.hpp"
 #include "hakoniwa/pdu/endpoint_comm_multiplexer.hpp"
 #include "hakoniwa/pdu/socket_utils.hpp"
 #include <filesystem>
 
 // Test Utilities
 namespace {
-    struct StorageLatestHeaderV1 {
-        std::uint32_t magic;
-        std::uint16_t version;
-        std::uint16_t mode;
-        std::uint16_t packet_version;
-        std::uint16_t flags;
-        std::uint16_t reserved0;
-        std::uint32_t reserved1;
-        std::uint64_t key_count;
-        std::uint64_t index_offset;
-        std::uint64_t data_offset;
-        std::uint64_t file_size;
-    };
-
-    struct StorageLatestIndexEntryV1 {
-        char robot_name[128];
-        std::uint32_t channel_id;
-        std::uint32_t reserved0;
-        std::uint64_t timestamp_ns;
-        std::uint64_t packet_offset;
-        std::uint32_t packet_size;
-        std::uint32_t reserved1;
-    };
+    using StorageHeaderV1 = hakoniwa::pdu::comm::storage::StorageHeader;
+    using StorageEntryV1 = hakoniwa::pdu::comm::storage::StorageEntry;
 
     // Finds an available UDP or TCP port.
     int find_available_port(int type) {
@@ -107,6 +88,15 @@ namespace {
         if (!ifs.is_open()) {
             return {};
         }
+        StorageHeaderV1 header{};
+        if (!ifs.read(reinterpret_cast<char*>(&header), sizeof(header))) {
+            return {};
+        }
+        if (header.mode == 1) {
+            ifs.seekg(static_cast<std::streamoff>(header.data_offset), std::ios::beg);
+        } else {
+            ifs.seekg(0, std::ios::beg);
+        }
         std::vector<std::vector<std::byte>> packets;
         while (true) {
             char len_buf[4];
@@ -132,15 +122,15 @@ namespace {
         if (!ifs.is_open()) {
             return {};
         }
-        StorageLatestHeaderV1 header{};
+        StorageHeaderV1 header{};
         if (!ifs.read(reinterpret_cast<char*>(&header), sizeof(header))) {
             return {};
         }
         if (index_number >= header.key_count) {
             return {};
         }
-        ifs.seekg(static_cast<std::streamoff>(header.index_offset + (sizeof(StorageLatestIndexEntryV1) * index_number)), std::ios::beg);
-        StorageLatestIndexEntryV1 entry{};
+        ifs.seekg(static_cast<std::streamoff>(header.index_offset + (sizeof(StorageEntryV1) * index_number)), std::ios::beg);
+        StorageEntryV1 entry{};
         if (!ifs.read(reinterpret_cast<char*>(&entry), sizeof(entry))) {
             return {};
         }
@@ -150,6 +140,27 @@ namespace {
             return {};
         }
         return packet;
+    }
+
+    void write_queue_storage_header(std::fstream& fsio, std::uint16_t packet_version, std::uint64_t file_size) {
+        StorageHeaderV1 header{};
+        header.magic = hakoniwa::pdu::comm::storage::kStorageHeaderMagic;
+        header.version = hakoniwa::pdu::comm::storage::kStorageVersion;
+        header.mode = hakoniwa::pdu::comm::storage::kStorageModeQueue;
+        header.packet_version = packet_version;
+        header.index_offset = sizeof(StorageHeaderV1);
+        header.data_offset = sizeof(StorageHeaderV1);
+        header.file_size = file_size;
+        fsio.seekp(0, std::ios::beg);
+        fsio.write(reinterpret_cast<const char*>(&header), sizeof(header));
+    }
+
+    std::string read_text_file(const std::filesystem::path& path) {
+        std::ifstream ifs(path);
+        if (!ifs.is_open()) {
+            return {};
+        }
+        return std::string((std::istreambuf_iterator<char>(ifs)), std::istreambuf_iterator<char>());
     }
 }
 
@@ -867,8 +878,9 @@ TEST_F(EndpointTest, StorageCommQueueOpenValidatesExistingFile) {
     {
         hakoniwa::pdu::comm::DataPacket packet("robot_storage", 10U, std::vector<std::byte>{std::byte{0x11}});
         const auto encoded = packet.encode("v2");
-        std::ofstream ofs(storage_path, std::ios::binary | std::ios::trunc);
+        std::fstream ofs(storage_path, std::ios::binary | std::ios::out | std::ios::trunc);
         ASSERT_TRUE(ofs.is_open());
+        ofs.seekp(sizeof(StorageHeaderV1), std::ios::beg);
         const std::uint32_t size = static_cast<std::uint32_t>(encoded.size());
         const char len_buf[4] = {
             static_cast<char>(size & 0xFFu),
@@ -878,6 +890,10 @@ TEST_F(EndpointTest, StorageCommQueueOpenValidatesExistingFile) {
         };
         ofs.write(len_buf, sizeof(len_buf));
         ofs.write(reinterpret_cast<const char*>(encoded.data()), static_cast<std::streamsize>(encoded.size()));
+        ofs.flush();
+        const auto end_pos = ofs.tellp();
+        ASSERT_GE(end_pos, 0);
+        write_queue_storage_header(ofs, 2, static_cast<std::uint64_t>(end_pos));
     }
     {
         std::ofstream ofs(comm_path);
@@ -920,12 +936,17 @@ TEST_F(EndpointTest, StorageCommQueueInOpenFailsWhenFrameIsTruncated) {
     const auto storage_path = temp_base / "storage_queue_corrupted.bin";
 
     {
-        std::ofstream ofs(storage_path, std::ios::binary | std::ios::trunc);
+        std::fstream ofs(storage_path, std::ios::binary | std::ios::out | std::ios::trunc);
         ASSERT_TRUE(ofs.is_open());
+        ofs.seekp(sizeof(StorageHeaderV1), std::ios::beg);
         const char len_buf[4] = {0x08, 0x00, 0x00, 0x00};
         const char payload[3] = {0x01, 0x02, 0x03};
         ofs.write(len_buf, sizeof(len_buf));
         ofs.write(payload, sizeof(payload));
+        ofs.flush();
+        const auto end_pos = ofs.tellp();
+        ASSERT_GE(end_pos, 0);
+        write_queue_storage_header(ofs, 2, static_cast<std::uint64_t>(end_pos));
     }
     {
         std::ofstream ofs(comm_path);
@@ -1044,6 +1065,100 @@ TEST_F(EndpointTest, StorageCommQueueInRecvFiltersByKeyInOrder) {
     ASSERT_EQ(recv_size, 1U);
     EXPECT_EQ(recv_buf[0], std::byte{0x0A});
 
+    ASSERT_EQ(reader.stop(), HAKO_PDU_ERR_OK);
+    ASSERT_EQ(reader.close(), HAKO_PDU_ERR_OK);
+}
+
+TEST_F(EndpointTest, StorageCommQueueRecvNextReturnsGlobalLogOrder) {
+    namespace fs = std::filesystem;
+    const auto temp_base = fs::temp_directory_path() / "hako_pdu_storage_queue_recv_next_test";
+    const auto cache_path = (fs::current_path() / "config/sample/cache/buffer.json").string();
+    fs::remove_all(temp_base);
+    fs::create_directories(temp_base);
+
+    const auto storage_path = temp_base / "storage_queue.bin";
+    const auto out_comm_path = temp_base / "storage_queue_out_comm.json";
+    const auto in_comm_path = temp_base / "storage_queue_in_comm.json";
+    const auto out_endpoint_path = temp_base / "endpoint_out.json";
+    const auto in_endpoint_path = temp_base / "endpoint_in.json";
+
+    {
+        std::ofstream ofs(out_comm_path);
+        ASSERT_TRUE(ofs.is_open());
+        ofs << nlohmann::json{
+            {"protocol", "storage"},
+            {"direction", "out"},
+            {"comm_raw_version", "v2"},
+            {"storage", {
+                {"backend", "file"},
+                {"mode", "queue"},
+                {"path", storage_path.string()}
+            }}
+        }.dump(2);
+    }
+    {
+        std::ofstream ofs(in_comm_path);
+        ASSERT_TRUE(ofs.is_open());
+        ofs << nlohmann::json{
+            {"protocol", "storage"},
+            {"direction", "in"},
+            {"comm_raw_version", "v2"},
+            {"storage", {
+                {"backend", "file"},
+                {"mode", "queue"},
+                {"path", storage_path.string()}
+            }}
+        }.dump(2);
+    }
+    {
+        std::ofstream ofs(out_endpoint_path);
+        ASSERT_TRUE(ofs.is_open());
+        ofs << nlohmann::json{
+            {"name", "storage_queue_out_endpoint"},
+            {"cache", cache_path},
+            {"comm", out_comm_path.string()}
+        }.dump(2);
+    }
+    {
+        std::ofstream ofs(in_endpoint_path);
+        ASSERT_TRUE(ofs.is_open());
+        ofs << nlohmann::json{
+            {"name", "storage_queue_in_endpoint"},
+            {"cache", cache_path},
+            {"comm", in_comm_path.string()}
+        }.dump(2);
+    }
+
+    hakoniwa::pdu::Endpoint writer("storage_queue_writer", HAKO_PDU_ENDPOINT_DIRECTION_OUT);
+    ASSERT_EQ(writer.open(out_endpoint_path.string()), HAKO_PDU_ERR_OK);
+    ASSERT_EQ(writer.start(), HAKO_PDU_ERR_OK);
+    ASSERT_EQ(writer.send(create_key("RobotA", 10), std::vector<std::byte>{std::byte{0x01}}), HAKO_PDU_ERR_OK);
+    ASSERT_EQ(writer.send(create_key("RobotB", 20), std::vector<std::byte>{std::byte{0x02}}), HAKO_PDU_ERR_OK);
+    ASSERT_EQ(writer.send(create_key("RobotA", 10), std::vector<std::byte>{std::byte{0x03}}), HAKO_PDU_ERR_OK);
+    ASSERT_EQ(writer.stop(), HAKO_PDU_ERR_OK);
+    ASSERT_EQ(writer.close(), HAKO_PDU_ERR_OK);
+
+    hakoniwa::pdu::Endpoint reader("storage_queue_reader", HAKO_PDU_ENDPOINT_DIRECTION_IN);
+    ASSERT_EQ(reader.open(in_endpoint_path.string()), HAKO_PDU_ERR_OK);
+    ASSERT_EQ(reader.start(), HAKO_PDU_ERR_OK);
+
+    hakoniwa::pdu::PduRecord record{};
+    ASSERT_EQ(reader.recv_next(record), HAKO_PDU_ERR_OK);
+    EXPECT_EQ(record.key.robot, "RobotA");
+    EXPECT_EQ(record.key.channel_id, 10);
+    EXPECT_EQ(record.payload, (std::vector<std::byte>{std::byte{0x01}}));
+
+    ASSERT_EQ(reader.recv_next(record), HAKO_PDU_ERR_OK);
+    EXPECT_EQ(record.key.robot, "RobotB");
+    EXPECT_EQ(record.key.channel_id, 20);
+    EXPECT_EQ(record.payload, (std::vector<std::byte>{std::byte{0x02}}));
+
+    ASSERT_EQ(reader.recv_next(record), HAKO_PDU_ERR_OK);
+    EXPECT_EQ(record.key.robot, "RobotA");
+    EXPECT_EQ(record.key.channel_id, 10);
+    EXPECT_EQ(record.payload, (std::vector<std::byte>{std::byte{0x03}}));
+
+    ASSERT_EQ(reader.recv_next(record), HAKO_PDU_ERR_NO_ENTRY);
     ASSERT_EQ(reader.stop(), HAKO_PDU_ERR_OK);
     ASSERT_EQ(reader.close(), HAKO_PDU_ERR_OK);
 }
@@ -1286,3 +1401,269 @@ TEST_F(EndpointTest, StorageCommLatestInOpenFailsWhenEntriesAreUninitialized) {
     hakoniwa::pdu::Endpoint reader("storage_latest_reader", HAKO_PDU_ENDPOINT_DIRECTION_IN);
     ASSERT_EQ(reader.open(in_endpoint_path.string()), HAKO_PDU_ERR_NO_ENTRY);
 }
+
+#ifdef HAKO_PDU_STORAGE_DEBUG_EXE
+TEST_F(EndpointTest, StorageDebugToolPrintsQueueSummaryInLogOrder) {
+    namespace fs = std::filesystem;
+    const auto temp_base = fs::temp_directory_path() / "hako_pdu_storage_debug_queue_test";
+    const auto cache_path = (fs::current_path() / "config/sample/cache/buffer.json").string();
+    fs::remove_all(temp_base);
+    fs::create_directories(temp_base);
+
+    const auto storage_path = temp_base / "storage_queue.bin";
+    const auto comm_path = temp_base / "storage_queue_out_comm.json";
+    const auto endpoint_path = temp_base / "endpoint.json";
+    const auto output_path = temp_base / "queue_debug.txt";
+
+    {
+        std::ofstream ofs(comm_path);
+        ASSERT_TRUE(ofs.is_open());
+        ofs << nlohmann::json{
+            {"protocol", "storage"},
+            {"direction", "out"},
+            {"comm_raw_version", "v2"},
+            {"storage", {
+                {"backend", "file"},
+                {"mode", "queue"},
+                {"path", storage_path.string()}
+            }}
+        }.dump(2);
+    }
+    {
+        std::ofstream ofs(endpoint_path);
+        ASSERT_TRUE(ofs.is_open());
+        ofs << nlohmann::json{
+            {"name", "storage_queue_debug_endpoint"},
+            {"cache", cache_path},
+            {"comm", comm_path.string()}
+        }.dump(2);
+    }
+
+    hakoniwa::pdu::Endpoint endpoint("storage_queue_debug", HAKO_PDU_ENDPOINT_DIRECTION_OUT);
+    ASSERT_EQ(endpoint.open(endpoint_path.string()), HAKO_PDU_ERR_OK);
+    ASSERT_EQ(endpoint.start(), HAKO_PDU_ERR_OK);
+    ASSERT_EQ(endpoint.send(create_key("RobotA", 10), std::vector<std::byte>{std::byte{0x01}}), HAKO_PDU_ERR_OK);
+    ASSERT_EQ(endpoint.send(create_key("RobotB", 20), std::vector<std::byte>{std::byte{0x02}, std::byte{0x03}}), HAKO_PDU_ERR_OK);
+    ASSERT_EQ(endpoint.stop(), HAKO_PDU_ERR_OK);
+    ASSERT_EQ(endpoint.close(), HAKO_PDU_ERR_OK);
+
+    const std::string command = std::string(HAKO_PDU_STORAGE_DEBUG_EXE)
+        + " \"" + storage_path.string() + "\" > \"" + output_path.string() + "\"";
+    ASSERT_EQ(std::system(command.c_str()), 0);
+
+    const std::string output = read_text_file(output_path);
+    EXPECT_NE(output.find("mode: queue"), std::string::npos);
+    EXPECT_NE(output.find("key=RobotA/10"), std::string::npos);
+    EXPECT_NE(output.find("key=RobotB/20"), std::string::npos);
+    EXPECT_LT(output.find("key=RobotA/10"), output.find("key=RobotB/20"));
+}
+
+TEST_F(EndpointTest, StorageDebugToolPrintsQueueJsonSummary) {
+    namespace fs = std::filesystem;
+    const auto temp_base = fs::temp_directory_path() / "hako_pdu_storage_debug_queue_json_test";
+    const auto cache_path = (fs::current_path() / "config/sample/cache/buffer.json").string();
+    fs::remove_all(temp_base);
+    fs::create_directories(temp_base);
+
+    const auto storage_path = temp_base / "storage_queue.bin";
+    const auto comm_path = temp_base / "storage_queue_out_comm.json";
+    const auto endpoint_path = temp_base / "endpoint.json";
+    const auto output_path = temp_base / "queue_debug.json";
+
+    {
+        std::ofstream ofs(comm_path);
+        ASSERT_TRUE(ofs.is_open());
+        ofs << nlohmann::json{
+            {"protocol", "storage"},
+            {"direction", "out"},
+            {"comm_raw_version", "v2"},
+            {"storage", {
+                {"backend", "file"},
+                {"mode", "queue"},
+                {"path", storage_path.string()}
+            }}
+        }.dump(2);
+    }
+    {
+        std::ofstream ofs(endpoint_path);
+        ASSERT_TRUE(ofs.is_open());
+        ofs << nlohmann::json{
+            {"name", "storage_queue_debug_endpoint"},
+            {"cache", cache_path},
+            {"comm", comm_path.string()}
+        }.dump(2);
+    }
+
+    hakoniwa::pdu::Endpoint endpoint("storage_queue_debug_json", HAKO_PDU_ENDPOINT_DIRECTION_OUT);
+    ASSERT_EQ(endpoint.open(endpoint_path.string()), HAKO_PDU_ERR_OK);
+    ASSERT_EQ(endpoint.start(), HAKO_PDU_ERR_OK);
+    ASSERT_EQ(endpoint.send(create_key("RobotA", 10), std::vector<std::byte>{std::byte{0x01}}), HAKO_PDU_ERR_OK);
+    ASSERT_EQ(endpoint.send(create_key("RobotB", 20), std::vector<std::byte>{std::byte{0x02}, std::byte{0x03}}), HAKO_PDU_ERR_OK);
+    ASSERT_EQ(endpoint.stop(), HAKO_PDU_ERR_OK);
+    ASSERT_EQ(endpoint.close(), HAKO_PDU_ERR_OK);
+
+    const std::string command = std::string(HAKO_PDU_STORAGE_DEBUG_EXE)
+        + " \"" + storage_path.string() + "\" --json > \"" + output_path.string() + "\"";
+    ASSERT_EQ(std::system(command.c_str()), 0);
+
+    nlohmann::json output = nlohmann::json::parse(read_text_file(output_path));
+    EXPECT_EQ(output.at("mode").get<std::string>(), "queue");
+    ASSERT_EQ(output.at("records").size(), 2U);
+    EXPECT_EQ(output.at("records").at(0).at("key").at("robot_name").get<std::string>(), "RobotA");
+    EXPECT_EQ(output.at("records").at(0).at("key").at("channel_id").get<int>(), 10);
+    EXPECT_EQ(output.at("records").at(1).at("key").at("robot_name").get<std::string>(), "RobotB");
+    EXPECT_TRUE(output.at("records").at(0).at("storage_timestamp_ns").is_null());
+    EXPECT_TRUE(output.at("records").at(0).contains("packet_offset"));
+}
+
+TEST_F(EndpointTest, StorageDebugToolPrintsLatestEntrySummary) {
+    namespace fs = std::filesystem;
+    const auto temp_base = fs::temp_directory_path() / "hako_pdu_storage_debug_latest_test";
+    const auto cache_path = (fs::current_path() / "config/sample/cache/buffer.json").string();
+    fs::remove_all(temp_base);
+    fs::create_directories(temp_base);
+
+    const auto pdutypes_path = temp_base / "pdutypes.json";
+    const auto pdudef_path = temp_base / "pdudef.json";
+    const auto storage_path = temp_base / "storage_latest.bin";
+    const auto comm_path = temp_base / "storage_latest_out_comm.json";
+    const auto endpoint_path = temp_base / "endpoint.json";
+    const auto output_path = temp_base / "latest_debug.txt";
+
+    {
+        std::ofstream ofs(pdutypes_path);
+        ASSERT_TRUE(ofs.is_open());
+        ofs << nlohmann::json::array({
+            {{"channel_id", 10}, {"pdu_size", 4}, {"name", "pdu_a"}, {"type", "test_msgs/PduA"}},
+            {{"channel_id", 20}, {"pdu_size", 4}, {"name", "pdu_b"}, {"type", "test_msgs/PduB"}}
+        }).dump(2);
+    }
+    {
+        std::ofstream ofs(pdudef_path);
+        ASSERT_TRUE(ofs.is_open());
+        ofs << nlohmann::json{
+            {"paths", nlohmann::json::array({{{"id", "default"}, {"path", pdutypes_path.string()}}})},
+            {"robots", nlohmann::json::array({{{"name", "RobotA"}, {"pdutypes_id", "default"}}})}
+        }.dump(2);
+    }
+    {
+        std::ofstream ofs(comm_path);
+        ASSERT_TRUE(ofs.is_open());
+        ofs << nlohmann::json{
+            {"protocol", "storage"},
+            {"direction", "out"},
+            {"comm_raw_version", "v2"},
+            {"storage", {
+                {"backend", "file"},
+                {"mode", "latest"},
+                {"path", storage_path.string()}
+            }}
+        }.dump(2);
+    }
+    {
+        std::ofstream ofs(endpoint_path);
+        ASSERT_TRUE(ofs.is_open());
+        ofs << nlohmann::json{
+            {"name", "storage_latest_debug_endpoint"},
+            {"pdu_def_path", pdudef_path.string()},
+            {"cache", cache_path},
+            {"comm", comm_path.string()}
+        }.dump(2);
+    }
+
+    hakoniwa::pdu::Endpoint endpoint("storage_latest_debug", HAKO_PDU_ENDPOINT_DIRECTION_OUT);
+    ASSERT_EQ(endpoint.open(endpoint_path.string()), HAKO_PDU_ERR_OK);
+    ASSERT_EQ(endpoint.start(), HAKO_PDU_ERR_OK);
+    ASSERT_EQ(endpoint.send(create_key("RobotA", 10), std::vector<std::byte>{std::byte{0x01}, std::byte{0x02}, std::byte{0x03}, std::byte{0x04}}), HAKO_PDU_ERR_OK);
+    ASSERT_EQ(endpoint.send(create_key("RobotA", 20), std::vector<std::byte>{std::byte{0x0A}, std::byte{0x0B}, std::byte{0x0C}, std::byte{0x0D}}), HAKO_PDU_ERR_OK);
+    ASSERT_EQ(endpoint.stop(), HAKO_PDU_ERR_OK);
+    ASSERT_EQ(endpoint.close(), HAKO_PDU_ERR_OK);
+
+    const std::string command = std::string(HAKO_PDU_STORAGE_DEBUG_EXE)
+        + " \"" + storage_path.string() + "\" > \"" + output_path.string() + "\"";
+    ASSERT_EQ(std::system(command.c_str()), 0);
+
+    const std::string output = read_text_file(output_path);
+    EXPECT_NE(output.find("mode: latest"), std::string::npos);
+    EXPECT_NE(output.find("key=RobotA/10"), std::string::npos);
+    EXPECT_NE(output.find("key=RobotA/20"), std::string::npos);
+    EXPECT_NE(output.find("initialized=yes"), std::string::npos);
+    EXPECT_NE(output.find("storage_timestamp_ns="), std::string::npos);
+}
+
+TEST_F(EndpointTest, StorageDebugToolPrintsLatestJsonSummary) {
+    namespace fs = std::filesystem;
+    const auto temp_base = fs::temp_directory_path() / "hako_pdu_storage_debug_latest_json_test";
+    const auto cache_path = (fs::current_path() / "config/sample/cache/buffer.json").string();
+    fs::remove_all(temp_base);
+    fs::create_directories(temp_base);
+
+    const auto pdutypes_path = temp_base / "pdutypes.json";
+    const auto pdudef_path = temp_base / "pdudef.json";
+    const auto storage_path = temp_base / "storage_latest.bin";
+    const auto comm_path = temp_base / "storage_latest_out_comm.json";
+    const auto endpoint_path = temp_base / "endpoint.json";
+    const auto output_path = temp_base / "latest_debug.json";
+
+    {
+        std::ofstream ofs(pdutypes_path);
+        ASSERT_TRUE(ofs.is_open());
+        ofs << nlohmann::json::array({
+            {{"channel_id", 10}, {"pdu_size", 4}, {"name", "pdu_a"}, {"type", "test_msgs/PduA"}},
+            {{"channel_id", 20}, {"pdu_size", 4}, {"name", "pdu_b"}, {"type", "test_msgs/PduB"}}
+        }).dump(2);
+    }
+    {
+        std::ofstream ofs(pdudef_path);
+        ASSERT_TRUE(ofs.is_open());
+        ofs << nlohmann::json{
+            {"paths", nlohmann::json::array({{{"id", "default"}, {"path", pdutypes_path.string()}}})},
+            {"robots", nlohmann::json::array({{{"name", "RobotA"}, {"pdutypes_id", "default"}}})}
+        }.dump(2);
+    }
+    {
+        std::ofstream ofs(comm_path);
+        ASSERT_TRUE(ofs.is_open());
+        ofs << nlohmann::json{
+            {"protocol", "storage"},
+            {"direction", "out"},
+            {"comm_raw_version", "v2"},
+            {"storage", {
+                {"backend", "file"},
+                {"mode", "latest"},
+                {"path", storage_path.string()}
+            }}
+        }.dump(2);
+    }
+    {
+        std::ofstream ofs(endpoint_path);
+        ASSERT_TRUE(ofs.is_open());
+        ofs << nlohmann::json{
+            {"name", "storage_latest_debug_endpoint"},
+            {"pdu_def_path", pdudef_path.string()},
+            {"cache", cache_path},
+            {"comm", comm_path.string()}
+        }.dump(2);
+    }
+
+    hakoniwa::pdu::Endpoint endpoint("storage_latest_debug_json", HAKO_PDU_ENDPOINT_DIRECTION_OUT);
+    ASSERT_EQ(endpoint.open(endpoint_path.string()), HAKO_PDU_ERR_OK);
+    ASSERT_EQ(endpoint.start(), HAKO_PDU_ERR_OK);
+    ASSERT_EQ(endpoint.send(create_key("RobotA", 10), std::vector<std::byte>{std::byte{0x01}, std::byte{0x02}, std::byte{0x03}, std::byte{0x04}}), HAKO_PDU_ERR_OK);
+    ASSERT_EQ(endpoint.send(create_key("RobotA", 20), std::vector<std::byte>{std::byte{0x0A}, std::byte{0x0B}, std::byte{0x0C}, std::byte{0x0D}}), HAKO_PDU_ERR_OK);
+    ASSERT_EQ(endpoint.stop(), HAKO_PDU_ERR_OK);
+    ASSERT_EQ(endpoint.close(), HAKO_PDU_ERR_OK);
+
+    const std::string command = std::string(HAKO_PDU_STORAGE_DEBUG_EXE)
+        + " \"" + storage_path.string() + "\" --json > \"" + output_path.string() + "\"";
+    ASSERT_EQ(std::system(command.c_str()), 0);
+
+    nlohmann::json output = nlohmann::json::parse(read_text_file(output_path));
+    EXPECT_EQ(output.at("mode").get<std::string>(), "latest");
+    ASSERT_EQ(output.at("records").size(), 2U);
+    EXPECT_EQ(output.at("records").at(0).at("key").at("robot_name").get<std::string>(), "RobotA");
+    EXPECT_TRUE(output.at("records").at(0).at("initialized").get<bool>());
+    EXPECT_FALSE(output.at("records").at(0).at("storage_timestamp_ns").is_null());
+    EXPECT_TRUE(output.at("records").at(0).contains("packet_offset"));
+}
+#endif

@@ -1,0 +1,5 @@
+{
+  "name": "storage_queue_out_endpoint",
+  "cache": "cache/buffer.json",
+  "comm": "comm/storage_queue_out_comm.json"
+}

@@ -1,5 +1,80 @@
 # Issue Notes
 
+## Retrospective Status
+
+This file started as a design scratchpad.
+Several Storage-related items are now implemented and documented elsewhere, so this file should be read as:
+
+- historical design discussion
+- remaining roadmap
+- non-final ideas that were intentionally superseded
+
+### Implemented
+
+- `StorageComm` was added as `protocol: "storage"`
+- file backend is implemented
+- `storage.mode: "latest"` is implemented
+- `storage.mode: "queue"` is implemented
+- `latest` uses a fixed file layout initialized at `open()`
+- `queue` uses a storage header plus framed append-only records
+- `recv_next(PduRecord&)` was added to `Endpoint` / `PduComm`
+- `queue` replay order is now represented by `recv_next(...)`
+- `hako_pdu_storage_debug` was added as a C++ inspection tool
+- the debug tool supports both human-readable output and `--json`
+- runnable storage examples were added
+
+### Formalized Elsewhere
+
+These topics now have a proper home outside this issue note:
+
+- storage file format
+- storage API model
+- `latest` vs `queue` semantics
+- debug tool usage
+
+Primary references:
+
+- `docs/storage_comm.md`
+- `README.md`
+- `examples/README.md`
+
+### Still Open / Future Work
+
+- decide whether `queue` should eventually gain a richer indexed metadata area
+- decide whether replay timing control belongs in `StorageComm` or in external tooling
+- evaluate `ZenohComm`
+- evaluate typed API generation / ROS 2 adapter direction
+
+### Remaining Storage Backlog
+
+The current Storage implementation is already usable, but the following items remain as future work:
+
+- `queue` metadata/index expansion
+  - current format is intentionally minimal: `StorageHeader + framed records`
+  - future versions may add an index for faster offline lookup or partial scan
+- replay tooling
+  - `recv_next(...)` now provides the right runtime API shape
+  - time-based replay, seek, rate control, and filtering are still open
+- tool ecosystem around `--json`
+  - the debug tool now exports machine-readable metadata
+  - a Python or C++ replay/analyzer tool can be layered on top of that
+- clarify the role of `recv(key, ...)` for `queue`
+  - it remains as a compatibility path
+  - the intended primary API for `queue` is `recv_next(...)`
+- fixed-size assumption for `latest`
+  - current `latest` deliberately requires `PduDefinition` and fixed payload size
+  - if variable-sized snapshot storage is ever needed, it should be designed as a separate extension, not as an accidental relaxation of the current model
+
+### Important Note About Storage Sections Below
+
+Some of the older Storage format proposals below are no longer the current direction.
+
+In particular:
+
+- the earlier generic `StorageFileHeaderV1` / `StorageRecordHeaderV1` proposals were exploratory
+- the implemented design is simpler
+- the authoritative description is now `docs/storage_comm.md`
+
 ## Context
 
 This project already has strong extension points through the separation of:
@@ -344,6 +419,92 @@ If the file already exists:
 - seek to `packet_offset`
 - overwrite the packet bytes in place
 - update `timestamp_ns`
+
+## Queue API Gap
+
+The current endpoint API is centered on:
+
+```cpp
+recv(const PduResolvedKey& key, ...)
+```
+
+This fits `latest`, but it does not match the real semantics of `queue`.
+
+Why:
+
+- `queue` is fundamentally a time-ordered log
+- replay should read records in global append order
+- key-based `recv(key, ...)` turns queue into a filtered per-key pull API
+- that loses the natural replay model
+
+### Direction
+
+Keep the existing API for compatibility, but introduce a queue-oriented receive API.
+
+### Proposed Record Type
+
+```cpp
+struct PduRecord {
+    PduResolvedKey key;
+    uint64_t timestamp_ns;
+    std::vector<std::byte> payload;
+};
+```
+
+Optional future extension:
+
+- raw packet bytes
+- packet version
+- sequence number
+
+### Proposed Queue API
+
+At the `Endpoint` level:
+
+```cpp
+HakoPduErrorType recv_next(PduRecord& out) noexcept;
+```
+
+At the `PduComm` level:
+
+```cpp
+virtual HakoPduErrorType recv_next(PduRecord& out) noexcept;
+```
+
+Default behavior:
+
+- return `HAKO_PDU_ERR_UNSUPPORTED`
+
+### Role Split
+
+- `latest`
+  - primary API: `recv(key, ...)`
+- `queue`
+  - primary API: `recv_next(...)`
+- `recv(key, ...)`
+  - remains for backward compatibility
+  - may be treated as filtered queue read if needed
+  - should not define the core replay model
+
+### Compatibility Strategy
+
+Do not remove or change existing `recv(key, ...)`.
+
+Instead:
+
+- add `recv_next(...)`
+- let queue-oriented implementations override it
+- keep current key-based `recv()` as a compatibility path
+
+### Why This Matters
+
+Without `recv_next(...)`, queue backends cannot cleanly express:
+
+- single global read cursor
+- deterministic replay order
+- time-ordered event consumption
+
+That limitation is architectural, not just an implementation detail.
 
 ### File Layout
 
