@@ -1,0 +1,22 @@
+{
+  "protocol": "zenoh",
+  "name": "zenoh_sub",
+  "direction": "in",
+  "zenoh": {
+    "config_path": "zenoh/peer_listen.json5",
+    "key_prefix": "hakoniwa",
+    "io": {
+      "robots": [
+        {
+          "name": "StorageDemo",
+          "pdu": [
+            {
+              "name": "sample_state",
+              "notify_on_recv": true
+            }
+          ]
+        }
+      ]
+    }
+  }
+}

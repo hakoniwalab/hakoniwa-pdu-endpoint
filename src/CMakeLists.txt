@@ -13,6 +13,24 @@ cmake_policy(SET CMP0144 NEW) # Use new <PACKAGENAME>_ROOT variable behavior
 
 project(hakoniwa_pdu_endpoint LANGUAGES CXX)
 
+if(HAKO_PDU_ENDPOINT_ENABLE_ZENOH)
+  include(FetchContent)
+
+  file(STRINGS "${CMAKE_CURRENT_LIST_DIR}/../ZENOH_VERSION.txt" HAKO_ZENOH_C_VERSION_RAW
+       LIMIT_COUNT 1 REGEX "^[^# \t].*")
+  if(NOT HAKO_ZENOH_C_VERSION_RAW)
+    message(FATAL_ERROR "Failed to read Zenoh version from ZENOH_VERSION.txt")
+  endif()
+  string(STRIP "${HAKO_ZENOH_C_VERSION_RAW}" HAKO_ZENOH_C_VERSION)
+
+  FetchContent_Declare(
+    zenohc
+    GIT_REPOSITORY https://github.com/eclipse-zenoh/zenoh-c.git
+    GIT_TAG ${HAKO_ZENOH_C_VERSION}
+  )
+  FetchContent_MakeAvailable(zenohc)
+endif()
+
 find_package(nlohmann_json 3.11.3 CONFIG QUIET)
 if(NOT TARGET nlohmann_json::nlohmann_json)
   include(FetchContent)
@@ -44,6 +62,7 @@ add_library(hakoniwa_pdu_endpoint
   comm_udp.cpp
   comm_tcp.cpp
   comm_storage.cpp
+  $<$<BOOL:${HAKO_PDU_ENDPOINT_ENABLE_ZENOH}>:comm_zenoh.cpp>
   comm_tcp_mux.cpp
   comm_websocket.cpp
   pdu_factory.cpp
@@ -90,6 +109,17 @@ target_link_libraries(hakoniwa_pdu_endpoint
     nlohmann_json::nlohmann_json
     Boost::headers
 )
+
+if(HAKO_PDU_ENDPOINT_ENABLE_ZENOH)
+  if(TARGET zenohc::lib)
+    target_link_libraries(hakoniwa_pdu_endpoint PUBLIC zenohc::lib)
+  elseif(TARGET zenohc)
+    target_link_libraries(hakoniwa_pdu_endpoint PUBLIC zenohc)
+  else()
+    message(FATAL_ERROR "Zenoh support enabled, but zenoh-c target was not found")
+  endif()
+  target_compile_definitions(hakoniwa_pdu_endpoint PUBLIC HAKO_PDU_ENDPOINT_HAS_ZENOH=1)
+endif()
 
 # Add OS-specific logic for Hakoniwa core library
 if(APPLE)

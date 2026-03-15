@@ -1,13 +1,13 @@
 {
   "$schema": "http://json-schema.org/draft-07/schema#",
   "title": "Communication Endpoint Configuration",
-  "description": "Schema for communication endpoints (TCP, UDP, SHM, WebSocket, Storage).",
+  "description": "Schema for communication endpoints (TCP, UDP, SHM, WebSocket, Storage, Zenoh).",
   "type": "object",
   "required": ["protocol"],
   "properties": {
     "protocol": {
       "type": "string",
-      "enum": ["tcp", "udp", "shm", "websocket", "storage"],
+      "enum": ["tcp", "udp", "shm", "websocket", "storage", "zenoh"],
       "description": "Protocol type."
     },
     "name": {
@@ -101,6 +101,9 @@
     },
     "storage": {
       "$ref": "#/$defs/storage"
+    },
+    "zenoh": {
+      "$ref": "#/$defs/zenoh"
     }
   },
   "allOf": [
@@ -207,6 +210,15 @@
         "required": ["direction", "storage"],
         "properties": {
           "storage": { "$ref": "#/$defs/storage" }
+        }
+      }
+    },
+    {
+      "if": { "properties": { "protocol": { "const": "zenoh" } } },
+      "then": {
+        "required": ["direction", "zenoh"],
+        "properties": {
+          "zenoh": { "$ref": "#/$defs/zenoh" }
         }
       }
     }
@@ -336,6 +348,28 @@
         "path": {
           "type": "string",
           "minLength": 1
+        }
+      }
+    },
+    "zenoh": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["config_path"],
+      "description": "Zenoh transport settings. Zenoh-native session and transport details live in the JSON5 file referenced by config_path; Hakoniwa-specific semantics such as key_prefix and per-key notify_on_recv remain here.",
+      "properties": {
+        "config_path": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Path to a Zenoh JSON5 config file. Relative paths are resolved from the comm config directory."
+        },
+        "key_prefix": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Prefix used to map PduResolvedKey to Zenoh key expressions: <key_prefix>/<robot>/<channel_id>."
+        },
+        "io": {
+          "$ref": "#/$defs/shm_io",
+          "description": "Per-key receive notification settings. The shape matches SHM io so existing PDU declarations can be reused."
         }
       }
     }

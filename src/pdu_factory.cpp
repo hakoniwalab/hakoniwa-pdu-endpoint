@@ -6,6 +6,9 @@
 #include "hakoniwa/pdu/comm/comm_shm.hpp" // Added
 #include "hakoniwa/pdu/comm/comm_websocket.hpp" // Added
 #include "hakoniwa/pdu/comm/comm_storage.hpp"
+#ifdef HAKO_PDU_ENDPOINT_HAS_ZENOH
+#include "hakoniwa/pdu/comm/comm_zenoh.hpp"
+#endif
 #include <nlohmann/json.hpp>
 #include <fstream>
 #include <iostream>
@@ -62,6 +65,13 @@ std::shared_ptr<PduComm> create_pdu_comm(const std::string& config_path) {
             return std::make_shared<comm::WebSocketComm>();
         } else if (protocol == "storage") {
             return std::make_shared<comm::StorageComm>();
+        } else if (protocol == "zenoh") {
+#ifdef HAKO_PDU_ENDPOINT_HAS_ZENOH
+            return std::make_shared<comm::ZenohComm>();
+#else
+            std::cerr << "PduComm Factory Error: protocol 'zenoh' requested but Zenoh support is disabled." << std::endl;
+            return nullptr;
+#endif
         } else {
             std::cerr << "PduComm Factory Error: Unknown protocol '" << protocol << "' in " << config_path << std::endl;
             return nullptr;

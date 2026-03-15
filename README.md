@@ -28,6 +28,13 @@ The recent `StorageComm` work pushes this further:
 - `hako_pdu_storage_debug` lets you inspect either file format from the command line
 - `--json` output makes Python-side post-processing and custom parsers straightforward
 
+The recent `ZenohComm` work extends the same endpoint model into dynamic pub/sub:
+
+- peer-to-peer pub/sub is available without changing the endpoint API
+- `PduResolvedKey` maps directly onto Zenoh key expressions
+- loosely coupled assets can exchange PDU data without fixed TCP-style role wiring
+- router-based deployment is still possible by changing the Zenoh native config, not the endpoint API
+
 ## Why Endpoint?
 
 Hakoniwa systems often require many communication links (TCP/UDP/SHM/WebSocket) across multiple assets.
@@ -58,9 +65,14 @@ This design is intentionally biased toward large, multi-asset simulations: it fa
         - `mode: latest` stores only the latest packet per `(robot, channel_id)` and is consumed primarily with `recv(key, ...)`.
         - both modes are self-describing via `StorageHeader`
         - both modes can be inspected with the C++ debug tool
-    -   **Replay / Inspection Tooling**:
+-   **Replay / Inspection Tooling**:
         - `build/tools/hako_pdu_storage_debug` prints human-readable summaries of storage files
         - `--json` exposes offsets, sizes, keys, and timestamps for external tooling
+-   **Zenoh Communication Support**:
+        - `zenoh-c` can be fetched by CMake when Zenoh support is enabled
+        - the requested version is controlled by `ZENOH_VERSION.txt`
+        - peer-to-peer pub/sub is available through `ZenohComm`
+        - `PduResolvedKey` maps directly to `<key_prefix>/<robot>/<channel_id>`
 -   **Cross-platform**: Built with standard C++20 and CMake, making it portable across different operating systems.
 
 ## Requirements
@@ -132,6 +144,68 @@ For the full storage format and API model, see `docs/storage_comm.md`.
 For runnable storage examples, see `examples/README.md`.
 For future work and design backlog, see `issue.md`.
 
+## Quick Start For Zenoh
+
+If you want to try dynamic pub/sub between endpoints without wiring TCP/UDP roles by hand, start here.
+
+Why Zenoh in this project:
+
+- choose it when you want pub/sub semantics instead of fixed client/server wiring
+- choose it when assets should stay loosely coupled and discoverable through key expressions
+- choose it when network topology may evolve and you do not want the application API to change
+- choose it when peer-to-peer startup is more natural than introducing a dedicated router for the first run
+
+1. Build with Zenoh enabled. The fetched `zenoh-c` version is pinned by `ZENOH_VERSION.txt`.
+
+```bash
+cmake -S . -B build-zenoh \
+  -DHAKO_PDU_ENDPOINT_ENABLE_ZENOH=ON \
+  -DHAKO_PDU_ENDPOINT_BUILD_EXAMPLES=ON
+cmake --build build-zenoh -j4
+```
+
+2. Use the sample peer-to-peer configs.
+
+- subscriber listens as peer: `config/sample/comm/zenoh/peer_listen.json5`
+- publisher connects as peer: `config/sample/comm/zenoh/peer_connect.json5`
+- router sample is also available: `config/sample/comm/zenoh/router.json5`
+
+3. Start the subscriber endpoint.
+
+```bash
+./build-zenoh/examples/endpoint_zenoh_sub
+```
+
+4. Start the publisher endpoint in another terminal.
+
+```bash
+./build-zenoh/examples/endpoint_zenoh_pub
+```
+
+5. Confirm callback-driven delivery.
+
+You should see the subscriber print `sample_state` updates as they arrive. This callback-driven delivery is controlled by `notify_on_recv` in the comm config (`zenoh.io.robots[].pdu[].notify_on_recv`). Set it to `true` for a key to have incoming Zenoh publications trigger the endpoint receive callback; omit it or set it to `false` to suppress callbacks for that key.
+
+Example output:
+
+```text
+Waiting for Zenoh samples...
+received sample_state=1
+received sample_state=2
+received sample_state=3
+```
+
+6. Run the integration test if you want a reproducible check.
+
+```bash
+./build-zenoh/test/endpoint_test \
+  --gtest_filter=EndpointTest.ZenohCommPeerToPeerPubSubDeliversPayloadToCallback \
+  --gtest_color=no
+```
+
+For runnable examples, see `examples/README.md`.
+For schema details, see `config/schema/comm_schema.json`.
+
 ## Install / Uninstall
 
 Install the headers and static library into `/usr/local/hakoniwa` (macOS / Ubuntu):
@@ -160,6 +234,63 @@ target_include_directories(app PRIVATE /usr/local/hakoniwa/include)
 target_link_directories(app PRIVATE /usr/local/hakoniwa/lib)
 target_link_libraries(app PRIVATE hakoniwa_pdu_endpoint)
 ```
+
+## Zenoh Communication Support
+
+Zenoh support is enabled by build option, but it is a first-class transport rather than an experimental side path.
+
+Version source:
+
+- `ZENOH_VERSION.txt`
+
+Enable fetch/build:
+
+```bash
+cmake -S . -B build -DHAKO_PDU_ENDPOINT_ENABLE_ZENOH=ON
+cmake --build build
+```
+
+Current behavior:
+
+- CMake fetches `zenoh-c` from the version in `ZENOH_VERSION.txt`
+- the project builds `ZenohComm`
+- current scope is peer-to-peer pub/sub using `PduResolvedKey -> <key_prefix>/<robot>/<channel_id>`
+- runnable examples:
+  - `examples/endpoint_zenoh_pub.cpp`
+  - `examples/endpoint_zenoh_sub.cpp`
+  - `config/sample/endpoint_zenoh_pub.json`
+  - `config/sample/endpoint_zenoh_sub.json`
+- runnable test:
+  - `EndpointTest.ZenohCommPeerToPeerPubSubDeliversPayloadToCallback`
+
+Minimal config shape:
+
+```json
+{
+  "protocol": "zenoh",
+  "direction": "inout",
+  "zenoh": {
+    "config_path": "zenoh/peer_connect.json5",
+    "key_prefix": "hakoniwa"
+  }
+}
+```
+
+Design split:
+
+- Zenoh-native transport/session details live in the Zenoh config file referenced by `config_path`
+- Hakoniwa-specific semantics stay in the endpoint comm config
+- per-key receive notifications are configured under `zenoh.io.robots[].pdu[].notify_on_recv`
+- sample pub/sub layout uses peer-to-peer config without `zenohd`
+- subscriber listens as peer: `config/sample/comm/zenoh/peer_listen.json5`
+- publisher connects as peer: `config/sample/comm/zenoh/peer_connect.json5`
+- a router sample config is also provided at `config/sample/comm/zenoh/router.json5`
+
+Current intent:
+
+- today the documented happy path is peer-to-peer pub/sub because it is the smallest useful setup
+- router-based deployment is still supported by supplying a Zenoh router config through `config_path`
+- the Hakoniwa side remains stable because transport topology stays outside the endpoint API
 
 ## How to Run Tests
 
@@ -201,6 +332,15 @@ export PYTHONPATH="/usr/local/hakoniwa/share/hakoniwa-pdu-endpoint/python:$PYTHO
 python -m hakoniwa_pdu_endpoint.validate_json --schema config/schema/endpoint_schema.json --check-paths config/sample/endpoint.json
 python -m hakoniwa_pdu_endpoint.validate_json --schema config/schema/endpoint_container_schema.json --check-paths config/sample/endpoint_container.json
 python -m hakoniwa_pdu_endpoint.validate_pdudef config/sample/comm/hakoniwa
+```
+
+Typical validation flow after generation:
+
+```bash
+python -m hakoniwa_pdu_endpoint.validate_json --schema config/schema/endpoint_schema.json --check-paths config/generated/endpoint_storage_demo.json
+python -m hakoniwa_pdu_endpoint.validate_json --schema config/schema/endpoint_schema.json --check-paths config/generated/endpoint_zenoh_sub_demo.json
+python -m hakoniwa_pdu_endpoint.validate_json --schema config/schema/endpoint_container_schema.json --check-paths config/generated/endpoint_container_demo.json
+python -m hakoniwa_pdu_endpoint.validate_pdudef config/sample/comm/storage_example
 ```
 
 Python dependency for validators:
@@ -503,7 +643,7 @@ A minimal generator is available for producing endpoint/comm config skeletons:
 python -m hakoniwa_pdu_endpoint.gen_endpoint_config --protocol tcp --direction inout --role server --name demo --out-dir config/generated
 ```
 
-Why this exists: it reduces boilerplate without hiding semantics. The generator never guesses semantic choices. The generator fills in protocol-specific basics and prints notes for any semantic decisions that should be chosen by the user (timeouts, pdu_def_path, etc.).
+Why this exists: it reduces boilerplate without hiding semantics. The generator never guesses semantic choices. The generator fills in protocol-specific basics and prints notes for any semantic decisions that should be chosen by the user (timeouts, pdu_def_path, transport-native config, etc.).
 
 Preset mode (explicit, no inference):
 ```bash
@@ -514,6 +654,34 @@ SHM example:
 ```bash
 python -m hakoniwa_pdu_endpoint.gen_endpoint_config --protocol shm --direction inout --name shm_demo --shm-impl poll --shm-asset-name Asset --shm-pdu Pdu --out-dir config/generated
 ```
+
+Storage example:
+```bash
+python -m hakoniwa_pdu_endpoint.gen_endpoint_config --protocol storage --direction out --name storage_demo --storage-mode queue --storage-path config/runtime/storage_demo.bin --out-dir config/generated
+```
+
+Zenoh example:
+```bash
+python -m hakoniwa_pdu_endpoint.gen_endpoint_config --protocol zenoh --direction in --name zenoh_sub_demo --zenoh-config-path config/sample/comm/zenoh/peer_listen.json5 --zenoh-pdu sample_state --robot StorageDemo --zenoh-notify-on-recv --pdu-def-path config/sample/comm/storage_example/pdudef.json --out-dir config/generated
+```
+
+Container example:
+```bash
+python -m hakoniwa_pdu_endpoint.gen_endpoint_config --protocol tcp --direction inout --role server --name demo --out-dir config/generated --generate-container --container-node-id node_demo
+```
+
+Supported generator targets:
+
+- `tcp`
+- `udp`
+- `websocket`
+- `shm`
+- `storage`
+- `zenoh`
+- `internal_cache`
+- `tcp_mux`
+
+If `--generate-container` is set, the generator also writes a minimal `endpoint_container_*.json` that points to the generated endpoint config.
 
 TCP (inout) examples:
 - `examples/endpoint_tcp_server.cpp` uses `config/sample/endpoint_tcp_server.json`
@@ -689,6 +857,7 @@ classDiagram
     class TcpComm
     class UdpComm
     class WebSocketComm
+    class ZenohComm
 
     Endpoint "1" o-- "0..1" PduDefinition : owns
     Endpoint "1" o-- "1" PduCache : owns
@@ -700,8 +869,9 @@ classDiagram
     PduComm <|-- TcpComm
     PduComm <|-- UdpComm
     PduComm <|-- WebSocketComm
+    PduComm <|-- ZenohComm
     
-    note for PduComm "Concrete implementations (TcpComm, UdpComm, WebSocketComm, PduCommShm)"
+    note for PduComm "Concrete implementations (TcpComm, UdpComm, WebSocketComm, PduCommShm, ZenohComm)"
 
 ```
 
@@ -711,10 +881,10 @@ classDiagram
     -   **`Endpoint`**: The user-facing orchestrator. It composes the other modules and provides two API levels (name-based and ID-based).
     -   **`PduDefinition`**: (Optional) Manages the mapping between PDU string names and their technical details (channel ID, size), loaded from a JSON file.
     -   **`PduCache`**: An interface for in-memory data storage. Concrete implementations provide different caching strategies.
-    -   **`PduComm`**: An interface for communication modules. Concrete implementations (`TcpComm`, `UdpComm`, `WebSocketComm`, `PduCommShm`) handle the specifics of each protocol.
+    -   **`PduComm`**: An interface for communication modules. Concrete implementations (`TcpComm`, `UdpComm`, `WebSocketComm`, `PduCommShm`, `ZenohComm`) handle the specifics of each protocol.
 
 2.  **Extensibility**: The design makes it easy to add new functionality without modifying existing core logic.
-    -   **Adding a new protocol**: You would simply create a new class that inherits from `PduComm` (e.g., `WebSocketComm`) and implement its methods. The `Endpoint` class would not need any changes.
+    -   **Adding a new protocol**: You would simply create a new class that inherits from `PduComm` (e.g., `WebSocketComm` or `ZenohComm`) and implement its methods. The `Endpoint` class would not need any changes.
     -   **Adding a new cache strategy**: You can create a new class that inherits from `PduCache`. This new strategy can then be used by any endpoint, just by updating the JSON configuration.
 
 3.  **Versatility through Composition**: By composing different cache, communication, and PDU definition modules via JSON configuration, you can create a wide variety of endpoint types without writing new C++ code.

@@ -128,5 +128,33 @@ If you want machine-readable metadata:
 build/tools/hako_pdu_storage_debug config/runtime/storage_latest.bin --json
 ```
 
+## Zenoh Pub/Sub
+
+- `endpoint_zenoh_pub`
+  - Config: `config/sample/endpoint_zenoh_pub.json`
+- `endpoint_zenoh_sub`
+  - Config: `config/sample/endpoint_zenoh_sub.json`
+
+What this demonstrates: minimal Zenoh transport integration using `PduResolvedKey -> <key_prefix>/<robot>/<channel_id>`.
+
+Prerequisite:
+
+- build with `-DHAKO_PDU_ENDPOINT_ENABLE_ZENOH=ON`
+- fetched `zenoh-c` version is pinned by `ZENOH_VERSION.txt`
+- no `zenohd` is required for the sample pair
+- subscriber uses `config/sample/comm/zenoh/peer_listen.json5`
+- publisher uses `config/sample/comm/zenoh/peer_connect.json5`
+- router sample is also available at `config/sample/comm/zenoh/router.json5`
+
+Run in two terminals:
+
+```bash
+./build/examples/endpoint_zenoh_sub
+```
+
+```bash
+./build/examples/endpoint_zenoh_pub
+```
+
 Note: for larger systems, configs are expected to be generated and validated programmatically. See the validation section in the top-level README for how to run the schema validators.
 If you are generating many configs, see the config generator in the top-level README.

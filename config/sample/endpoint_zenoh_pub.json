@@ -1,0 +1,6 @@
+{
+  "name": "sample_zenoh_pub_endpoint",
+  "pdu_def_path": "comm/storage_example/pdudef.json",
+  "cache": "cache/buffer.json",
+  "comm": "comm/zenoh_pub_comm.json"
+}

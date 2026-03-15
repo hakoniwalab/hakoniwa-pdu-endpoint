@@ -9,6 +9,8 @@ add_executable(endpoint_tcp_mux endpoint_tcp_mux.cpp)
 add_executable(endpoint_internal_cache endpoint_internal_cache.cpp)
 add_executable(endpoint_storage_queue endpoint_storage_queue.cpp)
 add_executable(endpoint_storage_latest endpoint_storage_latest.cpp)
+add_executable(endpoint_zenoh_pub endpoint_zenoh_pub.cpp)
+add_executable(endpoint_zenoh_sub endpoint_zenoh_sub.cpp)
 
 set(example_targets
   endpoint_minimal
@@ -22,6 +24,8 @@ set(example_targets
   endpoint_internal_cache
   endpoint_storage_queue
   endpoint_storage_latest
+  endpoint_zenoh_pub
+  endpoint_zenoh_sub
 )
 
 foreach(target_name IN LISTS example_targets)

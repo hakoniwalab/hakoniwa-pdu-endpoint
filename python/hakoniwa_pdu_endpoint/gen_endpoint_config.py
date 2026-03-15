@@ -85,6 +85,46 @@ def build_shm(args):
     return comm
 
 
+def build_storage(args):
+    return {
+        "protocol": "storage",
+        "name": args.name,
+        "direction": args.direction,
+        "comm_raw_version": args.comm_raw_version,
+        "storage": {
+            "backend": "file",
+            "mode": args.storage_mode,
+            "path": args.storage_path,
+        },
+    }
+
+
+def build_zenoh(args):
+    comm = {
+        "protocol": "zenoh",
+        "name": args.name,
+        "direction": args.direction,
+        "zenoh": {
+            "config_path": args.zenoh_config_path,
+            "key_prefix": args.zenoh_key_prefix,
+            "io": {
+                "robots": [
+                    {
+                        "name": args.robot,
+                        "pdu": [
+                            {
+                                "name": args.zenoh_pdu,
+                                "notify_on_recv": args.zenoh_notify_on_recv,
+                            }
+                        ],
+                    }
+                ]
+            },
+        },
+    }
+    return comm
+
+
 def apply_preset(args):
     presets = {
         "tcp_basic_server": {
@@ -125,6 +165,44 @@ def apply_preset(args):
             "port": 54001,
             "cache": "config/sample/cache/buffer.json",
         },
+        "storage_latest": {
+            "protocol": "storage",
+            "direction": "out",
+            "storage_mode": "latest",
+            "storage_path": "config/runtime/storage_latest.bin",
+            "comm_raw_version": "v2",
+            "cache": "config/sample/cache/buffer.json",
+        },
+        "storage_queue": {
+            "protocol": "storage",
+            "direction": "out",
+            "storage_mode": "queue",
+            "storage_path": "config/runtime/storage_queue.bin",
+            "comm_raw_version": "v2",
+            "cache": "config/sample/cache/buffer.json",
+        },
+        "zenoh_peer_pub": {
+            "protocol": "zenoh",
+            "direction": "out",
+            "zenoh_config_path": "config/sample/comm/zenoh/peer_connect.json5",
+            "zenoh_key_prefix": "hakoniwa",
+            "robot": "StorageDemo",
+            "zenoh_pdu": "sample_state",
+            "zenoh_notify_on_recv": False,
+            "cache": "config/sample/cache/buffer.json",
+            "pdu_def_path": "config/sample/comm/storage_example/pdudef.json",
+        },
+        "zenoh_peer_sub": {
+            "protocol": "zenoh",
+            "direction": "in",
+            "zenoh_config_path": "config/sample/comm/zenoh/peer_listen.json5",
+            "zenoh_key_prefix": "hakoniwa",
+            "robot": "StorageDemo",
+            "zenoh_pdu": "sample_state",
+            "zenoh_notify_on_recv": True,
+            "cache": "config/sample/cache/buffer.json",
+            "pdu_def_path": "config/sample/comm/storage_example/pdudef.json",
+        },
     }
     preset = presets.get(args.preset)
     if not preset:
@@ -137,8 +215,8 @@ def main():
     parser = argparse.ArgumentParser(
         description="Generate minimal Endpoint + Comm config files."
     )
-    parser.add_argument("--preset", choices=["tcp_basic_server", "tcp_basic_client", "udp_oneway", "internal_cache", "tcp_mux_basic"], help="Use a fixed preset (explicitly defined, no inference).")
-    parser.add_argument("--protocol", choices=["tcp", "udp", "websocket", "shm"])
+    parser.add_argument("--preset", choices=["tcp_basic_server", "tcp_basic_client", "udp_oneway", "internal_cache", "tcp_mux_basic", "storage_latest", "storage_queue", "zenoh_peer_pub", "zenoh_peer_sub"], help="Use a fixed preset (explicitly defined, no inference).")
+    parser.add_argument("--protocol", choices=["tcp", "udp", "websocket", "shm", "storage", "zenoh"])
     parser.add_argument("--direction", choices=["in", "out", "inout"])
     parser.add_argument("--role", choices=["server", "client"], help="Required for tcp/websocket")
     parser.add_argument("--name", required=True, help="Base name for endpoint and comm")
@@ -157,13 +235,27 @@ def main():
     parser.add_argument("--shm-pdu", default="Pdu", help="SHM PDU name")
     parser.add_argument("--shm-notify-on-recv", action="store_true", help="SHM notify_on_recv")
 
+    parser.add_argument("--storage-mode", default="queue", choices=["latest", "queue"], help="Storage mode")
+    parser.add_argument("--storage-path", help="Storage file path")
+    parser.add_argument("--comm-raw-version", default="v2", choices=["v1", "v2"], help="Raw packet version for storage transport")
+
+    parser.add_argument("--zenoh-config-path", help="Zenoh native JSON5 config path")
+    parser.add_argument("--zenoh-key-prefix", default="hakoniwa", help="Zenoh key prefix")
+    parser.add_argument("--zenoh-pdu", default="sample_state", help="Zenoh PDU name")
+    parser.add_argument("--zenoh-notify-on-recv", action="store_true", help="Zenoh notify_on_recv")
+
     parser.add_argument("--cache", default="config/sample/cache/queue.json", help="Cache config path")
     parser.add_argument("--internal-cache", action="store_true", help="Generate endpoint with comm: null")
     parser.add_argument("--tcp-mux", action="store_true", help="Generate TCP mux comm (server-only)")
     parser.add_argument("--expected-clients", type=int, default=2, help="Expected clients for TCP mux")
+    parser.add_argument("--pdu-def-path", help="Optional pdu_def_path to include in endpoint config")
     parser.add_argument("--out-dir", default=".", help="Output directory")
     parser.add_argument("--endpoint-out", help="Endpoint output path (overrides --out-dir)")
     parser.add_argument("--comm-out", help="Comm output path (overrides --out-dir)")
+    parser.add_argument("--generate-container", action="store_true", help="Also generate an endpoint_container JSON that points to the generated endpoint config")
+    parser.add_argument("--container-node-id", default="node_1", help="nodeId to use when --generate-container is set")
+    parser.add_argument("--container-endpoint-id", help="Endpoint id to use inside the generated container (defaults to --name)")
+    parser.add_argument("--container-out", help="Container output path (overrides --out-dir)")
     args = parser.parse_args()
 
     if args.preset:
@@ -181,6 +273,12 @@ def main():
         parser.error("--tcp-mux requires --protocol tcp")
     if args.protocol in ("tcp", "websocket") and not args.role and not args.tcp_mux:
         parser.error("--role is required for tcp/websocket")
+    if args.protocol == "storage" and not args.storage_path:
+        args.storage_path = f"config/runtime/{args.name}.bin"
+    if args.protocol == "zenoh" and not args.zenoh_config_path:
+        parser.error("--zenoh-config-path is required for zenoh")
+    if args.protocol == "zenoh" and not args.pdu_def_path:
+        parser.error("--pdu-def-path is required for zenoh because zenoh.io uses PDU names")
 
     if args.internal_cache:
         comm = None
@@ -192,6 +290,10 @@ def main():
         comm = build_websocket(args)
     elif args.protocol == "shm":
         comm = build_shm(args)
+    elif args.protocol == "storage":
+        comm = build_storage(args)
+    elif args.protocol == "zenoh":
+        comm = build_zenoh(args)
     else:
         comm = build_udp(args)
 
@@ -199,20 +301,39 @@ def main():
     out_dir.mkdir(parents=True, exist_ok=True)
     endpoint_path = Path(args.endpoint_out) if args.endpoint_out else out_dir / f"endpoint_{args.name}.json"
     comm_path = Path(args.comm_out) if args.comm_out else out_dir / f"comm_{args.name}.json"
+    container_path = Path(args.container_out) if args.container_out else out_dir / f"endpoint_container_{args.name}.json"
 
     endpoint = {
         "name": args.name,
         "cache": args.cache,
         "comm": None if comm is None else (str(comm_path.relative_to(out_dir)) if not comm_path.is_absolute() else str(comm_path)),
     }
+    if args.pdu_def_path:
+        endpoint["pdu_def_path"] = args.pdu_def_path
 
     endpoint_path.write_text(json.dumps(endpoint, indent=2) + "\n", encoding="utf-8")
     if comm is not None:
         comm_path.write_text(json.dumps(comm, indent=2) + "\n", encoding="utf-8")
+    if args.generate_container:
+        endpoint_ref = str(endpoint_path.relative_to(container_path.parent)) if not endpoint_path.is_absolute() else str(endpoint_path)
+        container = [
+            {
+                "nodeId": args.container_node_id,
+                "endpoints": [
+                    {
+                        "id": args.container_endpoint_id or args.name,
+                        "config_path": endpoint_ref,
+                    }
+                ],
+            }
+        ]
+        container_path.write_text(json.dumps(container, indent=2) + "\n", encoding="utf-8")
 
     print(f"Wrote {endpoint_path}")
     if comm is not None:
         print(f"Wrote {comm_path}")
+    if args.generate_container:
+        print(f"Wrote {container_path}")
     print("Notes:")
     if comm is None:
         print("- comm is null (internal cache only). Add comm settings if you need network transport.")
@@ -226,6 +347,13 @@ def main():
             print("- Verify remote address/port settings for client mode.")
         if args.protocol == "shm":
             print("- Provide full SHM robot/PDU definitions and align with your asset configuration.")
+        if args.protocol == "storage":
+            print("- Storage mode 'latest' is for snapshots; 'queue' is for replay-style append logs.")
+            print("- Storage files are created at runtime; choose a writable path for storage.path.")
+        if args.protocol == "zenoh":
+            print("- Zenoh native transport/session settings come from zenoh.config_path.")
+            print("- notify_on_recv controls callback-driven delivery per key under zenoh.io.")
+            print("- For peer-to-peer examples, use sample configs under config/sample/comm/zenoh/.")
     print("- Add pdu_def_path to the endpoint if you need name-based PDU access.")
     print("- Validate configs with validate_json --check-paths.")
 
