@@ -1,0 +1,11 @@
+{
+  "protocol": "storage",
+  "name": "storage_latest_out",
+  "direction": "out",
+  "comm_raw_version": "v2",
+  "storage": {
+    "backend": "file",
+    "mode": "latest",
+    "path": "../../runtime/storage_latest.bin"
+  }
+}

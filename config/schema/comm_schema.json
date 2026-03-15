@@ -1,13 +1,13 @@
 {
   "$schema": "http://json-schema.org/draft-07/schema#",
   "title": "Communication Endpoint Configuration",
-  "description": "Schema for communication endpoints (TCP, UDP, SHM, WebSocket).",
+  "description": "Schema for communication endpoints (TCP, UDP, SHM, WebSocket, Storage).",
   "type": "object",
   "required": ["protocol"],
   "properties": {
     "protocol": {
       "type": "string",
-      "enum": ["tcp", "udp", "shm", "websocket"],
+      "enum": ["tcp", "udp", "shm", "websocket", "storage"],
       "description": "Protocol type."
     },
     "name": {
@@ -98,6 +98,9 @@
           "then": { "required": ["group"] }
         }
       }
+    },
+    "storage": {
+      "$ref": "#/$defs/storage"
     }
   },
   "allOf": [
@@ -196,6 +199,15 @@
             "then": { "required": ["asset_name"] }
           }
         ]
+      }
+    },
+    {
+      "if": { "properties": { "protocol": { "const": "storage" } } },
+      "then": {
+        "required": ["direction", "storage"],
+        "properties": {
+          "storage": { "$ref": "#/$defs/storage" }
+        }
       }
     }
   ],
@@ -305,6 +317,25 @@
         },
         "notify_on_recv": {
           "type": "boolean"
+        }
+      }
+    },
+    "storage": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["backend", "mode", "path"],
+      "properties": {
+        "backend": {
+          "type": "string",
+          "enum": ["file"]
+        },
+        "mode": {
+          "type": "string",
+          "enum": ["latest", "queue"]
+        },
+        "path": {
+          "type": "string",
+          "minLength": 1
         }
       }
     }

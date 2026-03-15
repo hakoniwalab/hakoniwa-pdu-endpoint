@@ -5,6 +5,7 @@
 #include "hakoniwa/pdu/comm/comm_udp.hpp"
 #include "hakoniwa/pdu/comm/comm_shm.hpp" // Added
 #include "hakoniwa/pdu/comm/comm_websocket.hpp" // Added
+#include "hakoniwa/pdu/comm/comm_storage.hpp"
 #include <nlohmann/json.hpp>
 #include <fstream>
 #include <iostream>
@@ -59,6 +60,8 @@ std::shared_ptr<PduComm> create_pdu_comm(const std::string& config_path) {
             return std::make_shared<comm::PduCommShm>(); // Added
         } else if (protocol == "websocket") {
             return std::make_shared<comm::WebSocketComm>();
+        } else if (protocol == "storage") {
+            return std::make_shared<comm::StorageComm>();
         } else {
             std::cerr << "PduComm Factory Error: Unknown protocol '" << protocol << "' in " << config_path << std::endl;
             return nullptr;

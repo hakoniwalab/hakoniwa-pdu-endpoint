@@ -58,5 +58,15 @@
     "name": "udp_bcast_out_endpoint",
     "cache": "cache/buffer.json",
     "comm": "comm/udp_bcast_out_comm.json"
+  },
+  {
+    "name": "storage_queue_out_endpoint",
+    "cache": "cache/buffer.json",
+    "comm": "comm/storage_queue_out_comm.json"
+  },
+  {
+    "name": "storage_latest_out_endpoint",
+    "cache": "cache/buffer.json",
+    "comm": "comm/storage_latest_out_comm.json"
   }
 ]

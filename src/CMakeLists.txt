@@ -43,6 +43,7 @@ add_library(hakoniwa_pdu_endpoint
   socket_utils.cpp
   comm_udp.cpp
   comm_tcp.cpp
+  comm_storage.cpp
   comm_tcp_mux.cpp
   comm_websocket.cpp
   pdu_factory.cpp

@@ -25,6 +25,11 @@ struct PduDef {
 // Manages the loading and resolving of PDU definitions from a JSON file.
 class PduDefinition {
 public:
+    struct Entry {
+        std::string robot_name;
+        PduDef def;
+    };
+
     PduDefinition() = default;
 
     /**
@@ -68,6 +73,7 @@ public:
      */
     HakoPduChannelIdType get_pdu_channel_id(const std::string& robot_name, const std::string& pdu_org_name) const;
 
+    std::vector<Entry> list_entries() const;
 
     bool add_definition(const std::string& robot_name, const PduDef& def) {
         pdu_definitions_[robot_name][def.org_name] = def;

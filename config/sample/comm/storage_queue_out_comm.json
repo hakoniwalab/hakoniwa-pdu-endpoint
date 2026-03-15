@@ -1,0 +1,11 @@
+{
+  "protocol": "storage",
+  "name": "storage_queue_out",
+  "direction": "out",
+  "comm_raw_version": "v2",
+  "storage": {
+    "backend": "file",
+    "mode": "queue",
+    "path": "../../runtime/storage_queue.bin"
+  }
+}

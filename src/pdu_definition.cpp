@@ -193,5 +193,16 @@ HakoPduChannelIdType PduDefinition::get_pdu_channel_id(const std::string& robot_
     return -1; // Not found
 }
 
+std::vector<PduDefinition::Entry> PduDefinition::list_entries() const {
+    std::vector<Entry> entries;
+    for (const auto& [robot_name, defs] : pdu_definitions_) {
+        for (const auto& [org_name, def] : defs) {
+            (void)org_name;
+            entries.push_back({robot_name, def});
+        }
+    }
+    return entries;
+}
+
 } // namespace pdu
 } // namespace hakoniwa
