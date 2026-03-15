@@ -1,0 +1,39 @@
+name: ci-mqtt
+
+on:
+  workflow_dispatch:
+
+jobs:
+  build-mqtt:
+    runs-on: macos-latest
+    steps:
+      - name: Install Dependencies
+        run: |
+          brew update
+          brew install cmake boost googletest pkg-config mosquitto
+
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Build and Install hakoniwa-core-pro
+        run: |
+          git clone --recursive https://github.com/hakoniwalab/hakoniwa-core-pro.git
+          cd hakoniwa-core-pro
+          bash build.bash
+          sudo bash install.bash
+
+      - name: Configure MQTT Build
+        run: |
+          cmake -S . -B build-mqtt \
+            -DHAKO_PDU_ENDPOINT_BUILD_TESTS=ON \
+            -DHAKO_PDU_ENDPOINT_BUILD_EXAMPLES=ON \
+            -DHAKO_PDU_ENDPOINT_ENABLE_MQTT=ON
+
+      - name: Build MQTT
+        run: cmake --build build-mqtt -j4
+
+      - name: Test MQTT Integration
+        run: |
+          ./build-mqtt/test/endpoint_test \
+            --gtest_filter=EndpointTest.MqttCommPubSubDeliversPayloadToCallback \
+            --gtest_color=no
