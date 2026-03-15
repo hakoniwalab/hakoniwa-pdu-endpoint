@@ -1,4 +1,5 @@
 #include <gtest/gtest.h>
+#include "hakoniwa/pdu/c_endpoint.h"
 #include "hakoniwa/pdu/endpoint.hpp"
 #include <vector>
 #include <string>
@@ -203,6 +204,32 @@ namespace {
         int status = 0;
         waitpid(pid, &status, 0);
     }
+
+    struct CEndpointRecvCapture {
+        bool called{false};
+        std::string robot;
+        uint32_t channel_id{0};
+        std::vector<std::uint8_t> payload;
+    };
+
+    void c_endpoint_on_recv_capture(
+        void* user_data,
+        const hako_pdu_resolved_key_t* key,
+        const void* data,
+        size_t size)
+    {
+        auto* capture = static_cast<CEndpointRecvCapture*>(user_data);
+        if (capture == nullptr || key == nullptr) {
+            return;
+        }
+        capture->called = true;
+        capture->robot = key->robot;
+        capture->channel_id = key->channel_id;
+        capture->payload.resize(size);
+        if (size > 0 && data != nullptr) {
+            std::memcpy(capture->payload.data(), data, size);
+        }
+    }
 }
 
 class EndpointTest : public ::testing::Test {
@@ -273,6 +300,375 @@ TEST_F(EndpointTest, QueueModeTest) {
 
     ASSERT_EQ(endpoint.stop(), HAKO_PDU_ERR_OK);
     ASSERT_EQ(endpoint.close(), HAKO_PDU_ERR_OK);
+}
+
+TEST_F(EndpointTest, CEndpointInternalCacheSendRecvWorks) {
+    auto* endpoint = hako_pdu_endpoint_create("c_internal_cache_test", HAKO_PDU_ENDPOINT_DIRECTION_INOUT);
+    ASSERT_NE(endpoint, nullptr);
+
+    hako_pdu_resolved_key_t key{};
+    std::snprintf(key.robot, sizeof(key.robot), "%s", "robot_c");
+    key.channel_id = 42;
+
+    ASSERT_EQ(
+        hako_pdu_endpoint_open(endpoint, "config/sample/endpoint_internal_cache.json"),
+        HAKO_PDU_ERR_OK);
+    ASSERT_EQ(hako_pdu_endpoint_start(endpoint), HAKO_PDU_ERR_OK);
+
+    hako_pdu_bool_t running = HAKO_PDU_FALSE;
+    ASSERT_EQ(hako_pdu_endpoint_is_running(endpoint, &running), HAKO_PDU_ERR_OK);
+    EXPECT_EQ(running, HAKO_PDU_TRUE);
+
+    const std::uint8_t write_data[] = {0x10, 0x20, 0x30};
+    ASSERT_EQ(
+        hako_pdu_endpoint_send(endpoint, &key, write_data, sizeof(write_data)),
+        HAKO_PDU_ERR_OK);
+
+    std::uint8_t recv_buf[8] = {};
+    size_t received_size = 0;
+    ASSERT_EQ(
+        hako_pdu_endpoint_recv(endpoint, &key, recv_buf, sizeof(recv_buf), &received_size),
+        HAKO_PDU_ERR_OK);
+    ASSERT_EQ(received_size, sizeof(write_data));
+    EXPECT_EQ(recv_buf[0], write_data[0]);
+    EXPECT_EQ(recv_buf[1], write_data[1]);
+    EXPECT_EQ(recv_buf[2], write_data[2]);
+
+    ASSERT_EQ(hako_pdu_endpoint_stop(endpoint), HAKO_PDU_ERR_OK);
+    ASSERT_EQ(hako_pdu_endpoint_close(endpoint), HAKO_PDU_ERR_OK);
+    hako_pdu_endpoint_destroy(endpoint);
+}
+
+TEST_F(EndpointTest, CEndpointStorageQueueRecvNextWorks) {
+    namespace fs = std::filesystem;
+    const auto temp_base = fs::temp_directory_path() / "hako_pdu_c_endpoint_storage_queue_test";
+    const auto cache_path = (fs::current_path() / "config/sample/cache/buffer.json").string();
+    fs::remove_all(temp_base);
+    fs::create_directories(temp_base);
+
+    const auto storage_path = temp_base / "storage_queue.bin";
+    const auto out_comm_path = temp_base / "storage_queue_out_comm.json";
+    const auto in_comm_path = temp_base / "storage_queue_in_comm.json";
+    const auto out_endpoint_path = temp_base / "endpoint_out.json";
+    const auto in_endpoint_path = temp_base / "endpoint_in.json";
+
+    {
+        std::ofstream ofs(out_comm_path);
+        ASSERT_TRUE(ofs.is_open());
+        ofs << nlohmann::json{
+            {"protocol", "storage"},
+            {"direction", "out"},
+            {"comm_raw_version", "v2"},
+            {"storage", {
+                {"backend", "file"},
+                {"mode", "queue"},
+                {"path", storage_path.string()}
+            }}
+        }.dump(2);
+    }
+    {
+        std::ofstream ofs(in_comm_path);
+        ASSERT_TRUE(ofs.is_open());
+        ofs << nlohmann::json{
+            {"protocol", "storage"},
+            {"direction", "in"},
+            {"comm_raw_version", "v2"},
+            {"storage", {
+                {"backend", "file"},
+                {"mode", "queue"},
+                {"path", storage_path.string()}
+            }}
+        }.dump(2);
+    }
+    {
+        std::ofstream ofs(out_endpoint_path);
+        ASSERT_TRUE(ofs.is_open());
+        ofs << nlohmann::json{
+            {"name", "c_storage_queue_out_endpoint"},
+            {"cache", cache_path},
+            {"comm", out_comm_path.string()}
+        }.dump(2);
+    }
+    {
+        std::ofstream ofs(in_endpoint_path);
+        ASSERT_TRUE(ofs.is_open());
+        ofs << nlohmann::json{
+            {"name", "c_storage_queue_in_endpoint"},
+            {"cache", cache_path},
+            {"comm", in_comm_path.string()}
+        }.dump(2);
+    }
+
+    auto* writer = hako_pdu_endpoint_create("c_storage_writer", HAKO_PDU_ENDPOINT_DIRECTION_OUT);
+    auto* reader = hako_pdu_endpoint_create("c_storage_reader", HAKO_PDU_ENDPOINT_DIRECTION_IN);
+    ASSERT_NE(writer, nullptr);
+    ASSERT_NE(reader, nullptr);
+
+    ASSERT_EQ(hako_pdu_endpoint_open(writer, out_endpoint_path.c_str()), HAKO_PDU_ERR_OK);
+    ASSERT_EQ(hako_pdu_endpoint_start(writer), HAKO_PDU_ERR_OK);
+
+    hako_pdu_resolved_key_t key_a{};
+    hako_pdu_resolved_key_t key_b{};
+    std::snprintf(key_a.robot, sizeof(key_a.robot), "%s", "RobotA");
+    std::snprintf(key_b.robot, sizeof(key_b.robot), "%s", "RobotB");
+    key_a.channel_id = 10;
+    key_b.channel_id = 20;
+
+    const std::uint8_t payload_a1[] = {0x01};
+    const std::uint8_t payload_b1[] = {0x0A};
+    const std::uint8_t payload_a2[] = {0x02};
+    ASSERT_EQ(hako_pdu_endpoint_send(writer, &key_a, payload_a1, sizeof(payload_a1)), HAKO_PDU_ERR_OK);
+    ASSERT_EQ(hako_pdu_endpoint_send(writer, &key_b, payload_b1, sizeof(payload_b1)), HAKO_PDU_ERR_OK);
+    ASSERT_EQ(hako_pdu_endpoint_send(writer, &key_a, payload_a2, sizeof(payload_a2)), HAKO_PDU_ERR_OK);
+    ASSERT_EQ(hako_pdu_endpoint_stop(writer), HAKO_PDU_ERR_OK);
+    ASSERT_EQ(hako_pdu_endpoint_close(writer), HAKO_PDU_ERR_OK);
+
+    ASSERT_EQ(hako_pdu_endpoint_open(reader, in_endpoint_path.c_str()), HAKO_PDU_ERR_OK);
+    ASSERT_EQ(hako_pdu_endpoint_start(reader), HAKO_PDU_ERR_OK);
+
+    std::uint8_t recv_buf[8] = {};
+    hako_pdu_resolved_key_t out_key{};
+    std::uint64_t out_timestamp_ns = 0;
+    size_t received_size = 0;
+
+    ASSERT_EQ(
+        hako_pdu_endpoint_recv_next(reader, recv_buf, sizeof(recv_buf), &out_key, &out_timestamp_ns, &received_size),
+        HAKO_PDU_ERR_OK);
+    EXPECT_STREQ(out_key.robot, "RobotA");
+    EXPECT_EQ(out_key.channel_id, 10U);
+    EXPECT_EQ(received_size, 1U);
+    EXPECT_EQ(recv_buf[0], std::uint8_t{0x01});
+    EXPECT_GE(out_timestamp_ns, 0U);
+
+    ASSERT_EQ(
+        hako_pdu_endpoint_recv_next(reader, recv_buf, sizeof(recv_buf), &out_key, &out_timestamp_ns, &received_size),
+        HAKO_PDU_ERR_OK);
+    EXPECT_STREQ(out_key.robot, "RobotB");
+    EXPECT_EQ(out_key.channel_id, 20U);
+    EXPECT_EQ(received_size, 1U);
+    EXPECT_EQ(recv_buf[0], std::uint8_t{0x0A});
+
+    ASSERT_EQ(
+        hako_pdu_endpoint_recv_next(reader, recv_buf, sizeof(recv_buf), &out_key, &out_timestamp_ns, &received_size),
+        HAKO_PDU_ERR_OK);
+    EXPECT_STREQ(out_key.robot, "RobotA");
+    EXPECT_EQ(out_key.channel_id, 10U);
+    EXPECT_EQ(received_size, 1U);
+    EXPECT_EQ(recv_buf[0], std::uint8_t{0x02});
+
+    ASSERT_EQ(
+        hako_pdu_endpoint_recv_next(reader, recv_buf, sizeof(recv_buf), &out_key, &out_timestamp_ns, &received_size),
+        HAKO_PDU_ERR_NO_ENTRY);
+
+    ASSERT_EQ(hako_pdu_endpoint_stop(reader), HAKO_PDU_ERR_OK);
+    ASSERT_EQ(hako_pdu_endpoint_close(reader), HAKO_PDU_ERR_OK);
+    hako_pdu_endpoint_destroy(writer);
+    hako_pdu_endpoint_destroy(reader);
+}
+
+TEST_F(EndpointTest, CEndpointRecvReturnsNoSpaceWhenBufferTooSmall) {
+    auto* endpoint = hako_pdu_endpoint_create("c_internal_cache_nospace_test", HAKO_PDU_ENDPOINT_DIRECTION_INOUT);
+    ASSERT_NE(endpoint, nullptr);
+
+    hako_pdu_resolved_key_t key{};
+    std::snprintf(key.robot, sizeof(key.robot), "%s", "robot_c");
+    key.channel_id = 7;
+
+    ASSERT_EQ(
+        hako_pdu_endpoint_open(endpoint, "config/sample/endpoint_internal_cache.json"),
+        HAKO_PDU_ERR_OK);
+    ASSERT_EQ(hako_pdu_endpoint_start(endpoint), HAKO_PDU_ERR_OK);
+
+    const std::uint8_t write_data[] = {0x10, 0x20, 0x30};
+    ASSERT_EQ(
+        hako_pdu_endpoint_send(endpoint, &key, write_data, sizeof(write_data)),
+        HAKO_PDU_ERR_OK);
+
+    std::uint8_t recv_buf[2] = {};
+    size_t received_size = 0;
+    ASSERT_EQ(
+        hako_pdu_endpoint_recv(endpoint, &key, recv_buf, sizeof(recv_buf), &received_size),
+        HAKO_PDU_ERR_NO_SPACE);
+
+    ASSERT_EQ(hako_pdu_endpoint_stop(endpoint), HAKO_PDU_ERR_OK);
+    ASSERT_EQ(hako_pdu_endpoint_close(endpoint), HAKO_PDU_ERR_OK);
+    hako_pdu_endpoint_destroy(endpoint);
+}
+
+TEST_F(EndpointTest, CEndpointRecvNextReturnsNoSpaceWhenBufferTooSmall) {
+    namespace fs = std::filesystem;
+    const auto temp_base = fs::temp_directory_path() / "hako_pdu_c_endpoint_storage_queue_nospace_test";
+    const auto cache_path = (fs::current_path() / "config/sample/cache/buffer.json").string();
+    fs::remove_all(temp_base);
+    fs::create_directories(temp_base);
+
+    const auto storage_path = temp_base / "storage_queue.bin";
+    const auto out_comm_path = temp_base / "storage_queue_out_comm.json";
+    const auto in_comm_path = temp_base / "storage_queue_in_comm.json";
+    const auto out_endpoint_path = temp_base / "endpoint_out.json";
+    const auto in_endpoint_path = temp_base / "endpoint_in.json";
+
+    {
+        std::ofstream ofs(out_comm_path);
+        ASSERT_TRUE(ofs.is_open());
+        ofs << nlohmann::json{
+            {"protocol", "storage"},
+            {"direction", "out"},
+            {"comm_raw_version", "v2"},
+            {"storage", {
+                {"backend", "file"},
+                {"mode", "queue"},
+                {"path", storage_path.string()}
+            }}
+        }.dump(2);
+    }
+    {
+        std::ofstream ofs(in_comm_path);
+        ASSERT_TRUE(ofs.is_open());
+        ofs << nlohmann::json{
+            {"protocol", "storage"},
+            {"direction", "in"},
+            {"comm_raw_version", "v2"},
+            {"storage", {
+                {"backend", "file"},
+                {"mode", "queue"},
+                {"path", storage_path.string()}
+            }}
+        }.dump(2);
+    }
+    {
+        std::ofstream ofs(out_endpoint_path);
+        ASSERT_TRUE(ofs.is_open());
+        ofs << nlohmann::json{
+            {"name", "c_storage_queue_out_endpoint"},
+            {"cache", cache_path},
+            {"comm", out_comm_path.string()}
+        }.dump(2);
+    }
+    {
+        std::ofstream ofs(in_endpoint_path);
+        ASSERT_TRUE(ofs.is_open());
+        ofs << nlohmann::json{
+            {"name", "c_storage_queue_in_endpoint"},
+            {"cache", cache_path},
+            {"comm", in_comm_path.string()}
+        }.dump(2);
+    }
+
+    auto* writer = hako_pdu_endpoint_create("c_storage_writer", HAKO_PDU_ENDPOINT_DIRECTION_OUT);
+    auto* reader = hako_pdu_endpoint_create("c_storage_reader", HAKO_PDU_ENDPOINT_DIRECTION_IN);
+    ASSERT_NE(writer, nullptr);
+    ASSERT_NE(reader, nullptr);
+
+    ASSERT_EQ(hako_pdu_endpoint_open(writer, out_endpoint_path.c_str()), HAKO_PDU_ERR_OK);
+    ASSERT_EQ(hako_pdu_endpoint_start(writer), HAKO_PDU_ERR_OK);
+
+    hako_pdu_resolved_key_t key{};
+    std::snprintf(key.robot, sizeof(key.robot), "%s", "RobotA");
+    key.channel_id = 10;
+    const std::uint8_t payload[] = {0x01, 0x02, 0x03};
+    ASSERT_EQ(hako_pdu_endpoint_send(writer, &key, payload, sizeof(payload)), HAKO_PDU_ERR_OK);
+    ASSERT_EQ(hako_pdu_endpoint_stop(writer), HAKO_PDU_ERR_OK);
+    ASSERT_EQ(hako_pdu_endpoint_close(writer), HAKO_PDU_ERR_OK);
+
+    ASSERT_EQ(hako_pdu_endpoint_open(reader, in_endpoint_path.c_str()), HAKO_PDU_ERR_OK);
+    ASSERT_EQ(hako_pdu_endpoint_start(reader), HAKO_PDU_ERR_OK);
+
+    std::uint8_t recv_buf[2] = {};
+    hako_pdu_resolved_key_t out_key{};
+    std::uint64_t out_timestamp_ns = 0;
+    size_t received_size = 0;
+    ASSERT_EQ(
+        hako_pdu_endpoint_recv_next(reader, recv_buf, sizeof(recv_buf), &out_key, &out_timestamp_ns, &received_size),
+        HAKO_PDU_ERR_NO_SPACE);
+    EXPECT_EQ(received_size, sizeof(payload));
+
+    ASSERT_EQ(hako_pdu_endpoint_stop(reader), HAKO_PDU_ERR_OK);
+    ASSERT_EQ(hako_pdu_endpoint_close(reader), HAKO_PDU_ERR_OK);
+    hako_pdu_endpoint_destroy(writer);
+    hako_pdu_endpoint_destroy(reader);
+}
+
+TEST_F(EndpointTest, CEndpointNameBasedApiWorks) {
+    auto* endpoint = hako_pdu_endpoint_create("c_name_api_test", HAKO_PDU_ENDPOINT_DIRECTION_INOUT);
+    ASSERT_NE(endpoint, nullptr);
+
+    ASSERT_EQ(
+        hako_pdu_endpoint_open(endpoint, "test/test_pdu_def_endpoint.json"),
+        HAKO_PDU_ERR_OK);
+    ASSERT_EQ(hako_pdu_endpoint_start(endpoint), HAKO_PDU_ERR_OK);
+
+    hako_pdu_key_t key{};
+    std::snprintf(key.robot, sizeof(key.robot), "%s", "TestRobot");
+    std::snprintf(key.pdu, sizeof(key.pdu), "%s", "TestPDU");
+
+    EXPECT_EQ(hako_pdu_endpoint_get_pdu_size(endpoint, &key), 8U);
+    EXPECT_EQ(hako_pdu_endpoint_get_pdu_channel_id(endpoint, &key), 123);
+
+    const std::uint8_t payload[] = {
+        0xDE, 0xAD, 0xBE, 0xEF,
+        0xCA, 0xFE, 0xBA, 0xBE
+    };
+    ASSERT_EQ(
+        hako_pdu_endpoint_send_by_name(endpoint, &key, payload, sizeof(payload)),
+        HAKO_PDU_ERR_OK);
+
+    std::uint8_t recv_buf[8] = {};
+    size_t received_size = 0;
+    ASSERT_EQ(
+        hako_pdu_endpoint_recv_by_name(endpoint, &key, recv_buf, sizeof(recv_buf), &received_size),
+        HAKO_PDU_ERR_OK);
+    ASSERT_EQ(received_size, sizeof(payload));
+    EXPECT_EQ(std::memcmp(recv_buf, payload, sizeof(payload)), 0);
+
+    hako_pdu_resolved_key_t resolved_key{};
+    std::snprintf(resolved_key.robot, sizeof(resolved_key.robot), "%s", "TestRobot");
+    resolved_key.channel_id = 123;
+    char pdu_name[64] = {};
+    ASSERT_EQ(
+        hako_pdu_endpoint_get_pdu_name(endpoint, &resolved_key, pdu_name, sizeof(pdu_name)),
+        HAKO_PDU_ERR_OK);
+    EXPECT_STREQ(pdu_name, "TestPDU");
+
+    hako_pdu_endpoint_process_recv_events(endpoint);
+
+    ASSERT_EQ(hako_pdu_endpoint_stop(endpoint), HAKO_PDU_ERR_OK);
+    ASSERT_EQ(hako_pdu_endpoint_close(endpoint), HAKO_PDU_ERR_OK);
+    hako_pdu_endpoint_destroy(endpoint);
+}
+
+TEST_F(EndpointTest, CEndpointResolvedKeyCallbackWorks) {
+    auto* endpoint = hako_pdu_endpoint_create("c_callback_test", HAKO_PDU_ENDPOINT_DIRECTION_INOUT);
+    ASSERT_NE(endpoint, nullptr);
+
+    ASSERT_EQ(
+        hako_pdu_endpoint_open(endpoint, "config/sample/endpoint_internal_cache.json"),
+        HAKO_PDU_ERR_OK);
+
+    hako_pdu_resolved_key_t key{};
+    std::snprintf(key.robot, sizeof(key.robot), "%s", "robot_cb");
+    key.channel_id = 9;
+
+    CEndpointRecvCapture capture{};
+    ASSERT_EQ(
+        hako_pdu_endpoint_subscribe_on_recv_callback(endpoint, &key, c_endpoint_on_recv_capture, &capture),
+        HAKO_PDU_ERR_OK);
+
+    ASSERT_EQ(hako_pdu_endpoint_start(endpoint), HAKO_PDU_ERR_OK);
+
+    const std::uint8_t payload[] = {0xAB, 0xCD};
+    ASSERT_EQ(hako_pdu_endpoint_send(endpoint, &key, payload, sizeof(payload)), HAKO_PDU_ERR_OK);
+
+    EXPECT_TRUE(capture.called);
+    EXPECT_EQ(capture.robot, "robot_cb");
+    EXPECT_EQ(capture.channel_id, 9U);
+    ASSERT_EQ(capture.payload.size(), sizeof(payload));
+    EXPECT_EQ(capture.payload[0], payload[0]);
+    EXPECT_EQ(capture.payload[1], payload[1]);
+
+    ASSERT_EQ(hako_pdu_endpoint_stop(endpoint), HAKO_PDU_ERR_OK);
+    ASSERT_EQ(hako_pdu_endpoint_close(endpoint), HAKO_PDU_ERR_OK);
+    hako_pdu_endpoint_destroy(endpoint);
 }
 
 TEST_F(EndpointTest, PduDefinitionTest) {

@@ -1,3 +1,9 @@
-"""Hakoniwa PDU Endpoint validation utilities."""
+"""Hakoniwa PDU Endpoint Python utilities."""
 
-__all__ = ["validate_json", "validate_pdudef"]
+__all__ = [
+    "c_endpoint",
+    "c_endpoint_async",
+    "endpoint_container",
+    "validate_json",
+    "validate_pdudef",
+]

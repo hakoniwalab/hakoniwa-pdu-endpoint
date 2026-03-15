@@ -2,8 +2,16 @@
 *.d
 
 build
+build/python
 
 .DS_Store
+__pycache__/
+python/__pycache__/
+python/hakoniwa_pdu_endpoint/__pycache__/
+python/hakoniwa_pdu_endpoint/hakoniwa_pdu_endpoint/
+python/hakoniwa_pdu_endpoint/_c_endpoint_ffi.c
+python/hakoniwa_pdu_endpoint/_c_endpoint_ffi.o
+python/hakoniwa_pdu_endpoint/_c_endpoint_ffi*.so
 
 # Compiled Object files
 *.slo

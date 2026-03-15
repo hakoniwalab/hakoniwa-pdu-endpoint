@@ -280,6 +280,120 @@ received sample_state=3
 For runnable examples, see `examples/README.md`.
 For schema details, see `config/schema/comm_schema.json`.
 
+## Quick Start For Python
+
+If you want to drive `Endpoint` from Python without embedding Python into the
+core C++ runtime, start here.
+
+This section is the shortest path to trying the Python runtime access. For the
+environment/setup flow, see `Python Installation` below.
+
+Why this matters in this project:
+
+- Python can act as a first-class runtime client, not just a config tool
+- the C facade keeps the portability boundary language-neutral
+- `cffi` is used instead of `Python.h` embedding so Python-version coupling
+  stays out of the core library
+- callback-oriented Python code can stay safe by dispatching from a
+  Python-owned thread
+
+1. Build the core library first.
+
+```bash
+cmake -S . -B build
+cmake --build build -j4
+```
+
+2. Build the `cffi` module into `build/python`.
+
+```bash
+python3 python/hakoniwa_pdu_endpoint/build_c_endpoint_ffi.py
+```
+
+3. Run the thin-wrapper smoke test.
+
+```bash
+python3 python/test/test_c_endpoint_smoke.py
+```
+
+4. Run the async callback smoke test.
+
+```bash
+python3 python/test/test_c_endpoint_async_smoke.py
+```
+
+5. Run the Python `EndpointContainer` smoke test.
+
+```bash
+python3 python/test/test_endpoint_container_smoke.py
+```
+
+Current Python layout:
+
+- thin C ABI wrapper:
+  - `python/hakoniwa_pdu_endpoint/c_endpoint.py`
+- async callback wrapper:
+  - `python/hakoniwa_pdu_endpoint/c_endpoint_async.py`
+- pure-Python container:
+  - `python/hakoniwa_pdu_endpoint/endpoint_container.py`
+
+Runnable Python examples are also provided:
+
+- `python/examples/endpoint_internal_cache.py`
+- `python/examples/endpoint_async_callback.py`
+- `python/examples/endpoint_container.py`
+
+For the C ABI details and ownership rules, see the `C Facade` section below.
+
+## Python Installation
+
+Current Python support is source-tree based. There is no packaged wheel yet.
+
+Install/use flow:
+
+1. Build the core C++ library.
+
+```bash
+cmake -S . -B build
+cmake --build build -j4
+```
+
+2. Install the Python dependency.
+
+```bash
+python3 -m pip install cffi
+```
+
+3. Build the `cffi` extension module.
+
+```bash
+python3 python/hakoniwa_pdu_endpoint/build_c_endpoint_ffi.py
+```
+
+4. Run Python with the repository `python/` directory on `PYTHONPATH`, or run
+from the repository root as shown in the examples.
+
+Example:
+
+```bash
+PYTHONPATH=python python3 python/examples/endpoint_internal_cache.py
+```
+
+Current Python modules:
+
+- `hakoniwa_pdu_endpoint.c_endpoint`
+- `hakoniwa_pdu_endpoint.c_endpoint_async`
+- `hakoniwa_pdu_endpoint.endpoint_container`
+
+Current Python tests/examples:
+
+- `python/test/test_c_endpoint_smoke.py`
+- `python/test/test_c_endpoint_async_smoke.py`
+- `python/test/test_endpoint_container_smoke.py`
+- `python/examples/endpoint_internal_cache.py`
+- `python/examples/endpoint_async_callback.py`
+- `python/examples/endpoint_container.py`
+
 ## Install / Uninstall
 
 Install the headers and static library into `/usr/local/hakoniwa` (macOS / Ubuntu):
@@ -295,6 +409,10 @@ Install destinations:
 - Library: `/usr/local/hakoniwa/lib/libhakoniwa_pdu_endpoint.a`
 - Python package (validators): `/usr/local/hakoniwa/share/hakoniwa-pdu-endpoint/python`
 
+The public C facade header is also installed under:
+
+- `/usr/local/hakoniwa/include/hakoniwa/pdu/c_endpoint.h`
+
 Uninstall (removes only the files installed by this project, including the Python validators):
 
 ```bash
@@ -308,6 +426,162 @@ target_include_directories(app PRIVATE /usr/local/hakoniwa/include)
 target_link_directories(app PRIVATE /usr/local/hakoniwa/lib)
 target_link_libraries(app PRIVATE hakoniwa_pdu_endpoint)
 ```
+
+### C Facade
+
+The repository now includes a portable C facade for the `Endpoint` runtime:
+
+- header: `include/hakoniwa/pdu/c_endpoint.h`
+- implementation: `src/c_endpoint.cpp`
+
+This is intended to become the stable ABI boundary for foreign-language access.
+The current surface is:
+
+- `create/destroy`
+- `create_pdu_lchannels`
+- `open/start/post_start/stop/close`
+- `is_running`
+- `process_recv_events`
+- `send`
+- `send_by_name`
+- `subscribe_on_recv_callback`
+- `subscribe_on_recv_callback_by_name`
+- `recv`
+- `recv_by_name`
+- `recv_next`
+- `get_pdu_size`
+- `get_pdu_channel_id`
+- `get_pdu_name`
+
+Current design constraints:
+
+- opaque handle based
+- caller-owned buffers for `recv` and `recv_next`
+- resolved-key-first API, with name-based helpers available when `pdu_def` is loaded
+- callback payload pointers are borrowed for the duration of the callback only
+- Python wrappers should copy callback payload bytes before returning from the callback
+
+For Python specifically, the recommended model is one layer above the thin
+`cffi` binding:
+
+- use the C callback only to capture and copy the event
+- enqueue the copied record in Python
+- dispatch Python handlers from a Python-owned thread
+
+That avoids running user Python logic directly on transport-facing callback
+threads.
+
+Current verification in this repository:
+
+- C facade gtests:
+  - `EndpointTest.CEndpointInternalCacheSendRecvWorks`
+  - `EndpointTest.CEndpointStorageQueueRecvNextWorks`
+  - `EndpointTest.CEndpointRecvReturnsNoSpaceWhenBufferTooSmall`
+  - `EndpointTest.CEndpointRecvNextReturnsNoSpaceWhenBufferTooSmall`
+  - `EndpointTest.CEndpointNameBasedApiWorks`
+  - `EndpointTest.CEndpointResolvedKeyCallbackWorks`
+- Python smoke test:
+  - `python/test/test_c_endpoint_smoke.py`
+  - `python/test/test_c_endpoint_async_smoke.py`
+  - `python/test/test_endpoint_container_smoke.py`
+
+### Python cffi Wrapper
+
+A first `cffi` API-mode wrapper is provided under:
+
+- `python/hakoniwa_pdu_endpoint/build_c_endpoint_ffi.py`
+- `python/hakoniwa_pdu_endpoint/c_endpoint.py`
+- `python/hakoniwa_pdu_endpoint/c_endpoint_async.py`
+
+Typical flow:
+
+```bash
+python python/hakoniwa_pdu_endpoint/build_c_endpoint_ffi.py
+python python/test/test_c_endpoint_smoke.py
+python python/test/test_c_endpoint_async_smoke.py
+```
+
+This assumes the core library has already been built and is available in the
+repository build tree.
+
+`c_endpoint.py` is intentionally thin. It exposes the C facade almost
+directly.
+
+`cffi` was chosen instead of direct `Python.h` embedding or a `ctypes`-first
+approach because:
+
+- the runtime boundary stays a plain C ABI
+- callback support can be added without pulling Python-specific logic into the
+  core C++ library
+- API/out-of-line mode keeps type checking tied to the C header owned by this
+  project
+- callback-heavy usage is safer to evolve than with a `ctypes`-only path
+
+For callback-heavy Python applications, use `c_endpoint_async.py` as the
+recommended higher-level layer:
+
+- the low-level callback captures and copies the event
+- the copied event is pushed into a Python queue
+- a Python-owned dispatch thread invokes application handlers later
+
+The repository includes both smoke tests:
+
+- `python/test/test_c_endpoint_smoke.py`
+- `python/test/test_c_endpoint_async_smoke.py`
+- `python/test/test_endpoint_container_smoke.py`
+
+### Python EndpointContainer
+
+The repository also includes a pure-Python `EndpointContainer`:
+
+- `python/hakoniwa_pdu_endpoint/endpoint_container.py`
+
+This is intentionally implemented in Python rather than through a new C facade.
+The existing C++ `EndpointContainer` is mostly lifecycle/config orchestration,
+so Python can reproduce the same value cleanly by composing wrapped `Endpoint`
+instances.
+
+Current Python container responsibilities:
+
+- load container config and select entries by `nodeId`
+- resolve relative `config_path` values against the container file location
+- `initialize`
+- `create_pdu_lchannels`
+- `start_all`
+- `post_start_all`
+- `stop_all`
+- per-endpoint `start/post_start/stop/ref`
+
+### Python Runtime View
+
+The Python-facing structure is intentionally layered above the C facade instead
+of reaching directly into C++:
+
+```mermaid
+classDiagram
+    class Endpoint
+    class CFacade
+    class PyEndpoint
+    class PyEndpointAsync
+    class PyEndpointContainer
+
+    Endpoint <.. CFacade : wraps
+    CFacade <.. PyEndpoint : cffi API mode
+    PyEndpoint <.. PyEndpointAsync : higher-level async dispatch
+    PyEndpoint <.. PyEndpointContainer : composed
+```
+
+### Python Scope Boundary
+
+`EndpointCommMultiplexer` is intentionally not exposed to Python yet.
+
+Reason:
+
+- unlike `EndpointContainer`, it depends on lower-level session-accept logic
+  that is not exposed through the current C facade
+- reproducing it faithfully in Python would require new C APIs around mux
+  session handoff
+- it is more specialized than the current Python runtime access goal
 
 ## Zenoh Communication Support
 
@@ -794,6 +1068,11 @@ Zenoh example:
 python -m hakoniwa_pdu_endpoint.gen_endpoint_config --protocol zenoh --direction in --name zenoh_sub_demo --zenoh-config-path config/sample/comm/zenoh/peer_listen.json5 --zenoh-pdu sample_state --robot StorageDemo --zenoh-notify-on-recv --pdu-def-path config/sample/comm/storage_example/pdudef.json --out-dir config/generated
 ```
 
+MQTT example:
+```bash
+python -m hakoniwa_pdu_endpoint.gen_endpoint_config --protocol mqtt --direction in --name mqtt_sub_demo --mqtt-broker tcp://127.0.0.1:1883 --out-dir config/generated
+```
+
 Container example:
 ```bash
 python -m hakoniwa_pdu_endpoint.gen_endpoint_config --protocol tcp --direction inout --role server --name demo --out-dir config/generated --generate-container --container-node-id node_demo
@@ -807,6 +1086,7 @@ Supported generator targets:
 - `shm`
 - `storage`
 - `zenoh`
+- `mqtt`
 - `internal_cache`
 - `tcp_mux`
 

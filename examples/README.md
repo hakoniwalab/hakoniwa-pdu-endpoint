@@ -212,5 +212,31 @@ received sample_state=4
 received sample_state=5
 ```
 
+## Python Runtime Access
+
+These Python examples sit on top of the C facade and `cffi` wrapper. Build the
+core library first, then generate the Python extension module:
+
+```bash
+cmake -S . -B build
+cmake --build build -j4
+python3 python/hakoniwa_pdu_endpoint/build_c_endpoint_ffi.py
+```
+
+- `python/examples/endpoint_internal_cache.py`
+  - Thin `Endpoint` wrapper over the C facade
+- `python/examples/endpoint_async_callback.py`
+  - Queue-based callback dispatch through `EndpointAsync`
+- `python/examples/endpoint_container.py`
+  - Pure-Python `EndpointContainer` built by composing wrapped endpoints
+
+Run:
+
+```bash
+python3 python/examples/endpoint_internal_cache.py
+python3 python/examples/endpoint_async_callback.py
+python3 python/examples/endpoint_container.py
+```
+
 Note: for larger systems, configs are expected to be generated and validated programmatically. See the validation section in the top-level README for how to run the schema validators.
 If you are generating many configs, see the config generator in the top-level README.
