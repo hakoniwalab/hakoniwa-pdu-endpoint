@@ -853,6 +853,201 @@ TEST_F(EndpointTest, StorageCommQueueModePersistsAllSends) {
     EXPECT_EQ(decoded1->get_pdu_data(), (std::vector<std::byte>{std::byte{0xBB}, std::byte{0xCC}}));
 }
 
+TEST_F(EndpointTest, StorageCommQueueOpenValidatesExistingFile) {
+    namespace fs = std::filesystem;
+    const auto temp_base = fs::temp_directory_path() / "hako_pdu_storage_queue_open_validate_test";
+    const auto cache_path = (fs::current_path() / "config/sample/cache/buffer.json").string();
+    fs::remove_all(temp_base);
+    fs::create_directories(temp_base);
+
+    const auto comm_path = temp_base / "storage_queue_in_comm.json";
+    const auto endpoint_path = temp_base / "endpoint.json";
+    const auto storage_path = temp_base / "storage_queue.bin";
+
+    {
+        hakoniwa::pdu::comm::DataPacket packet("robot_storage", 10U, std::vector<std::byte>{std::byte{0x11}});
+        const auto encoded = packet.encode("v2");
+        std::ofstream ofs(storage_path, std::ios::binary | std::ios::trunc);
+        ASSERT_TRUE(ofs.is_open());
+        const std::uint32_t size = static_cast<std::uint32_t>(encoded.size());
+        const char len_buf[4] = {
+            static_cast<char>(size & 0xFFu),
+            static_cast<char>((size >> 8) & 0xFFu),
+            static_cast<char>((size >> 16) & 0xFFu),
+            static_cast<char>((size >> 24) & 0xFFu)
+        };
+        ofs.write(len_buf, sizeof(len_buf));
+        ofs.write(reinterpret_cast<const char*>(encoded.data()), static_cast<std::streamsize>(encoded.size()));
+    }
+    {
+        std::ofstream ofs(comm_path);
+        ASSERT_TRUE(ofs.is_open());
+        ofs << nlohmann::json{
+            {"protocol", "storage"},
+            {"direction", "in"},
+            {"comm_raw_version", "v2"},
+            {"storage", {
+                {"backend", "file"},
+                {"mode", "queue"},
+                {"path", storage_path.string()}
+            }}
+        }.dump(2);
+    }
+    {
+        std::ofstream ofs(endpoint_path);
+        ASSERT_TRUE(ofs.is_open());
+        ofs << nlohmann::json{
+            {"name", "storage_queue_in_endpoint"},
+            {"cache", cache_path},
+            {"comm", comm_path.string()}
+        }.dump(2);
+    }
+
+    hakoniwa::pdu::Endpoint endpoint("storage_queue_in_test", HAKO_PDU_ENDPOINT_DIRECTION_IN);
+    ASSERT_EQ(endpoint.open(endpoint_path.string()), HAKO_PDU_ERR_OK);
+    ASSERT_EQ(endpoint.close(), HAKO_PDU_ERR_OK);
+}
+
+TEST_F(EndpointTest, StorageCommQueueInOpenFailsWhenFrameIsTruncated) {
+    namespace fs = std::filesystem;
+    const auto temp_base = fs::temp_directory_path() / "hako_pdu_storage_queue_open_fail_test";
+    const auto cache_path = (fs::current_path() / "config/sample/cache/buffer.json").string();
+    fs::remove_all(temp_base);
+    fs::create_directories(temp_base);
+
+    const auto comm_path = temp_base / "storage_queue_in_comm.json";
+    const auto endpoint_path = temp_base / "endpoint.json";
+    const auto storage_path = temp_base / "storage_queue_corrupted.bin";
+
+    {
+        std::ofstream ofs(storage_path, std::ios::binary | std::ios::trunc);
+        ASSERT_TRUE(ofs.is_open());
+        const char len_buf[4] = {0x08, 0x00, 0x00, 0x00};
+        const char payload[3] = {0x01, 0x02, 0x03};
+        ofs.write(len_buf, sizeof(len_buf));
+        ofs.write(payload, sizeof(payload));
+    }
+    {
+        std::ofstream ofs(comm_path);
+        ASSERT_TRUE(ofs.is_open());
+        ofs << nlohmann::json{
+            {"protocol", "storage"},
+            {"direction", "in"},
+            {"comm_raw_version", "v2"},
+            {"storage", {
+                {"backend", "file"},
+                {"mode", "queue"},
+                {"path", storage_path.string()}
+            }}
+        }.dump(2);
+    }
+    {
+        std::ofstream ofs(endpoint_path);
+        ASSERT_TRUE(ofs.is_open());
+        ofs << nlohmann::json{
+            {"name", "storage_queue_in_endpoint"},
+            {"cache", cache_path},
+            {"comm", comm_path.string()}
+        }.dump(2);
+    }
+
+    hakoniwa::pdu::Endpoint endpoint("storage_queue_in_fail_test", HAKO_PDU_ENDPOINT_DIRECTION_IN);
+    ASSERT_EQ(endpoint.open(endpoint_path.string()), HAKO_PDU_ERR_INVALID_CONFIG);
+}
+
+TEST_F(EndpointTest, StorageCommQueueInRecvFiltersByKeyInOrder) {
+    namespace fs = std::filesystem;
+    const auto temp_base = fs::temp_directory_path() / "hako_pdu_storage_queue_recv_filter_test";
+    const auto cache_path = (fs::current_path() / "config/sample/cache/buffer.json").string();
+    fs::remove_all(temp_base);
+    fs::create_directories(temp_base);
+
+    const auto storage_path = temp_base / "storage_queue.bin";
+    const auto out_comm_path = temp_base / "storage_queue_out_comm.json";
+    const auto in_comm_path = temp_base / "storage_queue_in_comm.json";
+    const auto out_endpoint_path = temp_base / "endpoint_out.json";
+    const auto in_endpoint_path = temp_base / "endpoint_in.json";
+
+    {
+        std::ofstream ofs(out_comm_path);
+        ASSERT_TRUE(ofs.is_open());
+        ofs << nlohmann::json{
+            {"protocol", "storage"},
+            {"direction", "out"},
+            {"comm_raw_version", "v2"},
+            {"storage", {
+                {"backend", "file"},
+                {"mode", "queue"},
+                {"path", storage_path.string()}
+            }}
+        }.dump(2);
+    }
+    {
+        std::ofstream ofs(in_comm_path);
+        ASSERT_TRUE(ofs.is_open());
+        ofs << nlohmann::json{
+            {"protocol", "storage"},
+            {"direction", "in"},
+            {"comm_raw_version", "v2"},
+            {"storage", {
+                {"backend", "file"},
+                {"mode", "queue"},
+                {"path", storage_path.string()}
+            }}
+        }.dump(2);
+    }
+    {
+        std::ofstream ofs(out_endpoint_path);
+        ASSERT_TRUE(ofs.is_open());
+        ofs << nlohmann::json{
+            {"name", "storage_queue_out_endpoint"},
+            {"cache", cache_path},
+            {"comm", out_comm_path.string()}
+        }.dump(2);
+    }
+    {
+        std::ofstream ofs(in_endpoint_path);
+        ASSERT_TRUE(ofs.is_open());
+        ofs << nlohmann::json{
+            {"name", "storage_queue_in_endpoint"},
+            {"cache", cache_path},
+            {"comm", in_comm_path.string()}
+        }.dump(2);
+    }
+
+    hakoniwa::pdu::Endpoint writer("storage_queue_writer", HAKO_PDU_ENDPOINT_DIRECTION_OUT);
+    ASSERT_EQ(writer.open(out_endpoint_path.string()), HAKO_PDU_ERR_OK);
+    ASSERT_EQ(writer.start(), HAKO_PDU_ERR_OK);
+    ASSERT_EQ(writer.send(create_key("RobotA", 10), std::vector<std::byte>{std::byte{0x01}}), HAKO_PDU_ERR_OK);
+    ASSERT_EQ(writer.send(create_key("RobotB", 20), std::vector<std::byte>{std::byte{0x0A}}), HAKO_PDU_ERR_OK);
+    ASSERT_EQ(writer.send(create_key("RobotA", 10), std::vector<std::byte>{std::byte{0x02}}), HAKO_PDU_ERR_OK);
+    ASSERT_EQ(writer.stop(), HAKO_PDU_ERR_OK);
+    ASSERT_EQ(writer.close(), HAKO_PDU_ERR_OK);
+
+    hakoniwa::pdu::Endpoint reader("storage_queue_reader", HAKO_PDU_ENDPOINT_DIRECTION_IN);
+    ASSERT_EQ(reader.open(in_endpoint_path.string()), HAKO_PDU_ERR_OK);
+    ASSERT_EQ(reader.start(), HAKO_PDU_ERR_OK);
+
+    std::vector<std::byte> recv_buf(4);
+    size_t recv_size = 0;
+    ASSERT_EQ(reader.recv(create_key("RobotA", 10), recv_buf, recv_size), HAKO_PDU_ERR_OK);
+    ASSERT_EQ(recv_size, 1U);
+    EXPECT_EQ(recv_buf[0], std::byte{0x01});
+
+    ASSERT_EQ(reader.recv(create_key("RobotA", 10), recv_buf, recv_size), HAKO_PDU_ERR_OK);
+    ASSERT_EQ(recv_size, 1U);
+    EXPECT_EQ(recv_buf[0], std::byte{0x02});
+
+    ASSERT_EQ(reader.recv(create_key("RobotA", 10), recv_buf, recv_size), HAKO_PDU_ERR_NO_ENTRY);
+
+    ASSERT_EQ(reader.recv(create_key("RobotB", 20), recv_buf, recv_size), HAKO_PDU_ERR_OK);
+    ASSERT_EQ(recv_size, 1U);
+    EXPECT_EQ(recv_buf[0], std::byte{0x0A});
+
+    ASSERT_EQ(reader.stop(), HAKO_PDU_ERR_OK);
+    ASSERT_EQ(reader.close(), HAKO_PDU_ERR_OK);
+}
+
 TEST_F(EndpointTest, StorageCommLatestModeKeepsOnlyLatestPerChannel) {
     namespace fs = std::filesystem;
     const auto temp_base = fs::temp_directory_path() / "hako_pdu_storage_latest_test";

@@ -30,6 +30,9 @@ This design is intentionally biased toward large, multi-asset simulations: it fa
     -   **UDP**: Unicast, Broadcast, and Multicast for connectionless communication.
     -   **Shared Memory (SHM)**: Event-driven communication for high-performance, local IPC with Hakoniwa assets.
     -   **WebSocket**: Client and Server roles for stream-based communication over WebSocket.
+    -   **Storage (File)**: Persistent communication backend for audit/replay use cases.
+        - `mode: queue` stores every send as an append-only framed record.
+        - `mode: latest` stores only the latest packet per `(robot, channel_id)`.
 -   **Cross-platform**: Built with standard C++20 and CMake, making it portable across different operating systems.
 
 ## Requirements
@@ -194,7 +197,29 @@ These files define the in-memory storage strategy (e.g., `latest` mode or `queue
 
 ### 3. Communication (Comm) Configuration
 
-These files define the network protocol and parameters. See `config/sample/comm/` for examples for TCP, UDP, SHM, and WebSocket.
+These files define the network protocol and parameters. See `config/sample/comm/` for examples for TCP, UDP, SHM, WebSocket, and Storage.
+
+#### Storage comm (file backend)
+
+Storage comm can be used for persistence-oriented pipelines.
+
+- `protocol: "storage"`
+- `storage.backend: "file"`
+- `storage.mode: "queue" | "latest"`
+- `storage.path`: output/input file path (resolved relative to comm config)
+
+`queue` mode stores records as a repeated binary frame:
+
+```text
+<u32_le packet_size><packet_bytes>
+```
+
+`latest` mode keeps one latest packet per `(robot, channel_id)` key.
+
+Sample configs:
+
+- `config/sample/comm/storage_queue_out_comm.json`
+- `config/sample/comm/storage_latest_out_comm.json`
 
 #### Optional: host name resolver for TCP/UDP
 

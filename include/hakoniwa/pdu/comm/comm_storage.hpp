@@ -73,6 +73,7 @@ private:
 
     HakoPduErrorType parse_config_(const std::string& config_path);
     HakoPduErrorType initialize_latest_file_();
+    HakoPduErrorType validate_queue_file_();
     HakoPduErrorType load_latest_file_();
     HakoPduErrorType write_latest_header_(std::fstream& fs) noexcept;
     HakoPduErrorType write_latest_index_entry_(std::fstream& fs, const LatestKey& key) noexcept;
@@ -87,6 +88,7 @@ private:
     std::mutex io_mutex_;
     std::map<LatestKey, std::vector<std::byte>> latest_packets_;
     std::map<LatestKey, LatestIndexEntry> latest_index_;
+    std::map<LatestKey, std::uint64_t> queue_offsets_;
 };
 
 } // namespace comm

@@ -78,6 +78,7 @@ HakoPduErrorType StorageComm::raw_open(const std::string& config_path)
 
     latest_packets_.clear();
     latest_index_.clear();
+    queue_offsets_.clear();
     if (mode_ == Mode::Latest) {
         if (direction_ == HAKO_PDU_ENDPOINT_DIRECTION_IN && !fs::exists(path_)) {
             return HAKO_PDU_ERR_FILE_NOT_FOUND;
@@ -85,6 +86,16 @@ HakoPduErrorType StorageComm::raw_open(const std::string& config_path)
         err = initialize_latest_file_();
         if (err != HAKO_PDU_ERR_OK) {
             return err;
+        }
+    } else {
+        if (direction_ == HAKO_PDU_ENDPOINT_DIRECTION_IN && !fs::exists(path_)) {
+            return HAKO_PDU_ERR_FILE_NOT_FOUND;
+        }
+        if (fs::exists(path_)) {
+            err = validate_queue_file_();
+            if (err != HAKO_PDU_ERR_OK) {
+                return err;
+            }
         }
     }
 
@@ -99,6 +110,7 @@ HakoPduErrorType StorageComm::raw_close() noexcept
     is_open_ = false;
     latest_packets_.clear();
     latest_index_.clear();
+    queue_offsets_.clear();
     return HAKO_PDU_ERR_OK;
 }
 
@@ -135,14 +147,63 @@ HakoPduErrorType StorageComm::recv(const PduResolvedKey& pdu_key,
     if (!is_running_) {
         return HAKO_PDU_ERR_NOT_RUNNING;
     }
-    if (mode_ != Mode::Latest) {
-        return HAKO_PDU_ERR_UNSUPPORTED;
-    }
     if (direction_ == HAKO_PDU_ENDPOINT_DIRECTION_OUT) {
         return HAKO_PDU_ERR_INVALID_ARGUMENT;
     }
 
     const auto key = LatestKey{pdu_key.robot, pdu_key.channel_id};
+    if (mode_ == Mode::Queue) {
+        std::ifstream ifs(path_, std::ios::binary);
+        if (!ifs.is_open()) {
+            return HAKO_PDU_ERR_IO_ERROR;
+        }
+        auto& read_offset = queue_offsets_[key];
+        ifs.seekg(static_cast<std::streamoff>(read_offset), std::ios::beg);
+        if (!ifs.good()) {
+            return HAKO_PDU_ERR_IO_ERROR;
+        }
+
+        while (true) {
+            const auto frame_start = ifs.tellg();
+            std::uint32_t packet_size = 0;
+            if (!read_le32_(ifs, packet_size)) {
+                if (ifs.eof()) {
+                    ifs.clear();
+                    ifs.seekg(0, std::ios::end);
+                    read_offset = static_cast<std::uint64_t>(ifs.tellg());
+                    return HAKO_PDU_ERR_NO_ENTRY;
+                }
+                return HAKO_PDU_ERR_IO_ERROR;
+            }
+
+            std::vector<std::byte> packet(packet_size);
+            if (!ifs.read(reinterpret_cast<char*>(packet.data()), static_cast<std::streamsize>(packet.size()))) {
+                return HAKO_PDU_ERR_INVALID_CONFIG;
+            }
+
+            auto decoded = DataPacket::decode(packet, packet_version());
+            if (!decoded) {
+                return HAKO_PDU_ERR_INVALID_CONFIG;
+            }
+
+            const auto frame_end = ifs.tellg();
+            if (decoded->get_robot_name() == pdu_key.robot
+                && decoded->get_channel_id() == static_cast<std::uint32_t>(pdu_key.channel_id)) {
+                const auto& payload = decoded->get_pdu_data();
+                received_size = payload.size();
+                if (data.size() < payload.size()) {
+                    return HAKO_PDU_ERR_NO_SPACE;
+                }
+                std::copy(payload.begin(), payload.end(), data.begin());
+                read_offset = static_cast<std::uint64_t>(frame_end);
+                return HAKO_PDU_ERR_OK;
+            }
+            if (frame_end <= frame_start) {
+                return HAKO_PDU_ERR_INVALID_CONFIG;
+            }
+        }
+    }
+
     auto it_index = latest_index_.find(key);
     if (it_index == latest_index_.end()) {
         return HAKO_PDU_ERR_INVALID_PDU_KEY;
@@ -280,6 +341,37 @@ HakoPduErrorType StorageComm::parse_config_(const std::string& config_path)
     }
     path_ = resolve_under_base_(fs::path(config_path).parent_path(), storage.at("path").get<std::string>());
     return HAKO_PDU_ERR_OK;
+}
+
+HakoPduErrorType StorageComm::validate_queue_file_()
+{
+    std::ifstream ifs(path_, std::ios::binary);
+    if (!ifs.is_open()) {
+        return HAKO_PDU_ERR_IO_ERROR;
+    }
+
+    while (true) {
+        const auto frame_start = ifs.tellg();
+        std::uint32_t packet_size = 0;
+        if (!read_le32_(ifs, packet_size)) {
+            if (ifs.eof()) {
+                return HAKO_PDU_ERR_OK;
+            }
+            return HAKO_PDU_ERR_IO_ERROR;
+        }
+
+        std::vector<std::byte> packet(packet_size);
+        if (!ifs.read(reinterpret_cast<char*>(packet.data()), static_cast<std::streamsize>(packet.size()))) {
+            return HAKO_PDU_ERR_INVALID_CONFIG;
+        }
+        if (!DataPacket::decode(packet, packet_version())) {
+            return HAKO_PDU_ERR_INVALID_CONFIG;
+        }
+
+        if (ifs.tellg() <= frame_start) {
+            return HAKO_PDU_ERR_INVALID_CONFIG;
+        }
+    }
 }
 
 HakoPduErrorType StorageComm::initialize_latest_file_()
