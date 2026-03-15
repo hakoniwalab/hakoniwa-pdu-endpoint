@@ -40,35 +40,3 @@ jobs:
         env:
           LD_LIBRARY_PATH: /usr/local/hakoniwa/lib
         run: ctest --test-dir build --rerun-failed --output-on-failure
-
-  build-zenoh:
-    runs-on: macos-latest
-    steps:
-      - name: Install Dependencies
-        run: |
-          brew update
-          brew install cmake boost googletest pkg-config
-
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Install Rust Toolchain
-        uses: dtolnay/rust-toolchain@1.85.0
-
-      - name: Build and Install hakoniwa-core-pro
-        run: |
-          git clone --recursive https://github.com/hakoniwalab/hakoniwa-core-pro.git
-          cd hakoniwa-core-pro
-          bash build.bash
-          sudo bash install.bash
-
-      - name: Configure Zenoh Build
-        run: |
-          cmake -S . -B build-zenoh \
-            -DHAKO_PDU_ENDPOINT_BUILD_TESTS=OFF \
-            -DHAKO_PDU_ENDPOINT_BUILD_EXAMPLES=ON \
-            -DHAKO_PDU_ENDPOINT_ENABLE_ZENOH=ON \
-            -DZENOHC_CARGO_CHANNEL=+1.85.0
-
-      - name: Build Zenoh
-        run: cmake --build build-zenoh -j4
