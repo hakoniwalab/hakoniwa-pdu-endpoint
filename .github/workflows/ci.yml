@@ -60,7 +60,7 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Install Rust Toolchain
-        uses: dtolnay/rust-toolchain@stable
+        uses: dtolnay/rust-toolchain@1.85.0
 
       - name: Build and Install hakoniwa-core-pro
         run: |
@@ -76,7 +76,8 @@ jobs:
           cmake -S . -B build-zenoh \
             -DHAKO_PDU_ENDPOINT_BUILD_TESTS=ON \
             -DHAKO_PDU_ENDPOINT_BUILD_EXAMPLES=ON \
-            -DHAKO_PDU_ENDPOINT_ENABLE_ZENOH=ON
+            -DHAKO_PDU_ENDPOINT_ENABLE_ZENOH=ON \
+            -DZENOHC_CARGO_CHANNEL=+1.85.0
 
       - name: Build Zenoh
         run: cmake --build build-zenoh -j4
