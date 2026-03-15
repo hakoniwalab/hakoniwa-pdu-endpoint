@@ -6,6 +6,7 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(HAKONIWA_PDU_ENDPOINT_VERSION 0.1.0)
 
 option(HAKO_PDU_ENDPOINT_ENABLE_ZENOH "Enable Zenoh transport support via zenoh-c" OFF)
+option(HAKO_PDU_ENDPOINT_ENABLE_MQTT "Enable MQTT transport support via Eclipse Paho MQTT C++" OFF)
 
 include(GNUInstallDirs)
 include(CMakePackageConfigHelpers)

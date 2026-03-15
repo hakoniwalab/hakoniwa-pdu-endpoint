@@ -156,5 +156,61 @@ Run in two terminals:
 ./build/examples/endpoint_zenoh_pub
 ```
 
+## MQTT Pub/Sub
+
+- `endpoint_mqtt_pub`
+  - Config: `config/sample/endpoint_mqtt_pub.json`
+- `endpoint_mqtt_sub`
+  - Config: `config/sample/endpoint_mqtt_sub.json`
+
+What this demonstrates: minimal MQTT transport integration using topic mapping
+`<topic_prefix>/<robot>/<channel_id>` and callback-driven receive delivery.
+
+Prerequisite:
+
+- build with `-DHAKO_PDU_ENDPOINT_ENABLE_MQTT=ON`
+- fetched `paho.mqtt.cpp` version is pinned by `MQTT_VERSION.txt`
+- a local broker is required; the sample commands below use `mosquitto`
+
+Build with MQTT enabled:
+
+```bash
+cmake -S . -B build-mqtt \
+  -DHAKO_PDU_ENDPOINT_ENABLE_MQTT=ON \
+  -DHAKO_PDU_ENDPOINT_BUILD_EXAMPLES=ON
+cmake --build build-mqtt -j4
+```
+
+Run in three terminals:
+
+Terminal 1:
+
+```bash
+mosquitto -p 1883
+```
+
+Terminal 2:
+
+```bash
+./build-mqtt/examples/endpoint_mqtt_sub
+```
+
+Terminal 3:
+
+```bash
+./build-mqtt/examples/endpoint_mqtt_pub
+```
+
+Expected subscriber output:
+
+```text
+Waiting for MQTT samples...
+received sample_state=1
+received sample_state=2
+received sample_state=3
+received sample_state=4
+received sample_state=5
+```
+
 Note: for larger systems, configs are expected to be generated and validated programmatically. See the validation section in the top-level README for how to run the schema validators.
 If you are generating many configs, see the config generator in the top-level README.

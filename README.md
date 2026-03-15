@@ -35,6 +35,13 @@ The recent `ZenohComm` work extends the same endpoint model into dynamic pub/sub
 - loosely coupled assets can exchange PDU data without fixed TCP-style role wiring
 - router-based deployment is still possible by changing the Zenoh native config, not the endpoint API
 
+The recent `MqttComm` work extends the same endpoint model into broker-based pub/sub:
+
+- cloud and IoT tooling that already speaks MQTT can exchange PDU data with Hakoniwa assets
+- `PduResolvedKey` maps directly onto MQTT topics
+- broker topology stays in comm config instead of leaking into the endpoint API
+- callback-driven delivery remains consistent with the rest of the endpoint model
+
 ## Why Endpoint?
 
 Hakoniwa systems often require many communication links (TCP/UDP/SHM/WebSocket) across multiple assets.
@@ -73,6 +80,11 @@ This design is intentionally biased toward large, multi-asset simulations: it fa
         - the requested version is controlled by `ZENOH_VERSION.txt`
         - peer-to-peer pub/sub is available through `ZenohComm`
         - `PduResolvedKey` maps directly to `<key_prefix>/<robot>/<channel_id>`
+-   **MQTT Communication Support**:
+        - Eclipse Paho MQTT C++ can be fetched by CMake when MQTT support is enabled
+        - the requested version is controlled by `MQTT_VERSION.txt`
+        - broker-based pub/sub is available through `MqttComm`
+        - `PduResolvedKey` maps directly to `<topic_prefix>/<robot>/<channel_id>`
 -   **Cross-platform**: Built with standard C++20 and CMake, making it portable across different operating systems.
 
 ## Requirements
@@ -206,6 +218,68 @@ received sample_state=3
 For runnable examples, see `examples/README.md`.
 For schema details, see `config/schema/comm_schema.json`.
 
+## Quick Start For MQTT
+
+If you want broker-based pub/sub with a widely deployed transport, start here.
+
+Why MQTT in this project:
+
+- choose it when you want a broker-centric pub/sub topology instead of fixed client/server wiring
+- choose it when cloud or IoT tooling already speaks MQTT and you want Hakoniwa endpoints to fit into that environment
+- choose it when topic-based routing is enough and you do not need Zenoh key-expression features
+- choose it when the application should keep the same endpoint API while the broker handles fan-out and retention
+
+1. Build with MQTT enabled. The fetched `paho.mqtt.cpp` version is pinned by `MQTT_VERSION.txt`.
+
+```bash
+cmake -S . -B build-mqtt \
+  -DHAKO_PDU_ENDPOINT_ENABLE_MQTT=ON \
+  -DHAKO_PDU_ENDPOINT_BUILD_EXAMPLES=ON
+cmake --build build-mqtt -j4
+```
+
+2. Start a local broker. The sample pair assumes `mosquitto` on `127.0.0.1:1883`.
+
+```bash
+mosquitto -p 1883
+```
+
+3. Start the subscriber endpoint in another terminal.
+
+```bash
+./build-mqtt/examples/endpoint_mqtt_sub
+```
+
+4. Start the publisher endpoint in a third terminal.
+
+```bash
+./build-mqtt/examples/endpoint_mqtt_pub
+```
+
+5. Confirm callback-driven delivery.
+
+You should see the subscriber print `sample_state` updates as they arrive. MQTT receive delivery is callback-driven in the same way as Zenoh, but the routing unit is an MQTT topic derived from `<topic_prefix>/<robot>/<channel_id>`.
+
+Example output:
+
+```text
+Waiting for MQTT samples...
+received sample_state=1
+received sample_state=2
+received sample_state=3
+```
+
+6. Run the integration test if you want a reproducible check. It starts a temporary `mosquitto` broker when the executable is available in `PATH`.
+
+```bash
+./build-mqtt/test/endpoint_test \
+  --gtest_filter=EndpointTest.MqttCommPubSubDeliversPayloadToCallback \
+  --gtest_color=no
+```
+
+For runnable examples, see `examples/README.md`.
+For schema details, see `config/schema/comm_schema.json`.
+
 ## Install / Uninstall
 
 Install the headers and static library into `/usr/local/hakoniwa` (macOS / Ubuntu):
@@ -291,6 +365,61 @@ Current intent:
 - today the documented happy path is peer-to-peer pub/sub because it is the smallest useful setup
 - router-based deployment is still supported by supplying a Zenoh router config through `config_path`
 - the Hakoniwa side remains stable because transport topology stays outside the endpoint API
+
+## MQTT Communication Support
+
+MQTT support is enabled by build option, but it is a first-class transport rather than an experimental side path.
+
+Version source:
+
+- `MQTT_VERSION.txt`
+
+Enable fetch/build:
+
+```bash
+cmake -S . -B build-mqtt -DHAKO_PDU_ENDPOINT_ENABLE_MQTT=ON
+cmake --build build-mqtt -j4
+```
+
+Current behavior:
+
+- CMake fetches `paho.mqtt.cpp` from the version in `MQTT_VERSION.txt`
+- the project builds `MqttComm`
+- current scope is broker-based pub/sub using `PduResolvedKey -> <topic_prefix>/<robot>/<channel_id>`
+- runnable examples:
+  - `examples/endpoint_mqtt_pub.cpp`
+  - `examples/endpoint_mqtt_sub.cpp`
+  - `config/sample/endpoint_mqtt_pub.json`
+  - `config/sample/endpoint_mqtt_sub.json`
+- runnable test:
+  - `EndpointTest.MqttCommPubSubDeliversPayloadToCallback`
+- `recv(key, ...)` is still unsupported because MQTT is modeled as a push transport
+
+Minimal config shape:
+
+```json
+{
+  "protocol": "mqtt",
+  "direction": "inout",
+  "mqtt": {
+    "broker": "tcp://127.0.0.1:1883",
+    "topic_prefix": "hakoniwa"
+  }
+}
+```
+
+Design intent:
+
+- MQTT belongs at the same transport/pub-sub layer as Zenoh
+- broker topology should stay in comm config, not in the endpoint API
+- `PduResolvedKey` should map directly to MQTT topics
+- incoming publications should reach the endpoint through the receive callback path
+
+Current intent:
+
+- today the documented happy path is a local broker with one publisher and one subscriber because it is the smallest useful setup
+- broker-side concerns such as authentication, retained messages, and deployment topology stay outside the endpoint API
+- the Hakoniwa side remains stable because transport topology is expressed only in comm config
 
 ## How to Run Tests
 
@@ -852,12 +981,19 @@ classDiagram
         +send(key, data)
         +set_pdu_definition(pdu_def)
     }
+    class PduCommRaw {
+        <<Abstract>>
+        +raw_open(config_path)
+        +raw_send(data)
+        +on_raw_data_received(data)
+    }
 
     class PduCommShm
     class TcpComm
     class UdpComm
     class WebSocketComm
     class ZenohComm
+    class MqttComm
 
     Endpoint "1" o-- "0..1" PduDefinition : owns
     Endpoint "1" o-- "1" PduCache : owns
@@ -865,13 +1001,15 @@ classDiagram
     EndpointContainer "1" o-- "1..*" Endpoint : owns
     Endpoint ..> PduDefinition : uses
 
+    PduComm <|-- PduCommRaw
     PduComm <|-- PduCommShm
-    PduComm <|-- TcpComm
-    PduComm <|-- UdpComm
-    PduComm <|-- WebSocketComm
     PduComm <|-- ZenohComm
+    PduComm <|-- MqttComm
+    PduCommRaw <|-- TcpComm
+    PduCommRaw <|-- UdpComm
+    PduCommRaw <|-- WebSocketComm
     
-    note for PduComm "Concrete implementations (TcpComm, UdpComm, WebSocketComm, PduCommShm, ZenohComm)"
+    note for PduComm "Concrete implementations split into direct transports (PduCommShm, ZenohComm, MqttComm) and framed/raw transports through PduCommRaw"
 
 ```
 
@@ -881,10 +1019,11 @@ classDiagram
     -   **`Endpoint`**: The user-facing orchestrator. It composes the other modules and provides two API levels (name-based and ID-based).
     -   **`PduDefinition`**: (Optional) Manages the mapping between PDU string names and their technical details (channel ID, size), loaded from a JSON file.
     -   **`PduCache`**: An interface for in-memory data storage. Concrete implementations provide different caching strategies.
-    -   **`PduComm`**: An interface for communication modules. Concrete implementations (`TcpComm`, `UdpComm`, `WebSocketComm`, `PduCommShm`, `ZenohComm`) handle the specifics of each protocol.
+    -   **`PduComm`**: An interface for communication modules. Some transports implement it directly (`PduCommShm`, `ZenohComm`, `MqttComm`).
+    -   **`PduCommRaw`**: A framed/raw transport adapter that sits between `PduComm` and byte-stream protocols. `TcpComm`, `UdpComm`, and `WebSocketComm` inherit from it so packet framing and `DataPacket` encode/decode logic stay shared.
 
 2.  **Extensibility**: The design makes it easy to add new functionality without modifying existing core logic.
-    -   **Adding a new protocol**: You would simply create a new class that inherits from `PduComm` (e.g., `WebSocketComm` or `ZenohComm`) and implement its methods. The `Endpoint` class would not need any changes.
+    -   **Adding a new protocol**: You would either inherit from `PduComm` directly (`ZenohComm`, `MqttComm`) or from `PduCommRaw` when the transport carries framed raw packets (`TcpComm`, `UdpComm`, `WebSocketComm`). The `Endpoint` class would not need any changes.
     -   **Adding a new cache strategy**: You can create a new class that inherits from `PduCache`. This new strategy can then be used by any endpoint, just by updating the JSON configuration.
 
 3.  **Versatility through Composition**: By composing different cache, communication, and PDU definition modules via JSON configuration, you can create a wide variety of endpoint types without writing new C++ code.

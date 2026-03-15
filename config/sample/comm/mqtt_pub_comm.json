@@ -1,0 +1,12 @@
+{
+  "protocol": "mqtt",
+  "name": "mqtt_pub",
+  "direction": "out",
+  "mqtt": {
+    "broker": "tcp://127.0.0.1:1883",
+    "client_id": "hakoniwa_mqtt_pub",
+    "topic_prefix": "hakoniwa",
+    "qos": 0,
+    "retain": false
+  }
+}

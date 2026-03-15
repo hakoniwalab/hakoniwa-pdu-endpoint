@@ -125,6 +125,21 @@ def build_zenoh(args):
     return comm
 
 
+def build_mqtt(args):
+    return {
+        "protocol": "mqtt",
+        "name": args.name,
+        "direction": args.direction,
+        "mqtt": {
+            "broker": args.mqtt_broker,
+            "client_id": args.mqtt_client_id or args.name,
+            "topic_prefix": args.mqtt_topic_prefix,
+            "qos": args.mqtt_qos,
+            "retain": args.mqtt_retain,
+        },
+    }
+
+
 def apply_preset(args):
     presets = {
         "tcp_basic_server": {
@@ -203,6 +218,24 @@ def apply_preset(args):
             "cache": "config/sample/cache/buffer.json",
             "pdu_def_path": "config/sample/comm/storage_example/pdudef.json",
         },
+        "mqtt_pub": {
+            "protocol": "mqtt",
+            "direction": "out",
+            "mqtt_broker": "tcp://127.0.0.1:1883",
+            "mqtt_topic_prefix": "hakoniwa",
+            "mqtt_qos": 0,
+            "mqtt_retain": False,
+            "cache": "config/sample/cache/buffer.json",
+        },
+        "mqtt_sub": {
+            "protocol": "mqtt",
+            "direction": "in",
+            "mqtt_broker": "tcp://127.0.0.1:1883",
+            "mqtt_topic_prefix": "hakoniwa",
+            "mqtt_qos": 0,
+            "mqtt_retain": False,
+            "cache": "config/sample/cache/buffer.json",
+        },
     }
     preset = presets.get(args.preset)
     if not preset:
@@ -215,8 +248,8 @@ def main():
     parser = argparse.ArgumentParser(
         description="Generate minimal Endpoint + Comm config files."
     )
-    parser.add_argument("--preset", choices=["tcp_basic_server", "tcp_basic_client", "udp_oneway", "internal_cache", "tcp_mux_basic", "storage_latest", "storage_queue", "zenoh_peer_pub", "zenoh_peer_sub"], help="Use a fixed preset (explicitly defined, no inference).")
-    parser.add_argument("--protocol", choices=["tcp", "udp", "websocket", "shm", "storage", "zenoh"])
+    parser.add_argument("--preset", choices=["tcp_basic_server", "tcp_basic_client", "udp_oneway", "internal_cache", "tcp_mux_basic", "storage_latest", "storage_queue", "zenoh_peer_pub", "zenoh_peer_sub", "mqtt_pub", "mqtt_sub"], help="Use a fixed preset (explicitly defined, no inference).")
+    parser.add_argument("--protocol", choices=["tcp", "udp", "websocket", "shm", "storage", "zenoh", "mqtt"])
     parser.add_argument("--direction", choices=["in", "out", "inout"])
     parser.add_argument("--role", choices=["server", "client"], help="Required for tcp/websocket")
     parser.add_argument("--name", required=True, help="Base name for endpoint and comm")
@@ -243,6 +276,12 @@ def main():
     parser.add_argument("--zenoh-key-prefix", default="hakoniwa", help="Zenoh key prefix")
     parser.add_argument("--zenoh-pdu", default="sample_state", help="Zenoh PDU name")
     parser.add_argument("--zenoh-notify-on-recv", action="store_true", help="Zenoh notify_on_recv")
+
+    parser.add_argument("--mqtt-broker", default="tcp://127.0.0.1:1883", help="MQTT broker URI")
+    parser.add_argument("--mqtt-client-id", help="MQTT client id (defaults to --name)")
+    parser.add_argument("--mqtt-topic-prefix", default="hakoniwa", help="MQTT topic prefix")
+    parser.add_argument("--mqtt-qos", type=int, default=0, choices=[0, 1, 2], help="MQTT QoS")
+    parser.add_argument("--mqtt-retain", action="store_true", help="MQTT retain flag")
 
     parser.add_argument("--cache", default="config/sample/cache/queue.json", help="Cache config path")
     parser.add_argument("--internal-cache", action="store_true", help="Generate endpoint with comm: null")
@@ -294,6 +333,8 @@ def main():
         comm = build_storage(args)
     elif args.protocol == "zenoh":
         comm = build_zenoh(args)
+    elif args.protocol == "mqtt":
+        comm = build_mqtt(args)
     else:
         comm = build_udp(args)
 

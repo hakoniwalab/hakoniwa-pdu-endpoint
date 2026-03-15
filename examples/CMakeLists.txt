@@ -28,6 +28,15 @@ set(example_targets
   endpoint_zenoh_sub
 )
 
+if(HAKO_PDU_ENDPOINT_ENABLE_MQTT)
+  add_executable(endpoint_mqtt_pub endpoint_mqtt_pub.cpp)
+  add_executable(endpoint_mqtt_sub endpoint_mqtt_sub.cpp)
+  list(APPEND example_targets
+    endpoint_mqtt_pub
+    endpoint_mqtt_sub
+  )
+endif()
+
 foreach(target_name IN LISTS example_targets)
   target_link_libraries(${target_name}
     PRIVATE

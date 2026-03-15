@@ -1,0 +1,5 @@
+{
+  "name": "sample_mqtt_sub_endpoint",
+  "cache": "cache/buffer.json",
+  "comm": "comm/mqtt_sub_comm.json"
+}

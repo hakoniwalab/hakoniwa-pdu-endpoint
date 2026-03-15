@@ -9,11 +9,14 @@
 #include <nlohmann/json.hpp>
 #include <sys/socket.h>
 #include <netinet/in.h>
+#include <sys/wait.h>
+#include <signal.h>
 #include <atomic>
 #include <iostream>
 #include <cstdlib>
 #include <cerrno>
 #include <cstring>
+#include <sstream>
 #include "hakoniwa/pdu/comm/packet.hpp"
 #include "hakoniwa/pdu/comm/storage_format.hpp"
 #include "hakoniwa/pdu/endpoint_comm_multiplexer.hpp"
@@ -161,6 +164,44 @@ namespace {
             return {};
         }
         return std::string((std::istreambuf_iterator<char>(ifs)), std::istreambuf_iterator<char>());
+    }
+
+    std::string find_executable_on_path(const std::string& exe_name) {
+        const char* path_env = std::getenv("PATH");
+        if (path_env == nullptr) {
+            return {};
+        }
+        std::stringstream ss(path_env);
+        std::string dir;
+        while (std::getline(ss, dir, ':')) {
+            if (dir.empty()) {
+                continue;
+            }
+            const auto candidate = std::filesystem::path(dir) / exe_name;
+            if (access(candidate.c_str(), X_OK) == 0) {
+                return candidate.string();
+            }
+        }
+        return {};
+    }
+
+    pid_t launch_mosquitto(const std::string& exe_path, const std::filesystem::path& config_path) {
+        const pid_t pid = fork();
+        if (pid != 0) {
+            return pid;
+        }
+
+        execl(exe_path.c_str(), exe_path.c_str(), "-c", config_path.c_str(), nullptr);
+        _exit(127);
+    }
+
+    void stop_child_process(pid_t pid) {
+        if (pid <= 0) {
+            return;
+        }
+        kill(pid, SIGTERM);
+        int status = 0;
+        waitpid(pid, &status, 0);
     }
 }
 
@@ -1562,6 +1603,142 @@ TEST_F(EndpointTest, ZenohCommPeerToPeerPubSubDeliversPayloadToCallback) {
     ASSERT_EQ(publisher.close(), HAKO_PDU_ERR_OK);
     ASSERT_EQ(subscriber.stop(), HAKO_PDU_ERR_OK);
     ASSERT_EQ(subscriber.close(), HAKO_PDU_ERR_OK);
+}
+#endif
+
+#ifdef HAKO_PDU_ENDPOINT_HAS_MQTT
+TEST_F(EndpointTest, MqttCommPubSubDeliversPayloadToCallback) {
+    namespace fs = std::filesystem;
+    const auto mosquitto_path = find_executable_on_path("mosquitto");
+    if (mosquitto_path.empty()) {
+        GTEST_SKIP() << "mosquitto broker executable not found in PATH";
+    }
+
+    const int port = find_available_port(SOCK_STREAM);
+    if (port <= 0) {
+        GTEST_SKIP() << "No bindable TCP port available in this environment";
+    }
+
+    const auto temp_base = fs::temp_directory_path() / "hako_pdu_mqtt_pubsub_test";
+    const auto cache_path = (fs::current_path() / "config/sample/cache/buffer.json").string();
+    fs::remove_all(temp_base);
+    fs::create_directories(temp_base);
+
+    const auto broker_conf_path = temp_base / "mosquitto.conf";
+    const auto sub_comm_path = temp_base / "mqtt_sub_comm.json";
+    const auto pub_comm_path = temp_base / "mqtt_pub_comm.json";
+    const auto sub_endpoint_path = temp_base / "endpoint_mqtt_sub.json";
+    const auto pub_endpoint_path = temp_base / "endpoint_mqtt_pub.json";
+
+    {
+        std::ofstream ofs(broker_conf_path);
+        ASSERT_TRUE(ofs.is_open());
+        ofs << "listener " << port << " 127.0.0.1\n"
+               "allow_anonymous true\n"
+               "persistence false\n";
+    }
+
+    const pid_t broker_pid = launch_mosquitto(mosquitto_path, broker_conf_path);
+    ASSERT_GT(broker_pid, 0);
+
+    auto cleanup = [&broker_pid]() { stop_child_process(broker_pid); };
+
+    std::this_thread::sleep_for(std::chrono::milliseconds(500));
+
+    {
+        std::ofstream ofs(sub_comm_path);
+        ASSERT_TRUE(ofs.is_open());
+        ofs << nlohmann::json{
+            {"protocol", "mqtt"},
+            {"name", "mqtt_sub"},
+            {"direction", "in"},
+            {"mqtt", {
+                {"broker", "tcp://127.0.0.1:" + std::to_string(port)},
+                {"client_id", "hakoniwa_mqtt_test_sub"},
+                {"topic_prefix", "hakoniwa"},
+                {"qos", 0},
+                {"retain", false}
+            }}
+        }.dump(2);
+    }
+    {
+        std::ofstream ofs(pub_comm_path);
+        ASSERT_TRUE(ofs.is_open());
+        ofs << nlohmann::json{
+            {"protocol", "mqtt"},
+            {"name", "mqtt_pub"},
+            {"direction", "out"},
+            {"mqtt", {
+                {"broker", "tcp://127.0.0.1:" + std::to_string(port)},
+                {"client_id", "hakoniwa_mqtt_test_pub"},
+                {"topic_prefix", "hakoniwa"},
+                {"qos", 0},
+                {"retain", false}
+            }}
+        }.dump(2);
+    }
+    {
+        std::ofstream ofs(sub_endpoint_path);
+        ASSERT_TRUE(ofs.is_open());
+        ofs << nlohmann::json{
+            {"name", "sample_mqtt_sub_endpoint"},
+            {"cache", cache_path},
+            {"comm", sub_comm_path.string()}
+        }.dump(2);
+    }
+    {
+        std::ofstream ofs(pub_endpoint_path);
+        ASSERT_TRUE(ofs.is_open());
+        ofs << nlohmann::json{
+            {"name", "sample_mqtt_pub_endpoint"},
+            {"cache", cache_path},
+            {"comm", pub_comm_path.string()}
+        }.dump(2);
+    }
+
+    hakoniwa::pdu::Endpoint subscriber("mqtt_sub_test", HAKO_PDU_ENDPOINT_DIRECTION_IN);
+    hakoniwa::pdu::Endpoint publisher("mqtt_pub_test", HAKO_PDU_ENDPOINT_DIRECTION_OUT);
+
+    ASSERT_EQ(subscriber.open(sub_endpoint_path.string()), HAKO_PDU_ERR_OK);
+
+    std::atomic<bool> received{false};
+    std::atomic<std::uint64_t> received_value{0};
+    subscriber.subscribe_on_recv_callback(
+        hakoniwa::pdu::PduResolvedKey{"StorageDemo", 0},
+        [&received, &received_value](const hakoniwa::pdu::PduResolvedKey&, std::span<const std::byte> data) {
+            if (data.size() == sizeof(std::uint64_t)) {
+                std::uint64_t value = 0;
+                std::memcpy(&value, data.data(), sizeof(value));
+                received_value.store(value);
+                received.store(true);
+            }
+        });
+    ASSERT_EQ(subscriber.start(), HAKO_PDU_ERR_OK);
+
+    ASSERT_EQ(publisher.open(pub_endpoint_path.string()), HAKO_PDU_ERR_OK);
+    ASSERT_EQ(publisher.start(), HAKO_PDU_ERR_OK);
+
+    std::this_thread::sleep_for(std::chrono::milliseconds(500));
+
+    const auto key = create_key("StorageDemo", 0);
+    const std::uint64_t expected = 42;
+    std::vector<std::byte> payload(sizeof(expected));
+    std::memcpy(payload.data(), &expected, sizeof(expected));
+    ASSERT_EQ(publisher.send(key, payload), HAKO_PDU_ERR_OK);
+
+    const auto deadline = std::chrono::steady_clock::now() + std::chrono::seconds(5);
+    while (!received.load() && std::chrono::steady_clock::now() < deadline) {
+        std::this_thread::sleep_for(std::chrono::milliseconds(50));
+    }
+
+    EXPECT_TRUE(received.load());
+    EXPECT_EQ(received_value.load(), expected);
+
+    ASSERT_EQ(publisher.stop(), HAKO_PDU_ERR_OK);
+    ASSERT_EQ(publisher.close(), HAKO_PDU_ERR_OK);
+    ASSERT_EQ(subscriber.stop(), HAKO_PDU_ERR_OK);
+    ASSERT_EQ(subscriber.close(), HAKO_PDU_ERR_OK);
+    cleanup();
 }
 #endif
 

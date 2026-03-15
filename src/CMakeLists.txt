@@ -31,6 +31,31 @@ if(HAKO_PDU_ENDPOINT_ENABLE_ZENOH)
   FetchContent_MakeAvailable(zenohc)
 endif()
 
+if(HAKO_PDU_ENDPOINT_ENABLE_MQTT)
+  include(FetchContent)
+
+  file(STRINGS "${CMAKE_CURRENT_LIST_DIR}/../MQTT_VERSION.txt" HAKO_MQTT_CPP_VERSION_RAW
+       LIMIT_COUNT 1 REGEX "^[^# \t].*")
+  if(NOT HAKO_MQTT_CPP_VERSION_RAW)
+    message(FATAL_ERROR "Failed to read MQTT version from MQTT_VERSION.txt")
+  endif()
+  string(STRIP "${HAKO_MQTT_CPP_VERSION_RAW}" HAKO_MQTT_CPP_VERSION)
+
+  set(PAHO_WITH_MQTT_C ON CACHE BOOL "" FORCE)
+  set(PAHO_BUILD_SHARED OFF CACHE BOOL "" FORCE)
+  set(PAHO_BUILD_STATIC ON CACHE BOOL "" FORCE)
+  set(PAHO_BUILD_SAMPLES OFF CACHE BOOL "" FORCE)
+  set(PAHO_BUILD_DOCUMENTATION OFF CACHE BOOL "" FORCE)
+  set(PAHO_BUILD_TESTS OFF CACHE BOOL "" FORCE)
+
+  FetchContent_Declare(
+    pahomqttcpp
+    GIT_REPOSITORY https://github.com/eclipse-paho/paho.mqtt.cpp.git
+    GIT_TAG ${HAKO_MQTT_CPP_VERSION}
+  )
+  FetchContent_MakeAvailable(pahomqttcpp)
+endif()
+
 find_package(nlohmann_json 3.11.3 CONFIG QUIET)
 if(NOT TARGET nlohmann_json::nlohmann_json)
   include(FetchContent)
@@ -63,6 +88,7 @@ add_library(hakoniwa_pdu_endpoint
   comm_tcp.cpp
   comm_storage.cpp
   $<$<BOOL:${HAKO_PDU_ENDPOINT_ENABLE_ZENOH}>:comm_zenoh.cpp>
+  $<$<BOOL:${HAKO_PDU_ENDPOINT_ENABLE_MQTT}>:comm_mqtt.cpp>
   comm_tcp_mux.cpp
   comm_websocket.cpp
   pdu_factory.cpp
@@ -119,6 +145,21 @@ if(HAKO_PDU_ENDPOINT_ENABLE_ZENOH)
     message(FATAL_ERROR "Zenoh support enabled, but zenoh-c target was not found")
   endif()
   target_compile_definitions(hakoniwa_pdu_endpoint PUBLIC HAKO_PDU_ENDPOINT_HAS_ZENOH=1)
+endif()
+
+if(HAKO_PDU_ENDPOINT_ENABLE_MQTT)
+  if(TARGET PahoMqttCpp::paho-mqttpp3-static)
+    target_link_libraries(hakoniwa_pdu_endpoint PUBLIC PahoMqttCpp::paho-mqttpp3-static)
+  elseif(TARGET PahoMqttCpp::paho-mqttpp3)
+    target_link_libraries(hakoniwa_pdu_endpoint PUBLIC PahoMqttCpp::paho-mqttpp3)
+  elseif(TARGET paho-mqttpp3-static)
+    target_link_libraries(hakoniwa_pdu_endpoint PUBLIC paho-mqttpp3-static)
+  elseif(TARGET paho-mqttpp3)
+    target_link_libraries(hakoniwa_pdu_endpoint PUBLIC paho-mqttpp3)
+  else()
+    message(FATAL_ERROR "MQTT support enabled, but Paho MQTT C++ target was not found")
+  endif()
+  target_compile_definitions(hakoniwa_pdu_endpoint PUBLIC HAKO_PDU_ENDPOINT_HAS_MQTT=1)
 endif()
 
 # Add OS-specific logic for Hakoniwa core library

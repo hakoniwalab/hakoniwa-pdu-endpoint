@@ -1,0 +1,5 @@
+{
+  "name": "sample_mqtt_pub_endpoint",
+  "cache": "cache/buffer.json",
+  "comm": "comm/mqtt_pub_comm.json"
+}

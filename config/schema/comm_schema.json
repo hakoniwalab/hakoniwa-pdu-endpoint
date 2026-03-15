@@ -1,13 +1,13 @@
 {
   "$schema": "http://json-schema.org/draft-07/schema#",
   "title": "Communication Endpoint Configuration",
-  "description": "Schema for communication endpoints (TCP, UDP, SHM, WebSocket, Storage, Zenoh).",
+  "description": "Schema for communication endpoints (TCP, UDP, SHM, WebSocket, Storage, Zenoh, MQTT).",
   "type": "object",
   "required": ["protocol"],
   "properties": {
     "protocol": {
       "type": "string",
-      "enum": ["tcp", "udp", "shm", "websocket", "storage", "zenoh"],
+      "enum": ["tcp", "udp", "shm", "websocket", "storage", "zenoh", "mqtt"],
       "description": "Protocol type."
     },
     "name": {
@@ -104,6 +104,9 @@
     },
     "zenoh": {
       "$ref": "#/$defs/zenoh"
+    },
+    "mqtt": {
+      "$ref": "#/$defs/mqtt"
     }
   },
   "allOf": [
@@ -219,6 +222,15 @@
         "required": ["direction", "zenoh"],
         "properties": {
           "zenoh": { "$ref": "#/$defs/zenoh" }
+        }
+      }
+    },
+    {
+      "if": { "properties": { "protocol": { "const": "mqtt" } } },
+      "then": {
+        "required": ["direction", "mqtt"],
+        "properties": {
+          "mqtt": { "$ref": "#/$defs/mqtt" }
         }
       }
     }
@@ -370,6 +382,38 @@
         "io": {
           "$ref": "#/$defs/shm_io",
           "description": "Per-key receive notification settings. The shape matches SHM io so existing PDU declarations can be reused."
+        }
+      }
+    },
+    "mqtt": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["broker", "topic_prefix"],
+      "description": "MQTT transport settings. Broker connectivity lives here while PDU keys are mapped onto MQTT topics.",
+      "properties": {
+        "broker": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Broker URI such as tcp://127.0.0.1:1883."
+        },
+        "client_id": {
+          "type": "string",
+          "minLength": 1,
+          "description": "MQTT client id."
+        },
+        "topic_prefix": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Prefix used to map PduResolvedKey to MQTT topics: <topic_prefix>/<robot>/<channel_id>."
+        },
+        "qos": {
+          "type": "integer",
+          "enum": [0, 1, 2],
+          "description": "MQTT QoS level."
+        },
+        "retain": {
+          "type": "boolean",
+          "description": "Whether published messages should be retained by the broker."
         }
       }
     }
