@@ -569,31 +569,34 @@ HakoPduErrorType TcpComm::connect_with_timeout(int fd, addrinfo* remote_addr, co
     if (!remote_addr) {
         return HAKO_PDU_ERR_INVALID_ARGUMENT;
     }
+    const int original_flags = get_socket_status_flags(fd);
+    if (original_flags < 0) {
+        return HAKO_PDU_ERR_IO_ERROR;
+    }
     if (set_socket_nonblocking(fd, true) != HAKO_PDU_ERR_OK) return HAKO_PDU_ERR_IO_ERROR;
 
     int connect_result = ::connect(fd, remote_addr->ai_addr, remote_addr->ai_addrlen);
     if (connect_result == 0) {
-        if (options.blocking) {
-            (void)set_socket_nonblocking(fd, false);
-        }
+        (void)set_socket_status_flags(fd, original_flags);
         return HAKO_PDU_ERR_OK;
     }
     if (!is_socket_connect_in_progress(last_socket_error())) {
+        (void)set_socket_status_flags(fd, original_flags);
         return HAKO_PDU_ERR_IO_ERROR;
     }
     bool ready = false;
     HakoPduErrorType wait_err = wait_socket(fd, SocketWaitCondition::Writable, options.connect_timeout_ms, ready);
     if (wait_err != HAKO_PDU_ERR_OK || !ready) {
+        (void)set_socket_status_flags(fd, original_flags);
         return wait_err;
     }
     int so_error = 0;
     socklen_t so_error_len = sizeof(so_error);
     if (getsockopt(fd, SOL_SOCKET, SO_ERROR, &so_error, &so_error_len) != 0 || so_error != 0) {
+        (void)set_socket_status_flags(fd, original_flags);
         return HAKO_PDU_ERR_IO_ERROR;
     }
-    if (options.blocking) {
-        (void)set_socket_nonblocking(fd, false);
-    }
+    (void)set_socket_status_flags(fd, original_flags);
     return HAKO_PDU_ERR_OK;
 }
 

@@ -256,6 +256,9 @@ Add the Windows side behind the same interface:
 - close/error mapping
 - polling/waiting equivalents
 - address helpers
+- socket status flag access / restoration
+  - `get_socket_status_flags`
+  - `set_socket_status_flags`
 
 At this stage, build success matters more than test completeness.
 

@@ -17,6 +17,16 @@ bool is_valid_socket(SocketHandle fd) noexcept
     return fd >= 0;
 }
 
+int get_socket_status_flags(SocketHandle fd) noexcept
+{
+    return fcntl(fd, F_GETFL, 0);
+}
+
+HakoPduErrorType set_socket_status_flags(SocketHandle fd, int flags) noexcept
+{
+    return (fcntl(fd, F_SETFL, flags) == 0) ? HAKO_PDU_ERR_OK : HAKO_PDU_ERR_IO_ERROR;
+}
+
 int last_socket_error() noexcept
 {
     return errno;
@@ -87,7 +97,7 @@ HakoPduErrorType wait_socket(SocketHandle fd,
         return HAKO_PDU_ERR_TIMEOUT;
     }
     if (result < 0) {
-        return is_socket_interrupted(last_socket_error()) ? HAKO_PDU_ERR_TIMEOUT : HAKO_PDU_ERR_IO_ERROR;
+        return HAKO_PDU_ERR_TIMEOUT;
     }
     ready = true;
     return HAKO_PDU_ERR_OK;

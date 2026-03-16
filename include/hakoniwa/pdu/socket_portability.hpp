@@ -20,6 +20,8 @@ enum class SocketWaitCondition {
 };
 
 bool is_valid_socket(SocketHandle fd) noexcept;
+int get_socket_status_flags(SocketHandle fd) noexcept;
+HakoPduErrorType set_socket_status_flags(SocketHandle fd, int flags) noexcept;
 int last_socket_error() noexcept;
 std::string socket_error_message(int error_number);
 bool is_socket_would_block(int error_number) noexcept;
