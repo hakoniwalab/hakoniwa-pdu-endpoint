@@ -1,10 +1,9 @@
 #include "hakoniwa/pdu/comm/comm_udp.hpp"
+#include "hakoniwa/pdu/socket_portability.hpp"
 #include "hakoniwa/pdu/socket_utils.hpp"
 #include <nlohmann/json.hpp>
 #include <fstream>
 #include <iostream>
-#include <unistd.h>
-#include <fcntl.h>
 #include <cerrno>
 #include <cstring>
 #include <arpa/inet.h>
@@ -108,7 +107,7 @@ HakoPduErrorType UdpComm::raw_open(const std::string& config_path)
     
     socket_fd_ = ::socket(initial_addr->ai_family, initial_addr->ai_socktype, initial_addr->ai_protocol);
     if (socket_fd_.load() < 0) {
-        std::cerr << "UDP Comm socket create failed: " << std::strerror(errno) << std::endl;
+        std::cerr << "UDP Comm socket create failed: " << socket_error_message(last_socket_error()) << std::endl;
         if(local_addr_info) freeaddrinfo(local_addr_info);
         if(remote_addr_info) freeaddrinfo(remote_addr_info);
         return HAKO_PDU_ERR_IO_ERROR;
@@ -149,7 +148,7 @@ HakoPduErrorType UdpComm::raw_open(const std::string& config_path)
 
     if (local_addr_info) {
         if (::bind(socket_fd_.load(), local_addr_info->ai_addr, local_addr_info->ai_addrlen) != 0) {
-            std::cerr << "UDP Comm bind failed: " << std::strerror(errno) << std::endl;
+            std::cerr << "UDP Comm bind failed: " << socket_error_message(last_socket_error()) << std::endl;
             raw_close(); // Use raw_close for cleanup
             freeaddrinfo(local_addr_info);
             if(remote_addr_info) freeaddrinfo(remote_addr_info);
@@ -182,7 +181,7 @@ HakoPduErrorType UdpComm::raw_close() noexcept
     raw_stop(); // Stop the thread
     int current_socket_fd = socket_fd_.load();
     if (current_socket_fd >= 0) {
-        ::close(current_socket_fd);
+        (void)close_socket(current_socket_fd);
         socket_fd_ = -1;
     }
     has_fixed_remote_ = false;
@@ -218,7 +217,7 @@ HakoPduErrorType UdpComm::raw_stop() noexcept
         // Unblock recvfrom by shutting down the read part of the socket
         int current_socket_fd = socket_fd_.load();
         if (current_socket_fd >= 0) {
-             ::shutdown(current_socket_fd, SHUT_RD);
+             shutdown_socket(current_socket_fd, SocketShutdownMode::Read);
         }
         recv_thread_.join();
     }
@@ -268,8 +267,9 @@ HakoPduErrorType UdpComm::raw_send(const std::vector<std::byte>& data) noexcept
 
     ssize_t sent = ::sendto(current_socket_fd, data.data(), data.size(), 0, target_addr, target_addr_len);
     if (sent < 0) {
-        std::cerr << "UDP Comm sendto failed: " << std::strerror(errno) << std::endl;
-        return map_errno_to_error(errno);
+        const int error_number = last_socket_error();
+        std::cerr << "UDP Comm sendto failed: " << socket_error_message(error_number) << std::endl;
+        return map_errno_to_error(error_number);
     }
     return HAKO_PDU_ERR_OK;
 }
@@ -286,7 +286,8 @@ void UdpComm::recv_loop()
                                       reinterpret_cast<sockaddr*>(&from), &from_len);
 
         if (received < 0) {
-            if (errno == EAGAIN || errno == EWOULDBLOCK || errno == EINTR) {
+            const int error_number = last_socket_error();
+            if (is_socket_would_block(error_number) || is_socket_interrupted(error_number)) {
                 // Timeout or interrupted, just continue loop
                 continue;
             }
@@ -295,7 +296,7 @@ void UdpComm::recv_loop()
                 break;
             }
             // Real error
-            std::cerr << "UDP Comm recvfrom failed: " << std::strerror(errno) << std::endl;
+            std::cerr << "UDP Comm recvfrom failed: " << socket_error_message(error_number) << std::endl;
             continue;
         }
 
@@ -339,8 +340,7 @@ HakoPduErrorType UdpComm::configure_socket_options(const Options& options) noexc
         return HAKO_PDU_ERR_IO_ERROR;
     }
     if (!options.blocking) {
-        int flags = fcntl(socket_fd_.load(), F_GETFL, 0);
-        if (flags < 0 || fcntl(socket_fd_.load(), F_SETFL, flags | O_NONBLOCK) != 0) {
+        if (set_socket_nonblocking(socket_fd_.load(), true) != HAKO_PDU_ERR_OK) {
             return HAKO_PDU_ERR_IO_ERROR;
         }
     }

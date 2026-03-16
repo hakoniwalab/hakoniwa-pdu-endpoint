@@ -1,4 +1,5 @@
 #include "hakoniwa/pdu/socket_utils.hpp"
+#include "hakoniwa/pdu/socket_portability.hpp"
 
 #include <arpa/inet.h>
 #include <cstdlib>
@@ -58,7 +59,7 @@ std::optional<std::string> lookup_mapped_address(const std::string& map_path, co
 
 HakoPduErrorType map_errno_to_error(int error_number) noexcept
 {
-    if (error_number == EAGAIN || error_number == EWOULDBLOCK) {
+    if (is_socket_would_block(error_number)) {
         return HAKO_PDU_ERR_TIMEOUT;
     }
     return HAKO_PDU_ERR_IO_ERROR;

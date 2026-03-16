@@ -1,16 +1,14 @@
 #include "hakoniwa/pdu/comm/comm_tcp_mux.hpp"
 #include "hakoniwa/pdu/comm/comm_raw.hpp"
+#include "hakoniwa/pdu/socket_portability.hpp"
 #include "hakoniwa/pdu/socket_utils.hpp"
 #include <nlohmann/json.hpp>
 #include <arpa/inet.h>
 #include <cerrno>
 #include <cstring>
-#include <fcntl.h>
 #include <fstream>
 #include <netinet/tcp.h>
-#include <poll.h>
 #include <sys/socket.h>
-#include <unistd.h>
 #include <array>
 #include <iostream>
 #include <vector>
@@ -119,7 +117,7 @@ protected:
     {
         raw_stop();
         if (fd_ >= 0) {
-            ::close(fd_);
+            (void)close_socket(fd_);
             fd_ = -1;
         }
         return HAKO_PDU_ERR_OK;
@@ -145,7 +143,7 @@ protected:
         stopping_ = true;
         is_running_ = false;
         if (fd_ >= 0) {
-            ::shutdown(fd_, SHUT_RDWR);
+            shutdown_socket(fd_, SocketShutdownMode::ReadWrite);
         }
         if (recv_thread_.joinable()) {
             recv_thread_.join();
@@ -240,8 +238,7 @@ private:
             }
         }
         if (!options.blocking) {
-            int flags = fcntl(fd, F_GETFL, 0);
-            if (flags < 0 || fcntl(fd, F_SETFL, flags | O_NONBLOCK) != 0) {
+            if (set_socket_nonblocking(fd, true) != HAKO_PDU_ERR_OK) {
                 return HAKO_PDU_ERR_IO_ERROR;
             }
         }
@@ -258,10 +255,11 @@ private:
             } else if (received == 0) {
                 return HAKO_PDU_ERR_IO_ERROR;
             } else {
-                if (errno == EAGAIN || errno == EWOULDBLOCK) {
+                const int error_number = last_socket_error();
+                if (is_socket_would_block(error_number)) {
                     continue;
                 }
-                return map_errno_to_error(errno);
+                return map_errno_to_error(error_number);
             }
         }
         return HAKO_PDU_ERR_OK;
@@ -277,10 +275,11 @@ private:
             } else if (sent == 0) {
                 return HAKO_PDU_ERR_IO_ERROR;
             } else {
-                if (errno == EAGAIN || errno == EWOULDBLOCK) {
+                const int error_number = last_socket_error();
+                if (is_socket_would_block(error_number)) {
                     continue;
                 }
-                return map_errno_to_error(errno);
+                return map_errno_to_error(error_number);
             }
         }
         return HAKO_PDU_ERR_OK;
@@ -430,7 +429,7 @@ HakoPduErrorType TcpCommMultiplexer::open(const std::string& config_path)
     listen_fd_ = ::socket(local_addr_info->ai_family, local_addr_info->ai_socktype, local_addr_info->ai_protocol);
     if (listen_fd_.load() < 0) {
         freeaddrinfo(local_addr_info);
-        std::cerr << "Failed to create socket: " << std::strerror(errno) << std::endl;
+        std::cerr << "Failed to create socket: " << socket_error_message(last_socket_error()) << std::endl;
         return HAKO_PDU_ERR_IO_ERROR;
     }
     if (configure_socket_options_(listen_fd_.load(), options_) != HAKO_PDU_ERR_OK) {
@@ -442,13 +441,13 @@ HakoPduErrorType TcpCommMultiplexer::open(const std::string& config_path)
     if (::bind(listen_fd_.load(), local_addr_info->ai_addr, local_addr_info->ai_addrlen) != 0) {
         close();
         freeaddrinfo(local_addr_info);
-        std::cerr << "Failed to bind socket: " << std::strerror(errno) << std::endl;
+        std::cerr << "Failed to bind socket: " << socket_error_message(last_socket_error()) << std::endl;
         return HAKO_PDU_ERR_IO_ERROR;
     }
     if (::listen(listen_fd_.load(), options_.backlog) != 0) {
         close();
         freeaddrinfo(local_addr_info);
-        std::cerr << "Failed to listen on socket: " << std::strerror(errno) << std::endl;
+        std::cerr << "Failed to listen on socket: " << socket_error_message(last_socket_error()) << std::endl;
         return HAKO_PDU_ERR_IO_ERROR;
     }
     freeaddrinfo(local_addr_info);
@@ -460,7 +459,7 @@ HakoPduErrorType TcpCommMultiplexer::close() noexcept
     stop();
     int current_listen_fd = listen_fd_.load();
     if (current_listen_fd >= 0) {
-        ::close(current_listen_fd);
+        (void)close_socket(current_listen_fd);
         listen_fd_ = -1;
     }
     return HAKO_PDU_ERR_OK;
@@ -484,8 +483,8 @@ HakoPduErrorType TcpCommMultiplexer::stop() noexcept
     is_running_ = false;
     int current_listen_fd = listen_fd_.load();
     if (current_listen_fd >= 0) {
-        ::shutdown(current_listen_fd, SHUT_RD);
-        ::close(current_listen_fd);
+        shutdown_socket(current_listen_fd, SocketShutdownMode::Read);
+        (void)close_socket(current_listen_fd);
         listen_fd_ = -1;
     }
     if (accept_thread_.joinable()) {
@@ -520,7 +519,7 @@ void TcpCommMultiplexer::accept_loop_()
         int accepted_fd = ::accept(listen_fd_.load(), reinterpret_cast<sockaddr*>(&client_addr), &client_len);
         if (accepted_fd < 0) {
             if (is_running_) {
-                std::cerr << "TCP Mux accept failed: " << std::strerror(errno) << std::endl;
+                std::cerr << "TCP Mux accept failed: " << socket_error_message(last_socket_error()) << std::endl;
             }
             continue;
         }

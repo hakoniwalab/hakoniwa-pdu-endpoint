@@ -85,6 +85,7 @@ find_package(Boost 1.70 REQUIRED)
 add_library(hakoniwa_pdu_endpoint
   c_endpoint.cpp
   socket_utils.cpp
+  socket_portability_posix.cpp
   comm_udp.cpp
   comm_tcp.cpp
   comm_storage.cpp
