@@ -1,8 +1,7 @@
 #pragma once
 
 #include "hakoniwa/pdu/comm/comm_raw.hpp"
-#include <netinet/in.h>
-#include <netdb.h> // For addrinfo
+#include "hakoniwa/pdu/socket_portability.hpp"
 #include <thread>
 #include <atomic>
 #include <vector>
@@ -58,23 +57,23 @@ private:
         bool linger_enabled = false;
         int linger_timeout_sec = 0;
     };
-    HakoPduErrorType configure_socket_options(int fd, const Options& options) noexcept;
-    HakoPduErrorType configure_timeouts(int fd, const Options& options) noexcept;
-    HakoPduErrorType connect_with_timeout(int fd, addrinfo* remote_addr, const Options& options) noexcept;
+    HakoPduErrorType configure_socket_options(SocketHandle fd, const Options& options) noexcept;
+    HakoPduErrorType configure_timeouts(SocketHandle fd, const Options& options) noexcept;
+    HakoPduErrorType connect_with_timeout(SocketHandle fd, AddressInfo* remote_addr, const Options& options) noexcept;
 
     // TCP specific state
     Role role_ = Role::Client;
     Options options_{};
-    std::atomic<int> listen_fd_{-1};
-    std::atomic<int> client_fd_{-1}; // Represents the connected socket for both client and server
+    std::atomic<SocketHandle> listen_fd_{kInvalidSocket};
+    std::atomic<SocketHandle> client_fd_{kInvalidSocket}; // Represents the connected socket for both client and server
     
     // Threading
     std::thread comm_thread_;
     std::atomic<bool> is_running_flag_{false};
 
     HakoPduEndpointDirectionType config_direction_ = HAKO_PDU_ENDPOINT_DIRECTION_INOUT;
-    sockaddr_storage remote_addr_info_{};
-    socklen_t remote_addr_len_ = 0;
+    SocketAddressStorage remote_addr_info_{};
+    SocketLength remote_addr_len_ = 0;
 
     std::atomic<bool> is_connected_{false};
     std::atomic<bool> stopping_{false};

@@ -3,12 +3,8 @@
 #include "hakoniwa/pdu/socket_portability.hpp"
 #include "hakoniwa/pdu/socket_utils.hpp"
 #include <nlohmann/json.hpp>
-#include <arpa/inet.h>
-#include <cerrno>
 #include <cstring>
 #include <fstream>
-#include <netinet/tcp.h>
-#include <sys/socket.h>
 #include <array>
 #include <iostream>
 #include <vector>
@@ -49,13 +45,13 @@ uint32_t from_le32(uint32_t value) noexcept
 class TcpSessionComm final : public PduCommRaw
 {
 public:
-    explicit TcpSessionComm(int fd) : fd_(fd) {}
+    explicit TcpSessionComm(SocketHandle fd) : fd_(fd) {}
     ~TcpSessionComm() override { (void)raw_close(); }
 
 protected:
     HakoPduErrorType raw_open(const std::string& config_path) override
     {
-        if (fd_ < 0) {
+        if (!is_valid_socket(fd_)) {
             return HAKO_PDU_ERR_IO_ERROR;
         }
 
@@ -116,9 +112,9 @@ protected:
     HakoPduErrorType raw_close() noexcept override
     {
         raw_stop();
-        if (fd_ >= 0) {
+        if (is_valid_socket(fd_)) {
             (void)close_socket(fd_);
-            fd_ = -1;
+            fd_ = kInvalidSocket;
         }
         return HAKO_PDU_ERR_OK;
     }
@@ -142,7 +138,7 @@ protected:
         }
         stopping_ = true;
         is_running_ = false;
-        if (fd_ >= 0) {
+        if (is_valid_socket(fd_)) {
             shutdown_socket(fd_, SocketShutdownMode::ReadWrite);
         }
         if (recv_thread_.joinable()) {
@@ -160,7 +156,7 @@ protected:
 
     HakoPduErrorType raw_send(const std::vector<std::byte>& data) noexcept override
     {
-        if (fd_ < 0) {
+        if (!is_valid_socket(fd_)) {
             return HAKO_PDU_ERR_NOT_RUNNING;
         }
         if (config_direction_ == HAKO_PDU_ENDPOINT_DIRECTION_IN) {
@@ -183,57 +179,45 @@ private:
         int linger_timeout_sec = 0;
     };
 
-    HakoPduErrorType configure_socket_options_(int fd, const Options& options) noexcept
+    HakoPduErrorType configure_socket_options_(SocketHandle fd, const Options& options) noexcept
     {
         if (options.reuse_address) {
-            int reuse = 1;
-            if (setsockopt(fd, SOL_SOCKET, SO_REUSEADDR, &reuse, sizeof(reuse)) != 0) {
+            if (set_socket_option_int(fd, SOL_SOCKET, SO_REUSEADDR, 1) != HAKO_PDU_ERR_OK) {
                 return HAKO_PDU_ERR_IO_ERROR;
             }
         }
         if (options.keepalive) {
-            int keepalive = 1;
-            if (setsockopt(fd, SOL_SOCKET, SO_KEEPALIVE, &keepalive, sizeof(keepalive)) != 0) {
+            if (set_socket_option_int(fd, SOL_SOCKET, SO_KEEPALIVE, 1) != HAKO_PDU_ERR_OK) {
                 return HAKO_PDU_ERR_IO_ERROR;
             }
         }
         if (options.no_delay) {
-            int nodelay = 1;
-            if (setsockopt(fd, IPPROTO_TCP, TCP_NODELAY, &nodelay, sizeof(nodelay)) != 0) {
+            if (set_socket_option_int(fd, IPPROTO_TCP, TCP_NODELAY, 1) != HAKO_PDU_ERR_OK) {
                 return HAKO_PDU_ERR_IO_ERROR;
             }
         }
         if (options.recv_buffer_size > 0) {
-            if (setsockopt(fd, SOL_SOCKET, SO_RCVBUF, &options.recv_buffer_size, sizeof(options.recv_buffer_size)) != 0) {
+            if (set_socket_option_int(fd, SOL_SOCKET, SO_RCVBUF, options.recv_buffer_size) != HAKO_PDU_ERR_OK) {
                 return HAKO_PDU_ERR_IO_ERROR;
             }
         }
         if (options.send_buffer_size > 0) {
-            if (setsockopt(fd, SOL_SOCKET, SO_SNDBUF, &options.send_buffer_size, sizeof(options.send_buffer_size)) != 0) {
+            if (set_socket_option_int(fd, SOL_SOCKET, SO_SNDBUF, options.send_buffer_size) != HAKO_PDU_ERR_OK) {
                 return HAKO_PDU_ERR_IO_ERROR;
             }
         }
         if (options.linger_enabled) {
-            linger linger_opts{};
-            linger_opts.l_onoff = 1;
-            linger_opts.l_linger = options.linger_timeout_sec;
-            if (setsockopt(fd, SOL_SOCKET, SO_LINGER, &linger_opts, sizeof(linger_opts)) != 0) {
+            if (set_socket_linger_option(fd, true, options.linger_timeout_sec) != HAKO_PDU_ERR_OK) {
                 return HAKO_PDU_ERR_IO_ERROR;
             }
         }
         if (options.read_timeout_ms >= 0) {
-            timeval timeout{};
-            timeout.tv_sec = options.read_timeout_ms / 1000;
-            timeout.tv_usec = (options.read_timeout_ms % 1000) * 1000;
-            if (setsockopt(fd, SOL_SOCKET, SO_RCVTIMEO, &timeout, sizeof(timeout)) != 0) {
+            if (set_socket_timeout_option(fd, SO_RCVTIMEO, options.read_timeout_ms) != HAKO_PDU_ERR_OK) {
                 return HAKO_PDU_ERR_IO_ERROR;
             }
         }
         if (options.write_timeout_ms >= 0) {
-            timeval timeout{};
-            timeout.tv_sec = options.write_timeout_ms / 1000;
-            timeout.tv_usec = (options.write_timeout_ms % 1000) * 1000;
-            if (setsockopt(fd, SOL_SOCKET, SO_SNDTIMEO, &timeout, sizeof(timeout)) != 0) {
+            if (set_socket_timeout_option(fd, SO_SNDTIMEO, options.write_timeout_ms) != HAKO_PDU_ERR_OK) {
                 return HAKO_PDU_ERR_IO_ERROR;
             }
         }
@@ -245,11 +229,11 @@ private:
         return HAKO_PDU_ERR_OK;
     }
 
-    HakoPduErrorType read_data_(int fd, std::byte* buffer, size_t size) noexcept
+    HakoPduErrorType read_data_(SocketHandle fd, std::byte* buffer, size_t size) noexcept
     {
         size_t total_received = 0;
         while (total_received < size) {
-            ssize_t received = ::recv(fd, buffer + total_received, size - total_received, 0);
+            SocketSize received = recv_socket(fd, buffer + total_received, size - total_received, 0);
             if (received > 0) {
                 total_received += received;
             } else if (received == 0) {
@@ -265,11 +249,11 @@ private:
         return HAKO_PDU_ERR_OK;
     }
 
-    HakoPduErrorType write_data_(int fd, const std::byte* buffer, size_t size) noexcept
+    HakoPduErrorType write_data_(SocketHandle fd, const std::byte* buffer, size_t size) noexcept
     {
         size_t total_sent = 0;
         while (total_sent < size) {
-            ssize_t sent = ::send(fd, buffer + total_sent, size - total_sent, 0);
+            SocketSize sent = send_socket(fd, buffer + total_sent, size - total_sent, 0);
             if (sent > 0) {
                 total_sent += sent;
             } else if (sent == 0) {
@@ -345,7 +329,7 @@ private:
         notify_disconnected_(static_cast<int>(reason), std::string(context));
     }
 
-    int fd_ = -1;
+    SocketHandle fd_ = kInvalidSocket;
     std::atomic<bool> is_running_{false};
     std::atomic<bool> stopping_{false};
     std::atomic<bool> disconnect_notified_{false};
@@ -420,47 +404,47 @@ HakoPduErrorType TcpCommMultiplexer::open(const std::string& config_path)
         return resolver_ret;
     }
 
-    addrinfo* local_addr_info = nullptr;
+    AddressInfo* local_addr_info = nullptr;
     if (resolve_address(config_json.at("local"), kTcpSocketType, &local_addr_info, &name_resolver) != HAKO_PDU_ERR_OK) {
         std::cerr << "TCP Mux config error: failed to resolve local address." << std::endl;
         return HAKO_PDU_ERR_INVALID_ARGUMENT;
     }
 
-    listen_fd_ = ::socket(local_addr_info->ai_family, local_addr_info->ai_socktype, local_addr_info->ai_protocol);
-    if (listen_fd_.load() < 0) {
-        freeaddrinfo(local_addr_info);
+    listen_fd_ = create_socket(local_addr_info->ai_family, local_addr_info->ai_socktype, local_addr_info->ai_protocol);
+    if (!is_valid_socket(listen_fd_.load())) {
+        free_address_info(local_addr_info);
         std::cerr << "Failed to create socket: " << socket_error_message(last_socket_error()) << std::endl;
         return HAKO_PDU_ERR_IO_ERROR;
     }
     if (configure_socket_options_(listen_fd_.load(), options_) != HAKO_PDU_ERR_OK) {
         close();
-        freeaddrinfo(local_addr_info);
+        free_address_info(local_addr_info);
         std::cerr << "Failed to configure socket options." << std::endl;
         return HAKO_PDU_ERR_IO_ERROR;
     }
-    if (::bind(listen_fd_.load(), local_addr_info->ai_addr, local_addr_info->ai_addrlen) != 0) {
+    if (bind_socket(listen_fd_.load(), local_addr_info->ai_addr, local_addr_info->ai_addrlen) != 0) {
         close();
-        freeaddrinfo(local_addr_info);
+        free_address_info(local_addr_info);
         std::cerr << "Failed to bind socket: " << socket_error_message(last_socket_error()) << std::endl;
         return HAKO_PDU_ERR_IO_ERROR;
     }
-    if (::listen(listen_fd_.load(), options_.backlog) != 0) {
+    if (listen_socket(listen_fd_.load(), options_.backlog) != 0) {
         close();
-        freeaddrinfo(local_addr_info);
+        free_address_info(local_addr_info);
         std::cerr << "Failed to listen on socket: " << socket_error_message(last_socket_error()) << std::endl;
         return HAKO_PDU_ERR_IO_ERROR;
     }
-    freeaddrinfo(local_addr_info);
+    free_address_info(local_addr_info);
     return HAKO_PDU_ERR_OK;
 }
 
 HakoPduErrorType TcpCommMultiplexer::close() noexcept
 {
     stop();
-    int current_listen_fd = listen_fd_.load();
-    if (current_listen_fd >= 0) {
+    SocketHandle current_listen_fd = listen_fd_.load();
+    if (is_valid_socket(current_listen_fd)) {
         (void)close_socket(current_listen_fd);
-        listen_fd_ = -1;
+        listen_fd_ = kInvalidSocket;
     }
     return HAKO_PDU_ERR_OK;
 }
@@ -481,11 +465,11 @@ HakoPduErrorType TcpCommMultiplexer::stop() noexcept
         return HAKO_PDU_ERR_OK;
     }
     is_running_ = false;
-    int current_listen_fd = listen_fd_.load();
-    if (current_listen_fd >= 0) {
+    SocketHandle current_listen_fd = listen_fd_.load();
+    if (is_valid_socket(current_listen_fd)) {
         shutdown_socket(current_listen_fd, SocketShutdownMode::Read);
         (void)close_socket(current_listen_fd);
-        listen_fd_ = -1;
+        listen_fd_ = kInvalidSocket;
     }
     if (accept_thread_.joinable()) {
         accept_thread_.join();
@@ -514,10 +498,10 @@ size_t TcpCommMultiplexer::expected_count() const noexcept
 void TcpCommMultiplexer::accept_loop_()
 {
     while (is_running_) {
-        sockaddr_storage client_addr{};
-        socklen_t client_len = sizeof(client_addr);
-        int accepted_fd = ::accept(listen_fd_.load(), reinterpret_cast<sockaddr*>(&client_addr), &client_len);
-        if (accepted_fd < 0) {
+        SocketAddressStorage client_addr{};
+        SocketLength client_len = sizeof(client_addr);
+        SocketHandle accepted_fd = accept_socket(listen_fd_.load(), reinterpret_cast<SocketAddress*>(&client_addr), &client_len);
+        if (!is_valid_socket(accepted_fd)) {
             if (is_running_) {
                 std::cerr << "TCP Mux accept failed: " << socket_error_message(last_socket_error()) << std::endl;
             }
@@ -533,41 +517,35 @@ void TcpCommMultiplexer::accept_loop_()
     }
 }
 
-HakoPduErrorType TcpCommMultiplexer::configure_socket_options_(int fd, const Options& options) noexcept
+HakoPduErrorType TcpCommMultiplexer::configure_socket_options_(SocketHandle fd, const Options& options) noexcept
 {
     if (options.reuse_address) {
-        int reuse = 1;
-        if (setsockopt(fd, SOL_SOCKET, SO_REUSEADDR, &reuse, sizeof(reuse)) != 0) {
+        if (set_socket_option_int(fd, SOL_SOCKET, SO_REUSEADDR, 1) != HAKO_PDU_ERR_OK) {
             return HAKO_PDU_ERR_IO_ERROR;
         }
     }
     if (options.keepalive) {
-        int keepalive = 1;
-        if (setsockopt(fd, SOL_SOCKET, SO_KEEPALIVE, &keepalive, sizeof(keepalive)) != 0) {
+        if (set_socket_option_int(fd, SOL_SOCKET, SO_KEEPALIVE, 1) != HAKO_PDU_ERR_OK) {
             return HAKO_PDU_ERR_IO_ERROR;
         }
     }
     if (options.no_delay) {
-        int nodelay = 1;
-        if (setsockopt(fd, IPPROTO_TCP, TCP_NODELAY, &nodelay, sizeof(nodelay)) != 0) {
+        if (set_socket_option_int(fd, IPPROTO_TCP, TCP_NODELAY, 1) != HAKO_PDU_ERR_OK) {
             return HAKO_PDU_ERR_IO_ERROR;
         }
     }
     if (options.recv_buffer_size > 0) {
-        if (setsockopt(fd, SOL_SOCKET, SO_RCVBUF, &options.recv_buffer_size, sizeof(options.recv_buffer_size)) != 0) {
+        if (set_socket_option_int(fd, SOL_SOCKET, SO_RCVBUF, options.recv_buffer_size) != HAKO_PDU_ERR_OK) {
             return HAKO_PDU_ERR_IO_ERROR;
         }
     }
     if (options.send_buffer_size > 0) {
-        if (setsockopt(fd, SOL_SOCKET, SO_SNDBUF, &options.send_buffer_size, sizeof(options.send_buffer_size)) != 0) {
+        if (set_socket_option_int(fd, SOL_SOCKET, SO_SNDBUF, options.send_buffer_size) != HAKO_PDU_ERR_OK) {
             return HAKO_PDU_ERR_IO_ERROR;
         }
     }
     if (options.linger_enabled) {
-        linger linger_opts{};
-        linger_opts.l_onoff = 1;
-        linger_opts.l_linger = options.linger_timeout_sec;
-        if (setsockopt(fd, SOL_SOCKET, SO_LINGER, &linger_opts, sizeof(linger_opts)) != 0) {
+        if (set_socket_linger_option(fd, true, options.linger_timeout_sec) != HAKO_PDU_ERR_OK) {
             return HAKO_PDU_ERR_IO_ERROR;
         }
     }

@@ -1,6 +1,7 @@
 #pragma once
 
 #include "hakoniwa/pdu/comm/comm_mux.hpp"
+#include "hakoniwa/pdu/socket_portability.hpp"
 #include <atomic>
 #include <mutex>
 #include <thread>
@@ -44,9 +45,9 @@ private:
         int linger_timeout_sec = 0;
     };
 
-    HakoPduErrorType configure_socket_options_(int fd, const Options& options) noexcept;
+    HakoPduErrorType configure_socket_options_(SocketHandle fd, const Options& options) noexcept;
 
-    std::atomic<int> listen_fd_{-1};
+    std::atomic<SocketHandle> listen_fd_{kInvalidSocket};
     std::atomic<bool> is_running_{false};
     std::thread accept_thread_;
 

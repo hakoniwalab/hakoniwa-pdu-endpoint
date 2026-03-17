@@ -4,10 +4,7 @@
 #include <nlohmann/json.hpp>
 #include <fstream>
 #include <iostream>
-#include <cerrno>
 #include <cstring>
-#include <arpa/inet.h>
-#include <sys/socket.h>
 
 namespace hakoniwa {
 namespace pdu {
@@ -29,7 +26,7 @@ UdpComm::~UdpComm()
 
 HakoPduErrorType UdpComm::raw_open(const std::string& config_path)
 {
-    if (socket_fd_.load() != -1) {
+    if (is_valid_socket(socket_fd_.load())) {
         return HAKO_PDU_ERR_BUSY;
     }
 
@@ -69,8 +66,8 @@ HakoPduErrorType UdpComm::raw_open(const std::string& config_path)
         }
     }
     
-    addrinfo* local_addr_info = nullptr;
-    addrinfo* remote_addr_info = nullptr;
+    AddressInfo* local_addr_info = nullptr;
+    AddressInfo* remote_addr_info = nullptr;
 
     if (config_direction_ == HAKO_PDU_ENDPOINT_DIRECTION_IN || config_direction_ == HAKO_PDU_ENDPOINT_DIRECTION_INOUT) {
         if (!config_json.contains("local")) {
@@ -99,17 +96,17 @@ HakoPduErrorType UdpComm::raw_open(const std::string& config_path)
         has_fixed_remote_ = true;
     }
 
-    addrinfo* initial_addr = local_addr_info ? local_addr_info : remote_addr_info;
+    AddressInfo* initial_addr = local_addr_info ? local_addr_info : remote_addr_info;
     if (!initial_addr) {
         std::cerr << "UDP Comm config error: missing local/remote address." << std::endl;
         return HAKO_PDU_ERR_INVALID_ARGUMENT;
     }
     
-    socket_fd_ = ::socket(initial_addr->ai_family, initial_addr->ai_socktype, initial_addr->ai_protocol);
-    if (socket_fd_.load() < 0) {
+    socket_fd_ = create_socket(initial_addr->ai_family, initial_addr->ai_socktype, initial_addr->ai_protocol);
+    if (!is_valid_socket(socket_fd_.load())) {
         std::cerr << "UDP Comm socket create failed: " << socket_error_message(last_socket_error()) << std::endl;
-        if(local_addr_info) freeaddrinfo(local_addr_info);
-        if(remote_addr_info) freeaddrinfo(remote_addr_info);
+        free_address_info(local_addr_info);
+        free_address_info(remote_addr_info);
         return HAKO_PDU_ERR_IO_ERROR;
     }
 
@@ -141,17 +138,17 @@ HakoPduErrorType UdpComm::raw_open(const std::string& config_path)
     if (option_result != HAKO_PDU_ERR_OK) {
         std::cerr << "UDP Comm configure socket options failed: " << static_cast<int>(option_result) << std::endl;
         raw_close(); // Use raw_close for cleanup
-        if(local_addr_info) freeaddrinfo(local_addr_info);
-        if(remote_addr_info) freeaddrinfo(remote_addr_info);
+        free_address_info(local_addr_info);
+        free_address_info(remote_addr_info);
         return option_result;
     }
 
     if (local_addr_info) {
-        if (::bind(socket_fd_.load(), local_addr_info->ai_addr, local_addr_info->ai_addrlen) != 0) {
+        if (bind_socket(socket_fd_.load(), local_addr_info->ai_addr, local_addr_info->ai_addrlen) != 0) {
             std::cerr << "UDP Comm bind failed: " << socket_error_message(last_socket_error()) << std::endl;
             raw_close(); // Use raw_close for cleanup
-            freeaddrinfo(local_addr_info);
-            if(remote_addr_info) freeaddrinfo(remote_addr_info);
+            free_address_info(local_addr_info);
+            free_address_info(remote_addr_info);
             return HAKO_PDU_ERR_IO_ERROR;
         }
     }
@@ -161,8 +158,8 @@ HakoPduErrorType UdpComm::raw_open(const std::string& config_path)
         dest_addr_len_ = remote_addr_info->ai_addrlen;
     }
 
-    if (local_addr_info) freeaddrinfo(local_addr_info);
-    if (remote_addr_info) freeaddrinfo(remote_addr_info);
+    free_address_info(local_addr_info);
+    free_address_info(remote_addr_info);
 
     if (options.multicast_enabled) {
         HakoPduErrorType multicast_result = configure_multicast(options);
@@ -179,10 +176,10 @@ HakoPduErrorType UdpComm::raw_open(const std::string& config_path)
 HakoPduErrorType UdpComm::raw_close() noexcept
 {
     raw_stop(); // Stop the thread
-    int current_socket_fd = socket_fd_.load();
-    if (current_socket_fd >= 0) {
+    SocketHandle current_socket_fd = socket_fd_.load();
+    if (is_valid_socket(current_socket_fd)) {
         (void)close_socket(current_socket_fd);
-        socket_fd_ = -1;
+        socket_fd_ = kInvalidSocket;
     }
     has_fixed_remote_ = false;
     dest_addr_len_ = 0;
@@ -192,7 +189,7 @@ HakoPduErrorType UdpComm::raw_close() noexcept
 
 HakoPduErrorType UdpComm::raw_start() noexcept
 {
-    if (socket_fd_.load() < 0 || is_running_flag_) {
+    if (!is_valid_socket(socket_fd_.load()) || is_running_flag_) {
         std::cerr << "UDP Comm start failed: invalid socket or already running." << std::endl;
         return HAKO_PDU_ERR_INVALID_ARGUMENT;
     }
@@ -215,8 +212,8 @@ HakoPduErrorType UdpComm::raw_stop() noexcept
 
     if (recv_thread_.joinable()) {
         // Unblock recvfrom by shutting down the read part of the socket
-        int current_socket_fd = socket_fd_.load();
-        if (current_socket_fd >= 0) {
+        SocketHandle current_socket_fd = socket_fd_.load();
+        if (is_valid_socket(current_socket_fd)) {
              shutdown_socket(current_socket_fd, SocketShutdownMode::Read);
         }
         recv_thread_.join();
@@ -232,8 +229,8 @@ HakoPduErrorType UdpComm::raw_is_running(bool& running) noexcept
 
 HakoPduErrorType UdpComm::raw_send(const std::vector<std::byte>& data) noexcept
 {
-    int current_socket_fd = socket_fd_.load();
-    if (current_socket_fd < 0 || data.empty()) {
+    SocketHandle current_socket_fd = socket_fd_.load();
+    if (!is_valid_socket(current_socket_fd) || data.empty()) {
         std::cerr << "UDP Comm send failed: invalid socket or empty data." << std::endl;
         return HAKO_PDU_ERR_INVALID_ARGUMENT;
     }
@@ -242,21 +239,21 @@ HakoPduErrorType UdpComm::raw_send(const std::vector<std::byte>& data) noexcept
         return HAKO_PDU_ERR_INVALID_ARGUMENT;
     }
 
-    const sockaddr* target_addr = nullptr;
-    socklen_t target_addr_len = 0;
+    const SocketAddress* target_addr = nullptr;
+    SocketLength target_addr_len = 0;
 
     if (has_fixed_remote_) {
-        target_addr = reinterpret_cast<const sockaddr*>(&dest_addr_);
+        target_addr = reinterpret_cast<const SocketAddress*>(&dest_addr_);
         target_addr_len = dest_addr_len_;
     } else if (config_direction_ == HAKO_PDU_ENDPOINT_DIRECTION_INOUT) {
         if (last_client_addr_len_ == 0) {
             std::cerr << "UDP Comm send failed: no remote address received yet." << std::endl;
             return HAKO_PDU_ERR_IO_ERROR; // Not received yet
         }
-        target_addr = reinterpret_cast<const sockaddr*>(&last_client_addr_);
+        target_addr = reinterpret_cast<const SocketAddress*>(&last_client_addr_);
         target_addr_len = last_client_addr_len_;
     } else { // OUT
-        target_addr = reinterpret_cast<const sockaddr*>(&dest_addr_);
+        target_addr = reinterpret_cast<const SocketAddress*>(&dest_addr_);
         target_addr_len = dest_addr_len_;
     }
 
@@ -265,7 +262,7 @@ HakoPduErrorType UdpComm::raw_send(const std::vector<std::byte>& data) noexcept
         return HAKO_PDU_ERR_INVALID_ARGUMENT;
     }
 
-    ssize_t sent = ::sendto(current_socket_fd, data.data(), data.size(), 0, target_addr, target_addr_len);
+    SocketSize sent = send_to_socket(current_socket_fd, data.data(), data.size(), 0, target_addr, target_addr_len);
     if (sent < 0) {
         const int error_number = last_socket_error();
         std::cerr << "UDP Comm sendto failed: " << socket_error_message(error_number) << std::endl;
@@ -280,10 +277,10 @@ void UdpComm::recv_loop()
 {
     std::vector<std::byte> buffer(65536); // Max UDP packet size
     while (is_running_flag_) {
-        sockaddr_storage from{};
-        socklen_t from_len = sizeof(from);
-        ssize_t received = ::recvfrom(socket_fd_.load(), buffer.data(), buffer.size(), 0,
-                                      reinterpret_cast<sockaddr*>(&from), &from_len);
+        SocketAddressStorage from{};
+        SocketLength from_len = sizeof(from);
+        SocketSize received = recv_from_socket(socket_fd_.load(), buffer.data(), buffer.size(), 0,
+                                               reinterpret_cast<SocketAddress*>(&from), &from_len);
 
         if (received < 0) {
             const int error_number = last_socket_error();
@@ -314,29 +311,24 @@ void UdpComm::recv_loop()
 HakoPduErrorType UdpComm::configure_socket_options(const Options& options) noexcept
 {
     if (options.reuse_address) {
-        int reuse = 1;
-        if (setsockopt(socket_fd_.load(), SOL_SOCKET, SO_REUSEADDR, &reuse, sizeof(reuse)) != 0) {
+        if (set_socket_option_int(socket_fd_.load(), SOL_SOCKET, SO_REUSEADDR, 1) != HAKO_PDU_ERR_OK) {
             return HAKO_PDU_ERR_IO_ERROR;
         }
     }
     if (options.broadcast) {
-        int broadcast = 1;
-        if (setsockopt(socket_fd_.load(), SOL_SOCKET, SO_BROADCAST, &broadcast, sizeof(broadcast)) != 0) {
+        if (set_socket_option_int(socket_fd_.load(), SOL_SOCKET, SO_BROADCAST, 1) != HAKO_PDU_ERR_OK) {
             return HAKO_PDU_ERR_IO_ERROR;
         }
     }
     if (options.buffer_size > 0) {
-        if (setsockopt(socket_fd_.load(), SOL_SOCKET, SO_RCVBUF, &options.buffer_size, sizeof(options.buffer_size)) != 0) {
+        if (set_socket_option_int(socket_fd_.load(), SOL_SOCKET, SO_RCVBUF, options.buffer_size) != HAKO_PDU_ERR_OK) {
             return HAKO_PDU_ERR_IO_ERROR;
         }
     }
-    timeval timeout{};
-    timeout.tv_sec = options.timeout_ms / 1000;
-    timeout.tv_usec = (options.timeout_ms % 1000) * 1000;
-    if (setsockopt(socket_fd_.load(), SOL_SOCKET, SO_RCVTIMEO, &timeout, sizeof(timeout)) != 0) {
+    if (set_socket_timeout_option(socket_fd_.load(), SO_RCVTIMEO, options.timeout_ms) != HAKO_PDU_ERR_OK) {
         return HAKO_PDU_ERR_IO_ERROR;
     }
-    if (setsockopt(socket_fd_.load(), SOL_SOCKET, SO_SNDTIMEO, &timeout, sizeof(timeout)) != 0) {
+    if (set_socket_timeout_option(socket_fd_.load(), SO_SNDTIMEO, options.timeout_ms) != HAKO_PDU_ERR_OK) {
         return HAKO_PDU_ERR_IO_ERROR;
     }
     if (!options.blocking) {
@@ -356,10 +348,10 @@ HakoPduErrorType UdpComm::configure_multicast(const Options& options) noexcept
         ip_mreq mreq{};
         if (inet_pton(AF_INET, options.multicast_group.c_str(), &mreq.imr_multiaddr) != 1) return HAKO_PDU_ERR_INVALID_ARGUMENT;
         if (inet_pton(AF_INET, options.multicast_interface.c_str(), &mreq.imr_interface) != 1) return HAKO_PDU_ERR_INVALID_ARGUMENT;
-        if (setsockopt(socket_fd_.load(), IPPROTO_IP, IP_ADD_MEMBERSHIP, &mreq, sizeof(mreq)) != 0) return HAKO_PDU_ERR_IO_ERROR;
+        if (set_socket_option_buffer(socket_fd_.load(), IPPROTO_IP, IP_ADD_MEMBERSHIP, &mreq, sizeof(mreq)) != HAKO_PDU_ERR_OK) return HAKO_PDU_ERR_IO_ERROR;
     }
     if (config_direction_ == HAKO_PDU_ENDPOINT_DIRECTION_OUT || config_direction_ == HAKO_PDU_ENDPOINT_DIRECTION_INOUT) {
-        if (setsockopt(socket_fd_.load(), IPPROTO_IP, IP_MULTICAST_TTL, &options.multicast_ttl, sizeof(options.multicast_ttl)) != 0) {
+        if (set_socket_option_int(socket_fd_.load(), IPPROTO_IP, IP_MULTICAST_TTL, options.multicast_ttl) != HAKO_PDU_ERR_OK) {
             return HAKO_PDU_ERR_IO_ERROR;
         }
     }

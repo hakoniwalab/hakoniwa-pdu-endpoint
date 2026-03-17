@@ -7,7 +7,6 @@
 #include <memory>
 #include <algorithm>
 #include <cstring>
-#include <arpa/inet.h> // For htonl, ntohl
 
 namespace hakoniwa {
 namespace pdu {

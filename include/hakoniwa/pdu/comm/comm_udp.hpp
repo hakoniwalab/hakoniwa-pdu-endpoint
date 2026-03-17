@@ -2,7 +2,7 @@
 
 #include "hakoniwa/pdu/comm/comm_raw.hpp" // Change base class
 #include "hakoniwa/pdu/endpoint_types.hpp"
-#include <netinet/in.h>
+#include "hakoniwa/pdu/socket_portability.hpp"
 #include <string>
 #include <thread>
 #include <vector>
@@ -50,12 +50,12 @@ private:
     HakoPduErrorType configure_multicast(const Options& options) noexcept;
 
     // ソケットとアドレス関連 (remains the same)
-    std::atomic<int> socket_fd_{-1};
-    sockaddr_storage dest_addr_{};
-    socklen_t dest_addr_len_ = 0;
+    std::atomic<SocketHandle> socket_fd_{kInvalidSocket};
+    SocketAddressStorage dest_addr_{};
+    SocketLength dest_addr_len_ = 0;
     bool has_fixed_remote_ = false;
-    sockaddr_storage last_client_addr_{};
-    socklen_t last_client_addr_len_ = 0;
+    SocketAddressStorage last_client_addr_{};
+    SocketLength last_client_addr_len_ = 0;
     HakoPduEndpointDirectionType config_direction_ = HAKO_PDU_ENDPOINT_DIRECTION_INOUT;
 
     // スレッド関連 (pdu_key_ is now in PduCommRaw)

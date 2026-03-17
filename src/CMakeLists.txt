@@ -82,10 +82,17 @@ endif()
 # システムのBoostを使用（ヘッダーオンリー）
 find_package(Boost 1.70 REQUIRED)
 
+set(SOCKET_PORTABILITY_SRC "")
+if(WIN32)
+    set(SOCKET_PORTABILITY_SRC socket_portability_win.cpp)
+else()
+    set(SOCKET_PORTABILITY_SRC socket_portability_posix.cpp)
+endif()
+
 add_library(hakoniwa_pdu_endpoint
   c_endpoint.cpp
   socket_utils.cpp
-  socket_portability_posix.cpp
+  ${SOCKET_PORTABILITY_SRC}
   comm_udp.cpp
   comm_tcp.cpp
   comm_storage.cpp
@@ -137,6 +144,10 @@ target_link_libraries(hakoniwa_pdu_endpoint
     nlohmann_json::nlohmann_json
     Boost::headers
 )
+
+if(WIN32)
+  target_link_libraries(hakoniwa_pdu_endpoint PRIVATE ws2_32)
+endif()
 
 if(HAKO_PDU_ENDPOINT_ENABLE_ZENOH)
   if(TARGET zenohc::lib)

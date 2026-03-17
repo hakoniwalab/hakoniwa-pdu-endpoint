@@ -1,7 +1,7 @@
 #pragma once
 
 #include "hakoniwa/pdu/endpoint_types.h"
-#include <netdb.h>
+#include "hakoniwa/pdu/socket_portability.hpp"
 #include <nlohmann/json.hpp>
 #include <string>
 
@@ -16,10 +16,10 @@ struct NameResolverConfig {
 
 HakoPduErrorType map_errno_to_error(int error_number) noexcept;
 HakoPduEndpointDirectionType parse_direction(const std::string& direction);
-HakoPduErrorType resolve_address(const nlohmann::json& endpoint_json, int socket_type, addrinfo** res);
+HakoPduErrorType resolve_address(const nlohmann::json& endpoint_json, int socket_type, AddressInfo** res);
 HakoPduErrorType resolve_address(const nlohmann::json& endpoint_json,
                                  int socket_type,
-                                 addrinfo** res,
+                                 AddressInfo** res,
                                  const NameResolverConfig* resolver,
                                  std::string* resolved_address = nullptr);
 HakoPduErrorType load_name_resolver_config(const nlohmann::json& comm_json,

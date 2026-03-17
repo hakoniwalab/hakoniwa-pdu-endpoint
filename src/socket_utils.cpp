@@ -1,12 +1,9 @@
 #include "hakoniwa/pdu/socket_utils.hpp"
-#include "hakoniwa/pdu/socket_portability.hpp"
 
-#include <arpa/inet.h>
 #include <cstdlib>
 #include <filesystem>
 #include <fstream>
 #include <iostream>
-#include <netdb.h>
 #include <optional>
 
 namespace hakoniwa {
@@ -76,14 +73,14 @@ HakoPduEndpointDirectionType parse_direction(const std::string& direction)
     return HAKO_PDU_ENDPOINT_DIRECTION_INOUT;
 }
 
-HakoPduErrorType resolve_address(const nlohmann::json& endpoint_json, int socket_type, addrinfo** res)
+HakoPduErrorType resolve_address(const nlohmann::json& endpoint_json, int socket_type, AddressInfo** res)
 {
     return resolve_address(endpoint_json, socket_type, res, nullptr, nullptr);
 }
 
 HakoPduErrorType resolve_address(const nlohmann::json& endpoint_json,
                                  int socket_type,
-                                 addrinfo** res,
+                                 AddressInfo** res,
                                  const NameResolverConfig* resolver,
                                  std::string* resolved_address)
 {
@@ -106,7 +103,7 @@ HakoPduErrorType resolve_address(const nlohmann::json& endpoint_json,
         }
     }
 
-    addrinfo hints{};
+    AddressInfo hints{};
     hints.ai_family = AF_UNSPEC;
     hints.ai_socktype = socket_type;
     hints.ai_flags = AI_PASSIVE;
