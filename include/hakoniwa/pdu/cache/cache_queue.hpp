@@ -44,9 +44,9 @@ public:
       if (json_config.contains("store") && json_config["store"].contains("depth")) {
         depth_ = json_config["store"]["depth"].get<int>();
       }
-    } catch (const nlohmann::json::parse_error &e) {
+    } catch (const nlohmann::json::parse_error &) {
       return HAKO_PDU_ERR_INVALID_JSON;
-    } catch (const nlohmann::json::exception &e) {
+    } catch (const nlohmann::json::exception &) {
       return HAKO_PDU_ERR_INVALID_CONFIG;
     }
     if (depth_ == 0) {

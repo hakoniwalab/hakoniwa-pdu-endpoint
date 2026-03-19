@@ -7,6 +7,12 @@ set(HAKONIWA_PDU_ENDPOINT_VERSION 0.1.0)
 
 option(HAKO_PDU_ENDPOINT_ENABLE_ZENOH "Enable Zenoh transport support via zenoh-c" OFF)
 option(HAKO_PDU_ENDPOINT_ENABLE_MQTT "Enable MQTT transport support via Eclipse Paho MQTT C++" OFF)
+if(WIN32)
+  option(HAKO_PDU_ENDPOINT_ENABLE_HAKONIWA_CORE "Enable Hakoniwa core integration (SHM/time source)" OFF)
+else()
+  option(HAKO_PDU_ENDPOINT_ENABLE_HAKONIWA_CORE "Enable Hakoniwa core integration (SHM/time source)" ON)
+endif()
+set(HAKO_PDU_ENDPOINT_HAKONIWA_CORE_ROOT "" CACHE PATH "Hakoniwa core install root (contains include/ and lib/)")
 
 include(GNUInstallDirs)
 include(CMakePackageConfigHelpers)

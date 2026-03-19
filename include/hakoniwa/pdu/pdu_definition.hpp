@@ -1,7 +1,6 @@
 #pragma once
 
 #include "hakoniwa/pdu/endpoint_types.hpp"
-#include "hako_primitive_types.h" // Added
 #include <string>
 #include <vector>
 #include <map>

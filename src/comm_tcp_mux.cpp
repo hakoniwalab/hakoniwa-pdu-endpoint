@@ -422,7 +422,14 @@ HakoPduErrorType TcpCommMultiplexer::open(const std::string& config_path)
         std::cerr << "Failed to configure socket options." << std::endl;
         return HAKO_PDU_ERR_IO_ERROR;
     }
-    if (bind_socket(listen_fd_.load(), local_addr_info->ai_addr, local_addr_info->ai_addrlen) != 0) {
+    SocketLength local_addr_len = 0;
+    if (!to_socket_length(local_addr_info->ai_addrlen, local_addr_len)) {
+        close();
+        free_address_info(local_addr_info);
+        std::cerr << "Failed to bind socket: local address length overflow." << std::endl;
+        return HAKO_PDU_ERR_INVALID_ARGUMENT;
+    }
+    if (bind_socket(listen_fd_.load(), local_addr_info->ai_addr, local_addr_len) != 0) {
         close();
         free_address_info(local_addr_info);
         std::cerr << "Failed to bind socket: " << socket_error_message(last_socket_error()) << std::endl;

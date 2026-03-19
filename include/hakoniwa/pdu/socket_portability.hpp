@@ -3,6 +3,7 @@
 #include "hakoniwa/pdu/endpoint_types.h"
 #include <cstddef>
 #include <cstdint>
+#include <limits>
 #include <string>
 
 #ifdef _WIN32
@@ -44,6 +45,15 @@ inline constexpr SocketHandle kInvalidSocket =
 #else
     -1;
 #endif
+
+inline bool to_socket_length(size_t n, SocketLength& out) noexcept
+{
+    if (n > static_cast<size_t>(std::numeric_limits<SocketLength>::max())) {
+        return false;
+    }
+    out = static_cast<SocketLength>(n);
+    return true;
+}
 
 enum class SocketShutdownMode {
     Read,

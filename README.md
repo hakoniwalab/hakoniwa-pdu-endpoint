@@ -92,9 +92,13 @@ This design is intentionally biased toward large, multi-asset simulations: it fa
 -   C++20 compatible compiler (e.g., GCC, Clang, MSVC)
 -   CMake (version 3.16 or later)
 -   Boost headers (header-only usage)
+    -   On Windows, the recommended path is `vcpkg` (`boost-headers:x64-windows`) and passing its toolchain file to CMake.
 -   GoogleTest (for running tests, provided by your system package)
 -   (Optional) Hakoniwa Core Library, if using Shared Memory (`comm_shm`) communication or Hakoniwa time sources.
     -   Expected install prefix: `/usr/local/hakoniwa` (headers in `/usr/local/hakoniwa/include`, libs in `/usr/local/hakoniwa/lib`)
+    -   CMake option: `-DHAKO_PDU_ENDPOINT_ENABLE_HAKONIWA_CORE=ON|OFF`
+    -   Core root override: `-DHAKO_PDU_ENDPOINT_HAKONIWA_CORE_ROOT=<path>`
+    -   Default: `ON` on macOS/Linux, `OFF` on Windows
 
 ## How to Build
 
@@ -114,6 +118,52 @@ You can build the project using standard CMake commands.
     ```
     This will compile the static library `libhakoniwa_pdu_endpoint.a` into the `build/src` directory.
     It also builds `build/tools/hako_pdu_storage_debug` by default.
+
+### Windows (MSVC + PowerShell) Quick Build
+
+If `.\build-win.ps1` fails with `Could not find ... BoostConfig.cmake`, install Boost via `vcpkg` and pass the toolchain file.
+
+1.  **Install vcpkg and Boost headers**:
+    ```powershell
+    cd C:\project
+    git clone https://github.com/microsoft/vcpkg.git
+    cd vcpkg
+    .\bootstrap-vcpkg.bat
+    .\vcpkg.exe install boost-headers:x64-windows
+    ```
+
+2.  **Build this project with the vcpkg toolchain**:
+    ```powershell
+    cd C:\project\hakoniwa-pdu-endpoint
+    .\build-win.ps1 -Clean `
+      -BuildDirName build-win2 `
+      -ToolchainFile C:\project\vcpkg\scripts\buildsystems\vcpkg.cmake `
+      -VcpkgTriplet x64-windows `
+      -Platform x64
+    ```
+
+3.  **Build with Hakoniwa Core integration (optional)**:
+    ```powershell
+    .\build-win.ps1 -Clean `
+      -BuildDirName build-win2 `
+      -ToolchainFile C:\project\vcpkg\scripts\buildsystems\vcpkg.cmake `
+      -VcpkgTriplet x64-windows `
+      -Platform x64 `
+      -EnableHakoniwaCore `
+      -HakoniwaCoreRoot C:\project\hakoniwa-core-pro\install
+    ```
+
+Notes:
+- `build-win.ps1` defaults to `Release`. Use `-Configuration Debug` when needed.
+- Default build directory is `build-win`. Override with `-BuildDirName <name>` (for example `build-win2`).
+- Optional features are off by default on Windows too. Enable with `-EnableZenoh` and/or `-EnableMqtt`.
+- Hakoniwa Core integration (SHM + Hakoniwa time source) is `OFF` by default on Windows.
+- To enable it, install Hakoniwa Core headers/libs and add `-EnableHakoniwaCore`.
+- If Hakoniwa Core is in a custom location (for example `..\hakoniwa-core-pro\install`), also add `-HakoniwaCoreRoot <path>`.
+- `build-win.ps1` now stops immediately when CMake configure fails, so dependency errors are easier to diagnose.
+- Typical Windows artifacts:
+  - `build-win2/src/Release/hakoniwa_pdu_endpoint.lib`
+  - `build-win2/tools/Release/hako_pdu_storage_debug.exe`
 
 ## Quick Start For Storage
 

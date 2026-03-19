@@ -1,21 +1,26 @@
 param(
     [ValidateSet("Debug", "Release", "RelWithDebInfo", "MinSizeRel")]
     [string]$Configuration = "Release",
+    [string]$BuildDirName = "build-win",
     [string]$Generator = "",
     [string]$Platform = "",
+    [string]$ToolchainFile = "",
+    [string]$VcpkgTriplet = "",
+    [string]$HakoniwaCoreRoot = "",
     [int]$Parallel = 0,
     [switch]$Clean,
     [switch]$BuildTests,
     [switch]$BuildExamples,
     [switch]$DisableTools,
     [switch]$EnableZenoh,
-    [switch]$EnableMqtt
+    [switch]$EnableMqtt,
+    [switch]$EnableHakoniwaCore
 )
 
 $ErrorActionPreference = "Stop"
 
 $ProjectRoot = Split-Path -Parent $MyInvocation.MyCommand.Path
-$BuildDir = Join-Path $ProjectRoot "build-win"
+$BuildDir = Join-Path $ProjectRoot $BuildDirName
 
 function Say {
     param([string]$Message)
@@ -32,8 +37,19 @@ function Is-SingleConfigGenerator {
     return $Name -match "Ninja|Makefiles"
 }
 
+function Get-OnOffValue {
+    param(
+        [bool]$Enabled
+    )
+
+    if ($Enabled) {
+        return "ON"
+    }
+    return "OFF"
+}
+
 if ($Clean -and (Test-Path $BuildDir)) {
-    Say "Removing existing build-win directory..."
+    Say "Removing existing $BuildDirName directory..."
     Remove-Item -Recurse -Force $BuildDir
 }
 
@@ -45,11 +61,12 @@ if ([string]::IsNullOrWhiteSpace($ResolvedGenerator) -and $env:CMAKE_GENERATOR) 
 $ConfigureArgs = @(
     "-S", $ProjectRoot,
     "-B", $BuildDir,
-    "-DHAKO_PDU_ENDPOINT_BUILD_TESTS=$($BuildTests.IsPresent ? "ON" : "OFF")",
-    "-DHAKO_PDU_ENDPOINT_BUILD_EXAMPLES=$($BuildExamples.IsPresent ? "ON" : "OFF")",
-    "-DHAKO_PDU_ENDPOINT_BUILD_TOOLS=$($DisableTools.IsPresent ? "OFF" : "ON")",
-    "-DHAKO_PDU_ENDPOINT_ENABLE_ZENOH=$($EnableZenoh.IsPresent ? "ON" : "OFF")",
-    "-DHAKO_PDU_ENDPOINT_ENABLE_MQTT=$($EnableMqtt.IsPresent ? "ON" : "OFF")"
+    "-DHAKO_PDU_ENDPOINT_BUILD_TESTS=$(Get-OnOffValue -Enabled $BuildTests.IsPresent)",
+    "-DHAKO_PDU_ENDPOINT_BUILD_EXAMPLES=$(Get-OnOffValue -Enabled $BuildExamples.IsPresent)",
+    "-DHAKO_PDU_ENDPOINT_BUILD_TOOLS=$(Get-OnOffValue -Enabled (-not $DisableTools.IsPresent))",
+    "-DHAKO_PDU_ENDPOINT_ENABLE_ZENOH=$(Get-OnOffValue -Enabled $EnableZenoh.IsPresent)",
+    "-DHAKO_PDU_ENDPOINT_ENABLE_MQTT=$(Get-OnOffValue -Enabled $EnableMqtt.IsPresent)",
+    "-DHAKO_PDU_ENDPOINT_ENABLE_HAKONIWA_CORE=$(Get-OnOffValue -Enabled $EnableHakoniwaCore.IsPresent)"
 )
 
 if (-not [string]::IsNullOrWhiteSpace($ResolvedGenerator)) {
@@ -60,12 +77,27 @@ if (-not [string]::IsNullOrWhiteSpace($Platform)) {
     $ConfigureArgs += @("-A", $Platform)
 }
 
+if (-not [string]::IsNullOrWhiteSpace($ToolchainFile)) {
+    $ConfigureArgs += "-DCMAKE_TOOLCHAIN_FILE=$ToolchainFile"
+}
+
+if (-not [string]::IsNullOrWhiteSpace($VcpkgTriplet)) {
+    $ConfigureArgs += "-DVCPKG_TARGET_TRIPLET=$VcpkgTriplet"
+}
+
+if (-not [string]::IsNullOrWhiteSpace($HakoniwaCoreRoot)) {
+    $ConfigureArgs += "-DHAKO_PDU_ENDPOINT_HAKONIWA_CORE_ROOT=$HakoniwaCoreRoot"
+}
+
 if (Is-SingleConfigGenerator $ResolvedGenerator) {
     $ConfigureArgs += "-DCMAKE_BUILD_TYPE=$Configuration"
 }
 
-Say "Configuring Windows build in build-win ($Configuration)..."
+Say "Configuring Windows build in $BuildDirName ($Configuration)..."
 & cmake @ConfigureArgs
+if ($LASTEXITCODE -ne 0) {
+    throw "CMake configure failed (exit code: $LASTEXITCODE)."
+}
 
 $BuildArgs = @("--build", $BuildDir)
 if (-not (Is-SingleConfigGenerator $ResolvedGenerator)) {
@@ -77,5 +109,8 @@ if ($Parallel -gt 0) {
 
 Say "Building..."
 & cmake @BuildArgs
+if ($LASTEXITCODE -ne 0) {
+    throw "CMake build failed (exit code: $LASTEXITCODE)."
+}
 
-Say "Done. Artifacts are under build-win."
+Say "Done. Artifacts are under $BuildDirName."

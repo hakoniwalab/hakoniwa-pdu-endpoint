@@ -101,13 +101,13 @@ add_library(hakoniwa_pdu_endpoint
   comm_tcp_mux.cpp
   comm_websocket.cpp
   pdu_factory.cpp
-  comm_shm.cpp 
-  comm_shm_poll.cpp
-  comm_shm_callback.cpp
+  $<$<BOOL:${HAKO_PDU_ENDPOINT_ENABLE_HAKONIWA_CORE}>:comm_shm.cpp>
+  $<$<BOOL:${HAKO_PDU_ENDPOINT_ENABLE_HAKONIWA_CORE}>:comm_shm_poll.cpp>
+  $<$<BOOL:${HAKO_PDU_ENDPOINT_ENABLE_HAKONIWA_CORE}>:comm_shm_callback.cpp>
   pdu_definition.cpp
-  hakoniwa_time_source.cpp
-  hakoniwa_time_source_poll.cpp
-  hakoniwa_time_source_callback.cpp
+  $<$<BOOL:${HAKO_PDU_ENDPOINT_ENABLE_HAKONIWA_CORE}>:hakoniwa_time_source.cpp>
+  $<$<BOOL:${HAKO_PDU_ENDPOINT_ENABLE_HAKONIWA_CORE}>:hakoniwa_time_source_poll.cpp>
+  $<$<BOOL:${HAKO_PDU_ENDPOINT_ENABLE_HAKONIWA_CORE}>:hakoniwa_time_source_callback.cpp>
   endpoint_container.cpp
   endpoint_comm_multiplexer.cpp
 )
@@ -118,25 +118,7 @@ target_include_directories(hakoniwa_pdu_endpoint
   PUBLIC
     $<BUILD_INTERFACE:${CMAKE_CURRENT_LIST_DIR}/../include>
     $<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}>
-    /usr/local/hakoniwa/include
-    /usr/local/hakoniwa/include/hakoniwa
-    /usr/local/hakoniwa/include/hakoniwa/pdu
 )
-if(APPLE)
-  set(HAKONIWA_LIB_DIRS /usr/local/hakoniwa/lib)
-else()
-  set(HAKONIWA_LIB_DIRS /usr/local/hakoniwa/lib /usr/lib/x86_64-linux-gnu)
-endif()
-
-set(HAKONIWA_LINK_LIBS "")
-foreach(lib_name assets shakoc)
-  find_library(HAKONIWA_${lib_name}_LIB NAMES ${lib_name} PATHS ${HAKONIWA_LIB_DIRS})
-  if(HAKONIWA_${lib_name}_LIB)
-    list(APPEND HAKONIWA_LINK_LIBS ${HAKONIWA_${lib_name}_LIB})
-  else()
-    list(APPEND HAKONIWA_LINK_LIBS ${lib_name})
-  endif()
-endforeach()
 
 # Boostはヘッダーオンリーで使用
 target_link_libraries(hakoniwa_pdu_endpoint
@@ -147,6 +129,15 @@ target_link_libraries(hakoniwa_pdu_endpoint
 
 if(WIN32)
   target_link_libraries(hakoniwa_pdu_endpoint PRIVATE ws2_32)
+endif()
+
+if(MSVC)
+  target_compile_options(hakoniwa_pdu_endpoint PRIVATE /utf-8)
+  target_compile_definitions(hakoniwa_pdu_endpoint PRIVATE _CRT_SECURE_NO_WARNINGS _WIN32_WINNT=0x0A00)
+endif()
+
+if(HAKO_PDU_ENDPOINT_ENABLE_HAKONIWA_CORE)
+  target_compile_definitions(hakoniwa_pdu_endpoint PUBLIC HAKO_PDU_ENDPOINT_HAS_HAKONIWA_CORE=1)
 endif()
 
 if(HAKO_PDU_ENDPOINT_ENABLE_ZENOH)
@@ -176,24 +167,47 @@ if(HAKO_PDU_ENDPOINT_ENABLE_MQTT)
 endif()
 
 # Add OS-specific logic for Hakoniwa core library
-if(APPLE)
-  target_include_directories(hakoniwa_pdu_endpoint
-    PUBLIC
-      /usr/local/hakoniwa/include/hakoniwa
+if(HAKO_PDU_ENDPOINT_ENABLE_HAKONIWA_CORE)
+  set(HAKO_HAKONIWA_CORE_ROOT "${HAKO_PDU_ENDPOINT_HAKONIWA_CORE_ROOT}")
+  if(HAKO_HAKONIWA_CORE_ROOT STREQUAL "")
+    if(DEFINED ENV{HAKONIWA_CORE_ROOT} AND NOT "$ENV{HAKONIWA_CORE_ROOT}" STREQUAL "")
+      set(HAKO_HAKONIWA_CORE_ROOT "$ENV{HAKONIWA_CORE_ROOT}")
+    elseif(WIN32)
+      set(HAKO_HAKONIWA_CORE_ROOT "${CMAKE_CURRENT_LIST_DIR}/../../hakoniwa-core-pro/install")
+    else()
+      set(HAKO_HAKONIWA_CORE_ROOT "/usr/local/hakoniwa")
+    endif()
+  endif()
+
+  set(HAKONIWA_INCLUDE_DIRS
+    "${HAKO_HAKONIWA_CORE_ROOT}/include"
+    "${HAKO_HAKONIWA_CORE_ROOT}/include/hakoniwa"
   )
-  target_link_libraries(hakoniwa_pdu_endpoint
-    PUBLIC
-    ${HAKONIWA_LINK_LIBS}
-  )
-elseif(UNIX) # Add this block for Linux
-  target_include_directories(hakoniwa_pdu_endpoint
-    PUBLIC
-      /usr/include/hakoniwa
-  )
-  target_link_libraries(hakoniwa_pdu_endpoint
-    PUBLIC
-    ${HAKONIWA_LINK_LIBS}
-  )
+  if(UNIX AND NOT APPLE)
+    list(APPEND HAKONIWA_INCLUDE_DIRS /usr/include/hakoniwa)
+  endif()
+  target_include_directories(hakoniwa_pdu_endpoint PUBLIC ${HAKONIWA_INCLUDE_DIRS})
+
+  set(HAKONIWA_LIB_DIRS "${HAKO_HAKONIWA_CORE_ROOT}/lib")
+  if(UNIX AND NOT APPLE)
+    list(APPEND HAKONIWA_LIB_DIRS /usr/lib/x86_64-linux-gnu)
+  endif()
+
+  set(HAKONIWA_LINK_LIBS "")
+  foreach(lib_name assets shakoc)
+    find_library(HAKONIWA_${lib_name}_LIB NAMES ${lib_name} PATHS ${HAKONIWA_LIB_DIRS})
+    if(HAKONIWA_${lib_name}_LIB)
+      list(APPEND HAKONIWA_LINK_LIBS ${HAKONIWA_${lib_name}_LIB})
+    else()
+      list(APPEND HAKONIWA_LINK_LIBS ${lib_name})
+    endif()
+  endforeach()
+
+  target_link_libraries(hakoniwa_pdu_endpoint PUBLIC ${HAKONIWA_LINK_LIBS})
+
+  if(NOT EXISTS "${HAKO_HAKONIWA_CORE_ROOT}/include")
+    message(WARNING "Hakoniwa core include directory not found: ${HAKO_HAKONIWA_CORE_ROOT}/include")
+  endif()
 endif()
 
 option(HAKO_PDU_ENDPOINT_BUILD_TESTS "Build UDP endpoint tests" ON)

@@ -35,8 +35,8 @@ private:
     void notify_disconnect_if_needed_(HakoPduErrorType reason, const char* context) noexcept;
 
     // Helper methods
-    HakoPduErrorType read_data(int fd, std::byte* buffer, size_t size) noexcept;
-    HakoPduErrorType write_data(int fd, const std::byte* buffer, size_t size) noexcept;
+    HakoPduErrorType read_data(SocketHandle fd, std::byte* buffer, size_t size) noexcept;
+    HakoPduErrorType write_data(SocketHandle fd, const std::byte* buffer, size_t size) noexcept;
 
     enum class Role {
         Client,

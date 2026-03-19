@@ -1,7 +1,6 @@
 #pragma once
 
 #include "hakoniwa/pdu/endpoint_types.h"
-#include "hakoniwa/hako_primitive_types.h" // Added
 #include <cstddef>
 #include <cstdint>
 #include <string>

@@ -148,7 +148,13 @@ HakoPduErrorType TcpComm::raw_open(const std::string& config_path) {
             std::cerr << "Failed to configure socket options." << std::endl;
             return HAKO_PDU_ERR_IO_ERROR;
         }
-        if (bind_socket(listen_fd_.load(), local_addr_info->ai_addr, local_addr_info->ai_addrlen) != 0) {
+        SocketLength local_addr_len = 0;
+        if (!to_socket_length(local_addr_info->ai_addrlen, local_addr_len)) {
+            raw_close();
+            free_address_info(local_addr_info);
+            return HAKO_PDU_ERR_INVALID_ARGUMENT;
+        }
+        if (bind_socket(listen_fd_.load(), local_addr_info->ai_addr, local_addr_len) != 0) {
             raw_close();
             free_address_info(local_addr_info);
             std::cerr << "Failed to bind socket: " << socket_error_message(last_socket_error()) << std::endl;
@@ -172,7 +178,10 @@ HakoPduErrorType TcpComm::raw_open(const std::string& config_path) {
             return HAKO_PDU_ERR_INVALID_ARGUMENT;
         }
         std::memcpy(&remote_addr_info_, remote_addr_info->ai_addr, remote_addr_info->ai_addrlen);
-        remote_addr_len_ = remote_addr_info->ai_addrlen;
+        if (!to_socket_length(remote_addr_info->ai_addrlen, remote_addr_len_)) {
+            free_address_info(remote_addr_info);
+            return HAKO_PDU_ERR_INVALID_ARGUMENT;
+        }
         free_address_info(remote_addr_info);
     }
 
@@ -559,7 +568,12 @@ HakoPduErrorType TcpComm::connect_with_timeout(SocketHandle fd, AddressInfo* rem
     }
     if (set_socket_nonblocking(fd, true) != HAKO_PDU_ERR_OK) return HAKO_PDU_ERR_IO_ERROR;
 
-    int connect_result = connect_socket(fd, remote_addr->ai_addr, remote_addr->ai_addrlen);
+    SocketLength remote_addr_len = 0;
+    if (!to_socket_length(remote_addr->ai_addrlen, remote_addr_len)) {
+        (void)set_socket_status_flags(fd, original_flags);
+        return HAKO_PDU_ERR_INVALID_ARGUMENT;
+    }
+    int connect_result = connect_socket(fd, remote_addr->ai_addr, remote_addr_len);
     if (connect_result == 0) {
         (void)set_socket_status_flags(fd, original_flags);
         return HAKO_PDU_ERR_OK;

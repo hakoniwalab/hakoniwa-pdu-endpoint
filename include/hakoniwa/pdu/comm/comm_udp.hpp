@@ -1,40 +1,37 @@
 #pragma once
 
-#include "hakoniwa/pdu/comm/comm_raw.hpp" // Change base class
+#include "hakoniwa/pdu/comm/comm_raw.hpp"
 #include "hakoniwa/pdu/endpoint_types.hpp"
 #include "hakoniwa/pdu/socket_portability.hpp"
 #include <string>
 #include <thread>
 #include <vector>
 #include <atomic>
-#include <memory> // std::unique_ptr for DataPacket in PduCommRaw
+#include <memory>
 
 namespace hakoniwa {
 namespace pdu {
-namespace comm { // Add comm namespace
+namespace comm {
 
 // UDP comm: connectionless transport with explicit direction and PDU key.
 // Framing uses PduCommRaw (v1/v2) and a configured PDU key for routing.
-class UdpComm final : public PduCommRaw // Change base class
+class UdpComm final : public PduCommRaw
 {
 public:
     UdpComm();
     virtual ~UdpComm();
 
-protected: // Implement PduCommRaw's pure virtual raw_* methods
+protected:
     HakoPduErrorType raw_open(const std::string& config_path) override;
     HakoPduErrorType raw_close() noexcept override;
     HakoPduErrorType raw_start() noexcept override;
     HakoPduErrorType raw_stop() noexcept override;
     HakoPduErrorType raw_is_running(bool& running) noexcept override;
-    HakoPduErrorType raw_send(const std::vector<std::byte>& data) noexcept override; // Added noexcept
-    // recv is now handled by PduCommRaw
+    HakoPduErrorType raw_send(const std::vector<std::byte>& data) noexcept override;
 
 private:
-    // 受信スレッドのメインループ
     void recv_loop();
 
-    // 内部オプション構造体 (remains the same)
     struct Options {
         int buffer_size = 8192;
         int timeout_ms = 1000;
@@ -49,7 +46,6 @@ private:
     HakoPduErrorType configure_socket_options(const Options& options) noexcept;
     HakoPduErrorType configure_multicast(const Options& options) noexcept;
 
-    // ソケットとアドレス関連 (remains the same)
     std::atomic<SocketHandle> socket_fd_{kInvalidSocket};
     SocketAddressStorage dest_addr_{};
     SocketLength dest_addr_len_ = 0;
@@ -58,10 +54,8 @@ private:
     SocketLength last_client_addr_len_ = 0;
     HakoPduEndpointDirectionType config_direction_ = HAKO_PDU_ENDPOINT_DIRECTION_INOUT;
 
-    // スレッド関連 (pdu_key_ is now in PduCommRaw)
     std::thread recv_thread_;
-    std::atomic<bool> is_running_flag_{false}; // Renamed to avoid confusion with raw_is_running
-    // queue_mtx_, queue_cv_, data_queue_ removed (now in PduCommRaw)
+    std::atomic<bool> is_running_flag_{false};
 };
 
 }  // namespace comm

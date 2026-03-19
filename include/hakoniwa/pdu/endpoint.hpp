@@ -95,14 +95,14 @@ public:
                 std::string comm_config_path = config["comm"].get<std::string>();
                 auto resolved_comm_config_path = resolve_under_base(base_dir, comm_config_path);
 
-                comm_ = create_pdu_comm(resolved_comm_config_path);
+                comm_ = create_pdu_comm(resolved_comm_config_path.string());
                 if (!comm_) {
                     std::cerr << "Failed to create PDU Comm module." << std::endl;
                     return HAKO_PDU_ERR_INVALID_CONFIG;
                 }
                 // Pass PDU definition to comm module
                 comm_->set_pdu_definition(pdu_def_);
-                HakoPduErrorType err = comm_->create_pdu_lchannels(resolved_comm_config_path);
+                HakoPduErrorType err = comm_->create_pdu_lchannels(resolved_comm_config_path.string());
                 if (err != HAKO_PDU_ERR_OK) {
                     std::cerr << "Failed to create_pdu_lchannels PDU Comm: " << static_cast<int>(err) << std::endl;
                     return err;
@@ -112,7 +112,7 @@ public:
                 std::cerr << "PDU Comm configuration is missing." << std::endl;
                 return HAKO_PDU_ERR_INVALID_CONFIG;
             }
-        } catch (const nlohmann::json::exception& e) {
+        } catch (const nlohmann::json::exception&) {
             return HAKO_PDU_ERR_INVALID_JSON;
         }
 
@@ -142,12 +142,12 @@ public:
             std::string cache_config_path = config["cache"].get<std::string>();
             auto resolved_cache_config_path = resolve_under_base(base_dir, cache_config_path);
 
-            cache_ = create_pdu_cache(resolved_cache_config_path);
+            cache_ = create_pdu_cache(resolved_cache_config_path.string());
             if (!cache_) {
                 std::cerr << "Failed to create PDU Cache module: " << resolved_cache_config_path << std::endl;
                 return HAKO_PDU_ERR_INVALID_CONFIG;
             }
-            HakoPduErrorType err = cache_->open(resolved_cache_config_path);
+            HakoPduErrorType err = cache_->open(resolved_cache_config_path.string());
             if (err != HAKO_PDU_ERR_OK) {
                 std::cerr << "Failed to open PDU Cache: " << static_cast<int>(err) << std::endl;
                 return err;
@@ -158,7 +158,7 @@ public:
                 auto resolved_comm_config_path = resolve_under_base(base_dir, comm_config_path);
 
                 if (!comm_) {
-                    comm_ = create_pdu_comm(resolved_comm_config_path);
+                    comm_ = create_pdu_comm(resolved_comm_config_path.string());
                 }
                 if (!comm_) {
                     std::cerr << "Failed to create PDU Comm module." << std::endl;
@@ -168,14 +168,14 @@ public:
                 if (pdu_def_) {
                     comm_->set_pdu_definition(pdu_def_);
                 }
-                err = comm_->open(resolved_comm_config_path);
+                err = comm_->open(resolved_comm_config_path.string());
                 if (err != HAKO_PDU_ERR_OK) {
                     std::cerr << "Failed to open PDU Comm: " << static_cast<int>(err) << std::endl;
                     return err;
                 }
             }
 
-        } catch (const nlohmann::json::exception& e) {
+        } catch (const nlohmann::json::exception&) {
             return HAKO_PDU_ERR_INVALID_JSON;
         }
 
@@ -488,7 +488,7 @@ private:
         }
         try {
             ifs >> config;
-        } catch (const nlohmann::json::exception& e) {
+        } catch (const nlohmann::json::exception&) {
             return HAKO_PDU_ERR_INVALID_JSON;
         }
         return HAKO_PDU_ERR_OK;
@@ -502,7 +502,7 @@ private:
                 pdu_def_ = std::make_shared<PduDefinition>();
                 auto resolved_pdu_def_path = resolve_under_base(base_dir, config["pdu_def_path"].get<std::string>());
                 std::cout << "PDU Definition: loading from " << resolved_pdu_def_path << std::endl;
-                if (!pdu_def_->load(resolved_pdu_def_path)) {
+                if (!pdu_def_->load(resolved_pdu_def_path.string())) {
                     std::cerr << "PDU Definition: failed to load from " << resolved_pdu_def_path << std::endl;
                     return HAKO_PDU_ERR_INVALID_CONFIG;
                 }

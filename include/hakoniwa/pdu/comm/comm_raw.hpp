@@ -7,6 +7,7 @@
 #include <mutex> // Add mutex include
 #include <memory>
 #include <iostream>
+#include <exception>
 // Removed <deque>, <mutex>, <condition_variable>
 
 namespace hakoniwa {
@@ -45,7 +46,14 @@ class PduCommRaw : public PduComm {
          DataPacket packet(pdu_key.robot, pdu_key.channel_id, {data.begin(), data.end()});
          // TODO: Timestamps should be set here if needed.
          std::lock_guard<std::mutex> lock(send_mutex_); // Add lock
-         auto encoded_data = packet.encode(packet_version_); // Encode data while holding lock
+         std::vector<std::byte> encoded_data;
+         try {
+             encoded_data = packet.encode(packet_version_); // Encode data while holding lock
+         } catch (const std::exception&) {
+             return HAKO_PDU_ERR_NO_SPACE;
+         } catch (...) {
+             return HAKO_PDU_ERR_IO_ERROR;
+         }
          #ifdef ENABLE_DEBUG_MESSAGES
          std::cout << "DEBUG: PduCommRaw sending PDU: robot=" << pdu_key.robot
                    << " channel=" << pdu_key.channel_id

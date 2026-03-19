@@ -3,8 +3,10 @@
 #include "hakoniwa/pdu/cache/cache_queue.hpp"
 #include "hakoniwa/pdu/comm/comm_tcp.hpp"
 #include "hakoniwa/pdu/comm/comm_udp.hpp"
-#include "hakoniwa/pdu/comm/comm_shm.hpp" // Added
-#include "hakoniwa/pdu/comm/comm_websocket.hpp" // Added
+#ifdef HAKO_PDU_ENDPOINT_HAS_HAKONIWA_CORE
+#include "hakoniwa/pdu/comm/comm_shm.hpp"
+#endif
+#include "hakoniwa/pdu/comm/comm_websocket.hpp"
 #include "hakoniwa/pdu/comm/comm_storage.hpp"
 #ifdef HAKO_PDU_ENDPOINT_HAS_ZENOH
 #include "hakoniwa/pdu/comm/comm_zenoh.hpp"
@@ -62,8 +64,13 @@ std::shared_ptr<PduComm> create_pdu_comm(const std::string& config_path) {
             return std::make_shared<comm::TcpComm>();
         } else if (protocol == "udp") {
             return std::make_shared<comm::UdpComm>();
-        } else if (protocol == "shm") { // Added
-            return std::make_shared<comm::PduCommShm>(); // Added
+        } else if (protocol == "shm") {
+#ifdef HAKO_PDU_ENDPOINT_HAS_HAKONIWA_CORE
+            return std::make_shared<comm::PduCommShm>();
+#else
+            std::cerr << "PduComm Factory Error: protocol 'shm' requested but Hakoniwa core support is disabled." << std::endl;
+            return nullptr;
+#endif
         } else if (protocol == "websocket") {
             return std::make_shared<comm::WebSocketComm>();
         } else if (protocol == "storage") {

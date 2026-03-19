@@ -144,7 +144,14 @@ HakoPduErrorType UdpComm::raw_open(const std::string& config_path)
     }
 
     if (local_addr_info) {
-        if (bind_socket(socket_fd_.load(), local_addr_info->ai_addr, local_addr_info->ai_addrlen) != 0) {
+        SocketLength local_addr_len = 0;
+        if (!to_socket_length(local_addr_info->ai_addrlen, local_addr_len)) {
+            raw_close();
+            free_address_info(local_addr_info);
+            free_address_info(remote_addr_info);
+            return HAKO_PDU_ERR_INVALID_ARGUMENT;
+        }
+        if (bind_socket(socket_fd_.load(), local_addr_info->ai_addr, local_addr_len) != 0) {
             std::cerr << "UDP Comm bind failed: " << socket_error_message(last_socket_error()) << std::endl;
             raw_close(); // Use raw_close for cleanup
             free_address_info(local_addr_info);
@@ -155,7 +162,12 @@ HakoPduErrorType UdpComm::raw_open(const std::string& config_path)
 
     if (remote_addr_info) {
         std::memcpy(&dest_addr_, remote_addr_info->ai_addr, remote_addr_info->ai_addrlen);
-        dest_addr_len_ = remote_addr_info->ai_addrlen;
+        if (!to_socket_length(remote_addr_info->ai_addrlen, dest_addr_len_)) {
+            raw_close();
+            free_address_info(local_addr_info);
+            free_address_info(remote_addr_info);
+            return HAKO_PDU_ERR_INVALID_ARGUMENT;
+        }
     }
 
     free_address_info(local_addr_info);

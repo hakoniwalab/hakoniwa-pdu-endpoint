@@ -53,6 +53,7 @@ typedef int64_t  hako_pdu_sint64_t;
 typedef uint64_t hako_pdu_uint64_t;
 typedef float    hako_pdu_float32_t;
 typedef double   hako_pdu_float64_t;
+typedef int HakoPduChannelIdType;
 
 #define HAKO_PDU_TRUE  ((hako_pdu_bool_t)1)
 #define HAKO_PDU_FALSE ((hako_pdu_bool_t)0)

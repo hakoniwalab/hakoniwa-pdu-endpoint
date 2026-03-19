@@ -7,6 +7,8 @@
 #include <memory>
 #include <algorithm>
 #include <cstring>
+#include <limits>
+#include <stdexcept>
 
 namespace hakoniwa {
 namespace pdu {
@@ -83,8 +85,10 @@ public:
     void set_real_time_usec(int64_t time_usec) { meta_pdu_.real_time_us = time_usec; }
     
     void set_robot_name(const std::string& name) {
-        std::strncpy(meta_pdu_.robot_name, name.c_str(), sizeof(meta_pdu_.robot_name) - 1);
-        meta_pdu_.robot_name[sizeof(meta_pdu_.robot_name) - 1] = '\0';
+        constexpr size_t kMax = sizeof(meta_pdu_.robot_name) - 1;
+        const size_t n = std::min(name.size(), kMax);
+        std::memcpy(meta_pdu_.robot_name, name.data(), n);
+        meta_pdu_.robot_name[n] = '\0';
     }
 
     void set_channel_id(uint32_t channel_id) { meta_pdu_.channel_id = channel_id; }
@@ -217,13 +221,17 @@ private:
     std::vector<std::byte> encode_v2(MetaRequestType request_type) const {
         MetaPdu meta_to_send = meta_pdu_;
 
-        uint32_t body_len = body_data_.size();
+        if (body_data_.size() > static_cast<size_t>(std::numeric_limits<uint32_t>::max())) {
+            throw std::length_error("DataPacket body too large for v2");
+        }
+        uint32_t body_len = static_cast<uint32_t>(body_data_.size());
         meta_to_send.magicno = to_le32(HAKO_META_MAGIC);
         meta_to_send.version = to_le16(HAKO_META_VER_V2);
         meta_to_send.flags = to_le32(0);
         meta_to_send.meta_request_type = to_le32(static_cast<uint32_t>(request_type));
         meta_to_send.body_len = to_le32(body_len);
-        meta_to_send.total_len = to_le32((META_V2_FIXED_SIZE - 4) + body_len);
+        const uint32_t meta_prefix_len = static_cast<uint32_t>(META_V2_FIXED_SIZE - 4);
+        meta_to_send.total_len = to_le32(meta_prefix_len + body_len);
         meta_to_send.hako_time_us = static_cast<int64_t>(to_le64(static_cast<uint64_t>(meta_to_send.hako_time_us)));
         meta_to_send.asset_time_us = static_cast<int64_t>(to_le64(static_cast<uint64_t>(meta_to_send.asset_time_us)));
         meta_to_send.real_time_us = static_cast<int64_t>(to_le64(static_cast<uint64_t>(meta_to_send.real_time_us)));
