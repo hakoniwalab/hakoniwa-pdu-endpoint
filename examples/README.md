@@ -227,6 +227,8 @@ python3 python/hakoniwa_pdu_endpoint/build_c_endpoint_ffi.py
   - Thin `Endpoint` wrapper over the C facade
 - `python/examples/endpoint_async_callback.py`
   - Queue-based callback dispatch through `EndpointAsync`
+- `python/examples/endpoint_recv_next.py`
+  - Runtime `recv_next(...)` for internal `latest` and `queue` cache semantics
 - `python/examples/endpoint_container.py`
   - Pure-Python `EndpointContainer` built by composing wrapped endpoints
 
@@ -235,6 +237,7 @@ Run:
 ```bash
 python3 python/examples/endpoint_internal_cache.py
 python3 python/examples/endpoint_async_callback.py
+python3 python/examples/endpoint_recv_next.py
 python3 python/examples/endpoint_container.py
 ```
 

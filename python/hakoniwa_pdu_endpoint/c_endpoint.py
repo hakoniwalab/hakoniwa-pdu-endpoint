@@ -19,7 +19,22 @@ _python_build_root = _repo_root / "build" / "python"
 if _python_build_root.exists():
     sys.path.insert(0, str(_python_build_root))
 
-from ._c_endpoint_ffi import ffi, lib
+try:
+    from ._c_endpoint_ffi import ffi, lib
+except ModuleNotFoundError:
+    import importlib.util
+
+    _ffi_candidates = sorted((_python_build_root / "hakoniwa_pdu_endpoint").glob("_c_endpoint_ffi*.so"))
+    if not _ffi_candidates:
+        raise
+    _ffi_path = _ffi_candidates[0]
+    _ffi_spec = importlib.util.spec_from_file_location("hakoniwa_pdu_endpoint._c_endpoint_ffi", _ffi_path)
+    if _ffi_spec is None or _ffi_spec.loader is None:
+        raise
+    _ffi_module = importlib.util.module_from_spec(_ffi_spec)
+    _ffi_spec.loader.exec_module(_ffi_module)
+    ffi = _ffi_module.ffi
+    lib = _ffi_module.lib
 
 
 class EndpointError(RuntimeError):

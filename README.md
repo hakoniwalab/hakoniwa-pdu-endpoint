@@ -1,5 +1,7 @@
 # hakoniwa-pdu-endpoint
 
+[English](README.md) | [日本語](README.ja.md)
+
 `hakoniwa-pdu-endpoint` is a core infrastructure component for Hakoniwa distributed simulation. It is not “just a messaging library”: an Endpoint defines the causality boundary between simulation participants and makes semantics explicit. The design intentionally separates `Cache`, `Communication`, and optional `PDU Definition` so that lifetime, delivery, and meaning are never implicit.
 For visual summaries, see `docs/diagrams/README.md`.
 This component targets teams building multi-asset simulations that require explicit semantics and auditability; it is intentionally heavier than a minimal messaging library. If you want a simple API with implicit defaults, this is not the right tool.
@@ -119,6 +121,42 @@ You can build the project using standard CMake commands.
     This will compile the static library `libhakoniwa_pdu_endpoint.a` into the `build/src` directory.
     It also builds `build/tools/hako_pdu_storage_debug` by default.
 
+To build a shared library for C# or other FFI-style runtimes:
+
+```bash
+cmake -S . -B build-shared -DBUILD_SHARED_LIBS=ON
+cmake --build build-shared
+```
+
+Typical artifacts:
+
+- macOS: `build-shared/src/libhakoniwa_pdu_endpoint.dylib`
+- Linux: `build-shared/src/libhakoniwa_pdu_endpoint.so`
+- Windows: `build-win/src/Release/hakoniwa_pdu_endpoint.dll`
+
+### Helper Scripts
+
+The repository also includes small helper scripts for common local workflows.
+
+Core C++:
+
+- build: `bash build.bash`
+- test: `bash test.bash`
+
+Python:
+
+- build native + `cffi`: `bash build-python.bash`
+- run Python smoke tests: `bash test-python.bash`
+- Windows helper: `.\build-python-win.ps1`
+
+C#:
+
+- build shared native + managed projects: `bash build-csharp.bash`
+- run C# smoke tests: `bash test-csharp.bash`
+- Windows helpers:
+  - `.\build-csharp-win.ps1`
+  - `.\test-csharp-win.ps1`
+
 ### Windows (MSVC + PowerShell) Quick Build
 
 If `.\build-win.ps1` fails with `Could not find ... BoostConfig.cmake`, install Boost via `vcpkg` and pass the toolchain file.
@@ -157,6 +195,7 @@ Notes:
 - `build-win.ps1` defaults to `Release`. Use `-Configuration Debug` when needed.
 - Default build directory is `build-win`. Override with `-BuildDirName <name>` (for example `build-win2`).
 - Optional features are off by default on Windows too. Enable with `-EnableZenoh` and/or `-EnableMqtt`.
+- Build a shared library for C#/PInvoke with `-BuildShared`.
 - Hakoniwa Core integration (SHM + Hakoniwa time source) is `OFF` by default on Windows.
 - To enable it, install Hakoniwa Core headers/libs and add `-EnableHakoniwaCore`.
 - If Hakoniwa Core is in a custom location (for example `..\hakoniwa-core-pro\install`), also add `-HakoniwaCoreRoot <path>`.
@@ -372,7 +411,13 @@ python3 python/test/test_c_endpoint_smoke.py
 python3 python/test/test_c_endpoint_async_smoke.py
 ```
 
-5. Run the Python `EndpointContainer` smoke test.
+5. Run the runtime `recv_next` smoke test.
+
+```bash
+python3 python/test/test_c_endpoint_recv_next_smoke.py
+```
+
+6. Run the Python `EndpointContainer` smoke test.
 
 ```bash
 python3 python/test/test_endpoint_container_smoke.py
@@ -391,9 +436,57 @@ Runnable Python examples are also provided:
 
 - `python/examples/endpoint_internal_cache.py`
 - `python/examples/endpoint_async_callback.py`
+- `python/examples/endpoint_recv_next.py`
 - `python/examples/endpoint_container.py`
 
 For the C ABI details and ownership rules, see the `C Facade` section below.
+
+If you want the repository helper scripts instead of manual steps:
+
+```bash
+bash build-python.bash
+bash test-python.bash
+```
+
+## Quick Start For C#
+
+If you want to use `Endpoint` from C# through the C facade boundary, start here.
+
+Why this matters in this project:
+
+- the native runtime stays language-neutral
+- C# can use the same `Endpoint` model as C++ and Python
+- Unity/Godot-oriented integration is possible without adding engine-specific code to the native layer
+- runtime `recv_next(...)` is available for internal cache semantics as well as storage-backed use cases
+
+1. Build the shared native library.
+
+```bash
+cmake -S . -B build-shared -DBUILD_SHARED_LIBS=ON
+cmake --build build-shared --target hakoniwa_pdu_endpoint
+```
+
+2. Build the managed binding and examples.
+
+```bash
+bash build-csharp.bash
+```
+
+3. Run the C# smoke tests.
+
+```bash
+bash test-csharp.bash
+```
+
+4. Inspect the binding-level examples.
+
+- `csharp/examples/MinimalExample/`
+- `csharp/examples/ManualPumpExample/`
+- `csharp/examples/RecvNextExample/`
+
+5. For Unity/Godot-oriented setup and lifecycle guidance, see:
+
+- `docs/csharp_engine_integration.md`
 
 ## Python Installation
 
@@ -435,14 +528,29 @@ Current Python modules:
 - `hakoniwa_pdu_endpoint.c_endpoint_async`
 - `hakoniwa_pdu_endpoint.endpoint_container`
 
+An initial C# binding scaffold is also available under:
+
+- `csharp/hakoniwa_pdu_endpoint/`
+- `csharp/examples/`
+- `csharp/tests/`
+
 Current Python tests/examples:
 
 - `python/test/test_c_endpoint_smoke.py`
 - `python/test/test_c_endpoint_async_smoke.py`
+- `python/test/test_c_endpoint_recv_next_smoke.py`
 - `python/test/test_endpoint_container_smoke.py`
 - `python/examples/endpoint_internal_cache.py`
 - `python/examples/endpoint_async_callback.py`
+- `python/examples/endpoint_recv_next.py`
 - `python/examples/endpoint_container.py`
+
+Current C# tests/examples:
+
+- `csharp/tests/SmokeTests/`
+- `csharp/examples/MinimalExample/`
+- `csharp/examples/ManualPumpExample/`
+- `csharp/examples/RecvNextExample/`
 
 ## Install / Uninstall
 
@@ -518,6 +626,21 @@ For Python specifically, the recommended model is one layer above the thin
 - enqueue the copied record in Python
 - dispatch Python handlers from a Python-owned thread
 
+For the C# binding design intended for Unity/Godot-style main-thread dispatch,
+see `docs/csharp_binding.md`.
+
+For Unity/Godot-oriented C# setup and lifecycle guidance, see
+`docs/csharp_engine_integration.md`.
+
+The repository currently stops at the binding layer and examples.
+Unity-specific or Godot-specific lifecycle adapters are intentionally left to application-side integration.
+
+For the current Python binding design and callback model, see
+`docs/python_binding.md`.
+
+For the core runtime receive model across transports and cache modes, see
+`docs/receive_semantics.md`.
+
 That avoids running user Python logic directly on transport-facing callback
 threads.
 
@@ -531,9 +654,13 @@ Current verification in this repository:
   - `EndpointTest.CEndpointNameBasedApiWorks`
   - `EndpointTest.CEndpointResolvedKeyCallbackWorks`
 - Python smoke test:
+- Python smoke tests:
   - `python/test/test_c_endpoint_smoke.py`
   - `python/test/test_c_endpoint_async_smoke.py`
+  - `python/test/test_c_endpoint_recv_next_smoke.py`
   - `python/test/test_endpoint_container_smoke.py`
+- C# smoke tests:
+  - `csharp/tests/SmokeTests/`
 
 ### Python cffi Wrapper
 

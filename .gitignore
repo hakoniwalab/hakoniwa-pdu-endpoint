@@ -3,6 +3,8 @@
 
 build
 build/python
+csharp/**/bin/
+csharp/**/obj/
 
 .DS_Store
 __pycache__/

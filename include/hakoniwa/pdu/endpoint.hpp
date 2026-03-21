@@ -353,7 +353,10 @@ public:
     virtual HakoPduErrorType recv_next(PduRecord& out) noexcept
     {
         if (!comm_) {
-            return HAKO_PDU_ERR_UNSUPPORTED;
+            if (!cache_) {
+                return HAKO_PDU_ERR_INVALID_CONFIG;
+            }
+            return cache_->read_next(out);
         }
         return comm_->recv_next(out);
     }

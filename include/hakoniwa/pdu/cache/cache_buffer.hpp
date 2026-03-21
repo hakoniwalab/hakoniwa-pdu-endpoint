@@ -5,6 +5,7 @@
 #include <memory>
 #include <mutex>
 #include <string>
+#include <deque>
 #include <unordered_map>
 #include <vector>
 #include <nlohmann/json.hpp>
@@ -22,6 +23,8 @@ private:
 
   std::mutex mtx_;
   std::unordered_map<PduResolvedKey, BufferEntry, PduResolvedKeyHash> buffers_;
+  std::deque<PduResolvedKey> pending_order_;
+  std::unordered_map<PduResolvedKey, bool, PduResolvedKeyHash> pending_keys_;
   bool is_running_ = false;
 
 public:
@@ -55,6 +58,8 @@ public:
   HakoPduErrorType close() noexcept override {
     std::lock_guard<std::mutex> lock(mtx_);
     buffers_.clear();
+    pending_order_.clear();
+    pending_keys_.clear();
     is_running_ = false;
     return HAKO_PDU_ERR_OK;
   }
@@ -83,6 +88,10 @@ public:
     auto &entry = buffers_[pdu_key];
     entry.data.assign(data.begin(), data.end());
     entry.has_data = true;
+    if (!pending_keys_[pdu_key]) {
+      pending_order_.push_back(pdu_key);
+      pending_keys_[pdu_key] = true;
+    }
     return HAKO_PDU_ERR_OK;
   }
 
@@ -107,9 +116,37 @@ public:
 
     std::copy(src.begin(), src.end(), data.begin());
     received_size = src.size();
-    // データは消費しない
+    pending_keys_[pdu_key] = false;
 
     return HAKO_PDU_ERR_OK;
+  }
+
+  HakoPduErrorType read_next(PduRecord &out) noexcept override {
+    if (!is_running_) {
+      return HAKO_PDU_ERR_NOT_RUNNING;
+    }
+    std::lock_guard<std::mutex> lock(mtx_);
+    while (!pending_order_.empty()) {
+      const auto key = pending_order_.front();
+      pending_order_.pop_front();
+
+      auto pending_it = pending_keys_.find(key);
+      if (pending_it == pending_keys_.end() || !pending_it->second) {
+        continue;
+      }
+      auto buffer_it = buffers_.find(key);
+      if (buffer_it == buffers_.end() || !buffer_it->second.has_data) {
+        pending_it->second = false;
+        continue;
+      }
+
+      out.key = key;
+      out.timestamp_ns = 0;
+      out.payload = buffer_it->second.data;
+      pending_it->second = false;
+      return HAKO_PDU_ERR_OK;
+    }
+    return HAKO_PDU_ERR_NO_ENTRY;
   }
 };
 

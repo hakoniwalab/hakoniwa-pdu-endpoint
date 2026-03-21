@@ -112,6 +112,12 @@ add_library(hakoniwa_pdu_endpoint
   endpoint_comm_multiplexer.cpp
 )
 
+if(BUILD_SHARED_LIBS AND WIN32)
+  set_target_properties(hakoniwa_pdu_endpoint PROPERTIES
+    WINDOWS_EXPORT_ALL_SYMBOLS ON
+  )
+endif()
+
 add_library(hakoniwa_pdu_endpoint::hakoniwa_pdu_endpoint ALIAS hakoniwa_pdu_endpoint)
 
 target_include_directories(hakoniwa_pdu_endpoint

@@ -12,6 +12,7 @@ param(
     [switch]$BuildTests,
     [switch]$BuildExamples,
     [switch]$DisableTools,
+    [switch]$BuildShared,
     [switch]$EnableZenoh,
     [switch]$EnableMqtt,
     [switch]$EnableHakoniwaCore
@@ -64,6 +65,7 @@ $ConfigureArgs = @(
     "-DHAKO_PDU_ENDPOINT_BUILD_TESTS=$(Get-OnOffValue -Enabled $BuildTests.IsPresent)",
     "-DHAKO_PDU_ENDPOINT_BUILD_EXAMPLES=$(Get-OnOffValue -Enabled $BuildExamples.IsPresent)",
     "-DHAKO_PDU_ENDPOINT_BUILD_TOOLS=$(Get-OnOffValue -Enabled (-not $DisableTools.IsPresent))",
+    "-DBUILD_SHARED_LIBS=$(Get-OnOffValue -Enabled $BuildShared.IsPresent)",
     "-DHAKO_PDU_ENDPOINT_ENABLE_ZENOH=$(Get-OnOffValue -Enabled $EnableZenoh.IsPresent)",
     "-DHAKO_PDU_ENDPOINT_ENABLE_MQTT=$(Get-OnOffValue -Enabled $EnableMqtt.IsPresent)",
     "-DHAKO_PDU_ENDPOINT_ENABLE_HAKONIWA_CORE=$(Get-OnOffValue -Enabled $EnableHakoniwaCore.IsPresent)"

@@ -30,7 +30,11 @@ public:
 
     virtual HakoPduErrorType write(const PduResolvedKey& pdu_key, std::span<const std::byte> data) noexcept = 0;
     virtual HakoPduErrorType read(const PduResolvedKey& pdu_key, std::span<std::byte> data, size_t& received_size) noexcept = 0;
-    
+    virtual HakoPduErrorType read_next(PduRecord& out) noexcept
+    {
+        (void)out;
+        return HAKO_PDU_ERR_UNSUPPORTED;
+    }
 
 };
 } // namespace pdu

@@ -466,6 +466,122 @@ TEST_F(EndpointTest, CEndpointStorageQueueRecvNextWorks) {
     hako_pdu_endpoint_destroy(reader);
 }
 
+TEST_F(EndpointTest, CEndpointInternalLatestRecvNextReturnsPendingKeysInArrivalOrder) {
+    auto* endpoint = hako_pdu_endpoint_create("c_internal_latest_recv_next_test", HAKO_PDU_ENDPOINT_DIRECTION_INOUT);
+    ASSERT_NE(endpoint, nullptr);
+
+    ASSERT_EQ(
+        hako_pdu_endpoint_open(endpoint, "test/test_endpoint_buffer.json"),
+        HAKO_PDU_ERR_OK);
+    ASSERT_EQ(hako_pdu_endpoint_start(endpoint), HAKO_PDU_ERR_OK);
+
+    hako_pdu_resolved_key_t key_a{};
+    hako_pdu_resolved_key_t key_b{};
+    std::snprintf(key_a.robot, sizeof(key_a.robot), "%s", "robot_c_latest_a");
+    std::snprintf(key_b.robot, sizeof(key_b.robot), "%s", "robot_c_latest_b");
+    key_a.channel_id = 71;
+    key_b.channel_id = 72;
+
+    const std::uint8_t payload_a1[] = {0x01};
+    const std::uint8_t payload_b1[] = {0x02};
+    const std::uint8_t payload_a2[] = {0x03};
+
+    ASSERT_EQ(hako_pdu_endpoint_send(endpoint, &key_a, payload_a1, sizeof(payload_a1)), HAKO_PDU_ERR_OK);
+    ASSERT_EQ(hako_pdu_endpoint_send(endpoint, &key_b, payload_b1, sizeof(payload_b1)), HAKO_PDU_ERR_OK);
+    ASSERT_EQ(hako_pdu_endpoint_send(endpoint, &key_a, payload_a2, sizeof(payload_a2)), HAKO_PDU_ERR_OK);
+
+    std::uint8_t recv_buf[8] = {};
+    hako_pdu_resolved_key_t out_key{};
+    std::uint64_t out_timestamp_ns = 0;
+    size_t received_size = 0;
+
+    ASSERT_EQ(
+        hako_pdu_endpoint_recv_next(endpoint, recv_buf, sizeof(recv_buf), &out_key, &out_timestamp_ns, &received_size),
+        HAKO_PDU_ERR_OK);
+    EXPECT_STREQ(out_key.robot, "robot_c_latest_a");
+    EXPECT_EQ(out_key.channel_id, 71U);
+    ASSERT_EQ(received_size, 1U);
+    EXPECT_EQ(recv_buf[0], std::uint8_t{0x03});
+
+    ASSERT_EQ(
+        hako_pdu_endpoint_recv_next(endpoint, recv_buf, sizeof(recv_buf), &out_key, &out_timestamp_ns, &received_size),
+        HAKO_PDU_ERR_OK);
+    EXPECT_STREQ(out_key.robot, "robot_c_latest_b");
+    EXPECT_EQ(out_key.channel_id, 72U);
+    ASSERT_EQ(received_size, 1U);
+    EXPECT_EQ(recv_buf[0], std::uint8_t{0x02});
+
+    ASSERT_EQ(
+        hako_pdu_endpoint_recv_next(endpoint, recv_buf, sizeof(recv_buf), &out_key, &out_timestamp_ns, &received_size),
+        HAKO_PDU_ERR_NO_ENTRY);
+
+    ASSERT_EQ(hako_pdu_endpoint_stop(endpoint), HAKO_PDU_ERR_OK);
+    ASSERT_EQ(hako_pdu_endpoint_close(endpoint), HAKO_PDU_ERR_OK);
+    hako_pdu_endpoint_destroy(endpoint);
+}
+
+TEST_F(EndpointTest, CEndpointInternalQueueRecvNextReturnsGlobalArrivalOrder) {
+    auto* endpoint = hako_pdu_endpoint_create("c_internal_queue_recv_next_test", HAKO_PDU_ENDPOINT_DIRECTION_INOUT);
+    ASSERT_NE(endpoint, nullptr);
+
+    ASSERT_EQ(
+        hako_pdu_endpoint_open(endpoint, "test/test_endpoint_queue.json"),
+        HAKO_PDU_ERR_OK);
+    ASSERT_EQ(hako_pdu_endpoint_start(endpoint), HAKO_PDU_ERR_OK);
+
+    hako_pdu_resolved_key_t key_a{};
+    hako_pdu_resolved_key_t key_b{};
+    std::snprintf(key_a.robot, sizeof(key_a.robot), "%s", "robot_c_queue_a");
+    std::snprintf(key_b.robot, sizeof(key_b.robot), "%s", "robot_c_queue_b");
+    key_a.channel_id = 73;
+    key_b.channel_id = 74;
+
+    const std::uint8_t payload_a1[] = {0x0A};
+    const std::uint8_t payload_b1[] = {0x0B};
+    const std::uint8_t payload_a2[] = {0x0C};
+
+    ASSERT_EQ(hako_pdu_endpoint_send(endpoint, &key_a, payload_a1, sizeof(payload_a1)), HAKO_PDU_ERR_OK);
+    ASSERT_EQ(hako_pdu_endpoint_send(endpoint, &key_b, payload_b1, sizeof(payload_b1)), HAKO_PDU_ERR_OK);
+    ASSERT_EQ(hako_pdu_endpoint_send(endpoint, &key_a, payload_a2, sizeof(payload_a2)), HAKO_PDU_ERR_OK);
+
+    std::uint8_t recv_buf[8] = {};
+    hako_pdu_resolved_key_t out_key{};
+    std::uint64_t out_timestamp_ns = 0;
+    size_t received_size = 0;
+
+    ASSERT_EQ(
+        hako_pdu_endpoint_recv_next(endpoint, recv_buf, sizeof(recv_buf), &out_key, &out_timestamp_ns, &received_size),
+        HAKO_PDU_ERR_OK);
+    EXPECT_STREQ(out_key.robot, "robot_c_queue_a");
+    EXPECT_EQ(out_key.channel_id, 73U);
+    ASSERT_EQ(received_size, 1U);
+    EXPECT_EQ(recv_buf[0], std::uint8_t{0x0A});
+
+    ASSERT_EQ(
+        hako_pdu_endpoint_recv_next(endpoint, recv_buf, sizeof(recv_buf), &out_key, &out_timestamp_ns, &received_size),
+        HAKO_PDU_ERR_OK);
+    EXPECT_STREQ(out_key.robot, "robot_c_queue_b");
+    EXPECT_EQ(out_key.channel_id, 74U);
+    ASSERT_EQ(received_size, 1U);
+    EXPECT_EQ(recv_buf[0], std::uint8_t{0x0B});
+
+    ASSERT_EQ(
+        hako_pdu_endpoint_recv_next(endpoint, recv_buf, sizeof(recv_buf), &out_key, &out_timestamp_ns, &received_size),
+        HAKO_PDU_ERR_OK);
+    EXPECT_STREQ(out_key.robot, "robot_c_queue_a");
+    EXPECT_EQ(out_key.channel_id, 73U);
+    ASSERT_EQ(received_size, 1U);
+    EXPECT_EQ(recv_buf[0], std::uint8_t{0x0C});
+
+    ASSERT_EQ(
+        hako_pdu_endpoint_recv_next(endpoint, recv_buf, sizeof(recv_buf), &out_key, &out_timestamp_ns, &received_size),
+        HAKO_PDU_ERR_NO_ENTRY);
+
+    ASSERT_EQ(hako_pdu_endpoint_stop(endpoint), HAKO_PDU_ERR_OK);
+    ASSERT_EQ(hako_pdu_endpoint_close(endpoint), HAKO_PDU_ERR_OK);
+    hako_pdu_endpoint_destroy(endpoint);
+}
+
 TEST_F(EndpointTest, CEndpointRecvReturnsNoSpaceWhenBufferTooSmall) {
     auto* endpoint = hako_pdu_endpoint_create("c_internal_cache_nospace_test", HAKO_PDU_ENDPOINT_DIRECTION_INOUT);
     ASSERT_NE(endpoint, nullptr);
@@ -669,6 +785,346 @@ TEST_F(EndpointTest, CEndpointResolvedKeyCallbackWorks) {
     ASSERT_EQ(hako_pdu_endpoint_stop(endpoint), HAKO_PDU_ERR_OK);
     ASSERT_EQ(hako_pdu_endpoint_close(endpoint), HAKO_PDU_ERR_OK);
     hako_pdu_endpoint_destroy(endpoint);
+}
+
+TEST_F(EndpointTest, InternalLatestCallbackNotificationDoesNotConsumeReadableState) {
+    hakoniwa::pdu::Endpoint endpoint("buffer_callback_state_test", HAKO_PDU_ENDPOINT_DIRECTION_INOUT);
+
+    ASSERT_EQ(endpoint.open("test/test_endpoint_buffer.json"), HAKO_PDU_ERR_OK);
+    ASSERT_EQ(endpoint.start(), HAKO_PDU_ERR_OK);
+
+    auto key = create_key("robot_cb_latest", 21);
+    std::vector<std::vector<std::byte>> callbacks;
+    endpoint.subscribe_on_recv_callback(
+        key,
+        [&callbacks](const hakoniwa::pdu::PduResolvedKey&, std::span<const std::byte> data) {
+            callbacks.emplace_back(data.begin(), data.end());
+        });
+
+    const std::vector<std::byte> payload1 = {std::byte{0x01}};
+    const std::vector<std::byte> payload2 = {std::byte{0x02}, std::byte{0x03}};
+
+    ASSERT_EQ(endpoint.send(key, payload1), HAKO_PDU_ERR_OK);
+    ASSERT_EQ(endpoint.send(key, payload2), HAKO_PDU_ERR_OK);
+
+    ASSERT_EQ(callbacks.size(), 2U);
+    ASSERT_EQ(callbacks[0].size(), payload1.size());
+    EXPECT_EQ(callbacks[0][0], payload1[0]);
+    ASSERT_EQ(callbacks[1].size(), payload2.size());
+    EXPECT_EQ(callbacks[1][0], payload2[0]);
+    EXPECT_EQ(callbacks[1][1], payload2[1]);
+
+    std::vector<std::byte> read_buffer(8);
+    size_t read_len = 0;
+    ASSERT_EQ(endpoint.recv(key, read_buffer, read_len), HAKO_PDU_ERR_OK);
+    ASSERT_EQ(read_len, payload2.size());
+    EXPECT_EQ(read_buffer[0], payload2[0]);
+    EXPECT_EQ(read_buffer[1], payload2[1]);
+
+    ASSERT_EQ(endpoint.stop(), HAKO_PDU_ERR_OK);
+    ASSERT_EQ(endpoint.close(), HAKO_PDU_ERR_OK);
+}
+
+TEST_F(EndpointTest, InternalQueueCallbackNotificationDoesNotConsumeQueuedEntries) {
+    hakoniwa::pdu::Endpoint endpoint("queue_callback_state_test", HAKO_PDU_ENDPOINT_DIRECTION_INOUT);
+
+    ASSERT_EQ(endpoint.open("test/test_endpoint_queue.json"), HAKO_PDU_ERR_OK);
+    ASSERT_EQ(endpoint.start(), HAKO_PDU_ERR_OK);
+
+    auto key = create_key("robot_cb_queue", 22);
+    std::vector<std::vector<std::byte>> callbacks;
+    endpoint.subscribe_on_recv_callback(
+        key,
+        [&callbacks](const hakoniwa::pdu::PduResolvedKey&, std::span<const std::byte> data) {
+            callbacks.emplace_back(data.begin(), data.end());
+        });
+
+    const std::vector<std::byte> payload1 = {std::byte{0x11}};
+    const std::vector<std::byte> payload2 = {std::byte{0x22}};
+
+    ASSERT_EQ(endpoint.send(key, payload1), HAKO_PDU_ERR_OK);
+    ASSERT_EQ(endpoint.send(key, payload2), HAKO_PDU_ERR_OK);
+
+    ASSERT_EQ(callbacks.size(), 2U);
+    ASSERT_EQ(callbacks[0].size(), payload1.size());
+    EXPECT_EQ(callbacks[0][0], payload1[0]);
+    ASSERT_EQ(callbacks[1].size(), payload2.size());
+    EXPECT_EQ(callbacks[1][0], payload2[0]);
+
+    std::vector<std::byte> read_buffer(8);
+    size_t read_len = 0;
+
+    ASSERT_EQ(endpoint.recv(key, read_buffer, read_len), HAKO_PDU_ERR_OK);
+    ASSERT_EQ(read_len, payload1.size());
+    EXPECT_EQ(read_buffer[0], payload1[0]);
+
+    ASSERT_EQ(endpoint.recv(key, read_buffer, read_len), HAKO_PDU_ERR_OK);
+    ASSERT_EQ(read_len, payload2.size());
+    EXPECT_EQ(read_buffer[0], payload2[0]);
+
+    ASSERT_EQ(endpoint.recv(key, read_buffer, read_len), HAKO_PDU_ERR_NO_ENTRY);
+
+    ASSERT_EQ(endpoint.stop(), HAKO_PDU_ERR_OK);
+    ASSERT_EQ(endpoint.close(), HAKO_PDU_ERR_OK);
+}
+
+TEST_F(EndpointTest, InternalBufferRecvNoEntryBeforeAnySend) {
+    hakoniwa::pdu::Endpoint endpoint("buffer_no_recv_test", HAKO_PDU_ENDPOINT_DIRECTION_INOUT);
+    ASSERT_EQ(endpoint.open("test/test_endpoint_buffer.json"), HAKO_PDU_ERR_OK);
+    ASSERT_EQ(endpoint.start(), HAKO_PDU_ERR_OK);
+
+    auto key = create_key("robot_buffer_none", 31);
+    std::vector<std::byte> read_buffer(8);
+    size_t read_len = 0;
+    EXPECT_EQ(endpoint.recv(key, read_buffer, read_len), HAKO_PDU_ERR_NO_ENTRY);
+
+    hakoniwa::pdu::PduRecord record{};
+    EXPECT_EQ(endpoint.recv_next(record), HAKO_PDU_ERR_NO_ENTRY);
+
+    ASSERT_EQ(endpoint.stop(), HAKO_PDU_ERR_OK);
+    ASSERT_EQ(endpoint.close(), HAKO_PDU_ERR_OK);
+}
+
+TEST_F(EndpointTest, InternalBufferRecvWithCallbackAlwaysReturnsLatestValue) {
+    hakoniwa::pdu::Endpoint endpoint("buffer_recv_counts_test", HAKO_PDU_ENDPOINT_DIRECTION_INOUT);
+    ASSERT_EQ(endpoint.open("test/test_endpoint_buffer.json"), HAKO_PDU_ERR_OK);
+    ASSERT_EQ(endpoint.start(), HAKO_PDU_ERR_OK);
+
+    auto key = create_key("robot_buffer_counts", 32);
+    std::vector<std::vector<std::byte>> callbacks;
+    endpoint.subscribe_on_recv_callback(
+        key,
+        [&callbacks](const hakoniwa::pdu::PduResolvedKey&, std::span<const std::byte> data) {
+            callbacks.emplace_back(data.begin(), data.end());
+        });
+
+    const std::vector<std::vector<std::byte>> sends = {
+        {std::byte{0x01}},
+        {std::byte{0x02}},
+        {std::byte{0x03}}
+    };
+    for (const auto& payload : sends) {
+        ASSERT_EQ(endpoint.send(key, payload), HAKO_PDU_ERR_OK);
+    }
+
+    ASSERT_EQ(callbacks.size(), sends.size());
+    for (size_t i = 0; i < sends.size(); ++i) {
+        ASSERT_EQ(callbacks[i].size(), sends[i].size());
+        EXPECT_EQ(callbacks[i][0], sends[i][0]);
+    }
+
+    std::vector<std::byte> read_buffer(8);
+    size_t read_len = 0;
+    ASSERT_EQ(endpoint.recv(key, read_buffer, read_len), HAKO_PDU_ERR_OK);
+    ASSERT_EQ(read_len, sends.back().size());
+    EXPECT_EQ(read_buffer[0], sends.back()[0]);
+
+    hakoniwa::pdu::PduRecord record{};
+    EXPECT_EQ(endpoint.recv_next(record), HAKO_PDU_ERR_NO_ENTRY);
+
+    ASSERT_EQ(endpoint.stop(), HAKO_PDU_ERR_OK);
+    ASSERT_EQ(endpoint.close(), HAKO_PDU_ERR_OK);
+}
+
+TEST_F(EndpointTest, InternalQueueRecvNoEntryBeforeAnySend) {
+    hakoniwa::pdu::Endpoint endpoint("queue_no_recv_test", HAKO_PDU_ENDPOINT_DIRECTION_INOUT);
+    ASSERT_EQ(endpoint.open("test/test_endpoint_queue.json"), HAKO_PDU_ERR_OK);
+    ASSERT_EQ(endpoint.start(), HAKO_PDU_ERR_OK);
+
+    auto key = create_key("robot_queue_none", 33);
+    std::vector<std::byte> read_buffer(8);
+    size_t read_len = 0;
+    EXPECT_EQ(endpoint.recv(key, read_buffer, read_len), HAKO_PDU_ERR_NO_ENTRY);
+
+    hakoniwa::pdu::PduRecord record{};
+    EXPECT_EQ(endpoint.recv_next(record), HAKO_PDU_ERR_NO_ENTRY);
+
+    ASSERT_EQ(endpoint.stop(), HAKO_PDU_ERR_OK);
+    ASSERT_EQ(endpoint.close(), HAKO_PDU_ERR_OK);
+}
+
+TEST_F(EndpointTest, InternalQueueRecvWithCallbackReturnsPerKeyFifoOrder) {
+    hakoniwa::pdu::Endpoint endpoint("queue_recv_counts_test", HAKO_PDU_ENDPOINT_DIRECTION_INOUT);
+    ASSERT_EQ(endpoint.open("test/test_endpoint_queue.json"), HAKO_PDU_ERR_OK);
+    ASSERT_EQ(endpoint.start(), HAKO_PDU_ERR_OK);
+
+    auto key = create_key("robot_queue_counts", 34);
+    std::vector<std::vector<std::byte>> callbacks;
+    endpoint.subscribe_on_recv_callback(
+        key,
+        [&callbacks](const hakoniwa::pdu::PduResolvedKey&, std::span<const std::byte> data) {
+            callbacks.emplace_back(data.begin(), data.end());
+        });
+
+    const std::vector<std::vector<std::byte>> sends = {
+        {std::byte{0x11}},
+        {std::byte{0x22}},
+        {std::byte{0x33}}
+    };
+    for (const auto& payload : sends) {
+        ASSERT_EQ(endpoint.send(key, payload), HAKO_PDU_ERR_OK);
+    }
+
+    ASSERT_EQ(callbacks.size(), sends.size());
+    for (size_t i = 0; i < sends.size(); ++i) {
+        ASSERT_EQ(callbacks[i].size(), sends[i].size());
+        EXPECT_EQ(callbacks[i][0], sends[i][0]);
+    }
+
+    std::vector<std::byte> read_buffer(8);
+    size_t read_len = 0;
+    for (const auto& expected : sends) {
+        ASSERT_EQ(endpoint.recv(key, read_buffer, read_len), HAKO_PDU_ERR_OK);
+        ASSERT_EQ(read_len, expected.size());
+        EXPECT_EQ(read_buffer[0], expected[0]);
+    }
+    EXPECT_EQ(endpoint.recv(key, read_buffer, read_len), HAKO_PDU_ERR_NO_ENTRY);
+
+    hakoniwa::pdu::PduRecord record{};
+    EXPECT_EQ(endpoint.recv_next(record), HAKO_PDU_ERR_NO_ENTRY);
+
+    ASSERT_EQ(endpoint.stop(), HAKO_PDU_ERR_OK);
+    ASSERT_EQ(endpoint.close(), HAKO_PDU_ERR_OK);
+}
+
+TEST_F(EndpointTest, RuntimeLatestRecvNextReturnsPendingKeysInArrivalOrder) {
+    hakoniwa::pdu::Endpoint endpoint("runtime_latest_recv_next_test", HAKO_PDU_ENDPOINT_DIRECTION_INOUT);
+
+    ASSERT_EQ(endpoint.open("test/test_endpoint_buffer.json"), HAKO_PDU_ERR_OK);
+    ASSERT_EQ(endpoint.start(), HAKO_PDU_ERR_OK);
+
+    const auto key_a = create_key("robot_runtime_latest_a", 51);
+    const auto key_b = create_key("robot_runtime_latest_b", 52);
+
+    ASSERT_EQ(endpoint.send(key_a, std::vector<std::byte>{std::byte{0x01}}), HAKO_PDU_ERR_OK);
+    ASSERT_EQ(endpoint.send(key_b, std::vector<std::byte>{std::byte{0x02}}), HAKO_PDU_ERR_OK);
+    ASSERT_EQ(endpoint.send(key_a, std::vector<std::byte>{std::byte{0x03}}), HAKO_PDU_ERR_OK);
+
+    hakoniwa::pdu::PduRecord record{};
+
+    // latest semantics:
+    // - at most one pending entry per key
+    // - recv_next returns keys in pending arrival order
+    // - payload reflects the latest stored value for that key
+    ASSERT_EQ(endpoint.recv_next(record), HAKO_PDU_ERR_OK);
+    EXPECT_EQ(record.key.robot, key_a.robot);
+    EXPECT_EQ(record.key.channel_id, key_a.channel_id);
+    ASSERT_EQ(record.payload.size(), 1U);
+    EXPECT_EQ(record.payload[0], std::byte{0x03});
+
+    ASSERT_EQ(endpoint.recv_next(record), HAKO_PDU_ERR_OK);
+    EXPECT_EQ(record.key.robot, key_b.robot);
+    EXPECT_EQ(record.key.channel_id, key_b.channel_id);
+    ASSERT_EQ(record.payload.size(), 1U);
+    EXPECT_EQ(record.payload[0], std::byte{0x02});
+
+    ASSERT_EQ(endpoint.recv_next(record), HAKO_PDU_ERR_NO_ENTRY);
+
+    ASSERT_EQ(endpoint.stop(), HAKO_PDU_ERR_OK);
+    ASSERT_EQ(endpoint.close(), HAKO_PDU_ERR_OK);
+}
+
+TEST_F(EndpointTest, RuntimeLatestRecvByKeyConsumesPendingStateForThatKey) {
+    hakoniwa::pdu::Endpoint endpoint("runtime_latest_recv_key_consumes_test", HAKO_PDU_ENDPOINT_DIRECTION_INOUT);
+
+    ASSERT_EQ(endpoint.open("test/test_endpoint_buffer.json"), HAKO_PDU_ERR_OK);
+    ASSERT_EQ(endpoint.start(), HAKO_PDU_ERR_OK);
+
+    const auto key_a = create_key("robot_runtime_latest_key_a", 53);
+    const auto key_b = create_key("robot_runtime_latest_key_b", 54);
+
+    ASSERT_EQ(endpoint.send(key_a, std::vector<std::byte>{std::byte{0x11}}), HAKO_PDU_ERR_OK);
+    ASSERT_EQ(endpoint.send(key_b, std::vector<std::byte>{std::byte{0x22}}), HAKO_PDU_ERR_OK);
+
+    std::vector<std::byte> recv_buffer(8);
+    size_t recv_size = 0;
+    ASSERT_EQ(endpoint.recv(key_a, recv_buffer, recv_size), HAKO_PDU_ERR_OK);
+    ASSERT_EQ(recv_size, 1U);
+    EXPECT_EQ(recv_buffer[0], std::byte{0x11});
+
+    hakoniwa::pdu::PduRecord record{};
+    ASSERT_EQ(endpoint.recv_next(record), HAKO_PDU_ERR_OK);
+    EXPECT_EQ(record.key.robot, key_b.robot);
+    EXPECT_EQ(record.key.channel_id, key_b.channel_id);
+    ASSERT_EQ(record.payload.size(), 1U);
+    EXPECT_EQ(record.payload[0], std::byte{0x22});
+
+    ASSERT_EQ(endpoint.recv_next(record), HAKO_PDU_ERR_NO_ENTRY);
+
+    ASSERT_EQ(endpoint.stop(), HAKO_PDU_ERR_OK);
+    ASSERT_EQ(endpoint.close(), HAKO_PDU_ERR_OK);
+}
+
+TEST_F(EndpointTest, RuntimeQueueRecvNextReturnsGlobalArrivalOrder) {
+    hakoniwa::pdu::Endpoint endpoint("runtime_queue_recv_next_test", HAKO_PDU_ENDPOINT_DIRECTION_INOUT);
+
+    ASSERT_EQ(endpoint.open("test/test_endpoint_queue.json"), HAKO_PDU_ERR_OK);
+    ASSERT_EQ(endpoint.start(), HAKO_PDU_ERR_OK);
+
+    const auto key_a = create_key("robot_runtime_queue_a", 61);
+    const auto key_b = create_key("robot_runtime_queue_b", 62);
+
+    ASSERT_EQ(endpoint.send(key_a, std::vector<std::byte>{std::byte{0x01}}), HAKO_PDU_ERR_OK);
+    ASSERT_EQ(endpoint.send(key_b, std::vector<std::byte>{std::byte{0x02}}), HAKO_PDU_ERR_OK);
+    ASSERT_EQ(endpoint.send(key_a, std::vector<std::byte>{std::byte{0x03}}), HAKO_PDU_ERR_OK);
+
+    hakoniwa::pdu::PduRecord record{};
+
+    ASSERT_EQ(endpoint.recv_next(record), HAKO_PDU_ERR_OK);
+    EXPECT_EQ(record.key.robot, key_a.robot);
+    EXPECT_EQ(record.key.channel_id, key_a.channel_id);
+    EXPECT_EQ(record.payload, (std::vector<std::byte>{std::byte{0x01}}));
+
+    ASSERT_EQ(endpoint.recv_next(record), HAKO_PDU_ERR_OK);
+    EXPECT_EQ(record.key.robot, key_b.robot);
+    EXPECT_EQ(record.key.channel_id, key_b.channel_id);
+    EXPECT_EQ(record.payload, (std::vector<std::byte>{std::byte{0x02}}));
+
+    ASSERT_EQ(endpoint.recv_next(record), HAKO_PDU_ERR_OK);
+    EXPECT_EQ(record.key.robot, key_a.robot);
+    EXPECT_EQ(record.key.channel_id, key_a.channel_id);
+    EXPECT_EQ(record.payload, (std::vector<std::byte>{std::byte{0x03}}));
+
+    ASSERT_EQ(endpoint.recv_next(record), HAKO_PDU_ERR_NO_ENTRY);
+
+    ASSERT_EQ(endpoint.stop(), HAKO_PDU_ERR_OK);
+    ASSERT_EQ(endpoint.close(), HAKO_PDU_ERR_OK);
+}
+
+TEST_F(EndpointTest, RuntimeQueueRecvByKeyConsumesMatchingArrivalEntry) {
+    hakoniwa::pdu::Endpoint endpoint("runtime_queue_recv_key_consumes_test", HAKO_PDU_ENDPOINT_DIRECTION_INOUT);
+
+    ASSERT_EQ(endpoint.open("test/test_endpoint_queue.json"), HAKO_PDU_ERR_OK);
+    ASSERT_EQ(endpoint.start(), HAKO_PDU_ERR_OK);
+
+    const auto key_a = create_key("robot_runtime_queue_key_a", 63);
+    const auto key_b = create_key("robot_runtime_queue_key_b", 64);
+
+    ASSERT_EQ(endpoint.send(key_a, std::vector<std::byte>{std::byte{0x0A}}), HAKO_PDU_ERR_OK);
+    ASSERT_EQ(endpoint.send(key_b, std::vector<std::byte>{std::byte{0x0B}}), HAKO_PDU_ERR_OK);
+    ASSERT_EQ(endpoint.send(key_a, std::vector<std::byte>{std::byte{0x0C}}), HAKO_PDU_ERR_OK);
+
+    std::vector<std::byte> recv_buffer(8);
+    size_t recv_size = 0;
+    ASSERT_EQ(endpoint.recv(key_a, recv_buffer, recv_size), HAKO_PDU_ERR_OK);
+    ASSERT_EQ(recv_size, 1U);
+    EXPECT_EQ(recv_buffer[0], std::byte{0x0A});
+
+    hakoniwa::pdu::PduRecord record{};
+    ASSERT_EQ(endpoint.recv_next(record), HAKO_PDU_ERR_OK);
+    EXPECT_EQ(record.key.robot, key_b.robot);
+    EXPECT_EQ(record.key.channel_id, key_b.channel_id);
+    EXPECT_EQ(record.payload, (std::vector<std::byte>{std::byte{0x0B}}));
+
+    ASSERT_EQ(endpoint.recv_next(record), HAKO_PDU_ERR_OK);
+    EXPECT_EQ(record.key.robot, key_a.robot);
+    EXPECT_EQ(record.key.channel_id, key_a.channel_id);
+    EXPECT_EQ(record.payload, (std::vector<std::byte>{std::byte{0x0C}}));
+
+    ASSERT_EQ(endpoint.recv_next(record), HAKO_PDU_ERR_NO_ENTRY);
+
+    ASSERT_EQ(endpoint.stop(), HAKO_PDU_ERR_OK);
+    ASSERT_EQ(endpoint.close(), HAKO_PDU_ERR_OK);
 }
 
 TEST_F(EndpointTest, PduDefinitionTest) {
@@ -924,6 +1380,93 @@ TEST_F(EndpointTest, TcpCommunicationTest) {
     ASSERT_EQ(server.close(), HAKO_PDU_ERR_OK);
     ASSERT_EQ(client.close(), HAKO_PDU_ERR_OK);
     
+}
+
+TEST_F(EndpointTest, TcpRecvNoEntryBeforeAnySendAndRecvNextUnsupported) {
+    hakoniwa::pdu::Endpoint server("tcp_server_empty", HAKO_PDU_ENDPOINT_DIRECTION_INOUT);
+    hakoniwa::pdu::Endpoint client("tcp_client_empty", HAKO_PDU_ENDPOINT_DIRECTION_INOUT);
+
+    const auto server_open_err = server.open("test/test_endpoint_tcp_server.json");
+    if (server_open_err != HAKO_PDU_ERR_OK) {
+        GTEST_SKIP() << "TCP server setup unavailable in this environment. err=" << static_cast<int>(server_open_err);
+    }
+    ASSERT_EQ(client.open("test/test_endpoint_tcp_client.json"), HAKO_PDU_ERR_OK);
+    ASSERT_EQ(server.start(), HAKO_PDU_ERR_OK);
+    ASSERT_EQ(client.start(), HAKO_PDU_ERR_OK);
+
+    std::this_thread::sleep_for(std::chrono::milliseconds(100));
+
+    auto key = create_key("robot_tcp_empty", 41);
+    std::vector<std::byte> recv_buffer(8);
+    size_t received_size = 0;
+    EXPECT_EQ(server.recv(key, recv_buffer, received_size), HAKO_PDU_ERR_UNSUPPORTED);
+    EXPECT_EQ(client.recv(key, recv_buffer, received_size), HAKO_PDU_ERR_UNSUPPORTED);
+
+    hakoniwa::pdu::PduRecord record{};
+    EXPECT_EQ(server.recv_next(record), HAKO_PDU_ERR_UNSUPPORTED);
+    EXPECT_EQ(client.recv_next(record), HAKO_PDU_ERR_UNSUPPORTED);
+
+    ASSERT_EQ(server.stop(), HAKO_PDU_ERR_OK);
+    ASSERT_EQ(client.stop(), HAKO_PDU_ERR_OK);
+    ASSERT_EQ(server.close(), HAKO_PDU_ERR_OK);
+    ASSERT_EQ(client.close(), HAKO_PDU_ERR_OK);
+}
+
+TEST_F(EndpointTest, TcpCallbackAndRecvRemainReadableAcrossThreeMessages) {
+    hakoniwa::pdu::Endpoint server("tcp_server_cb", HAKO_PDU_ENDPOINT_DIRECTION_INOUT);
+    hakoniwa::pdu::Endpoint client("tcp_client_cb", HAKO_PDU_ENDPOINT_DIRECTION_INOUT);
+
+    const auto server_open_err = server.open("test/test_endpoint_tcp_server.json");
+    if (server_open_err != HAKO_PDU_ERR_OK) {
+        GTEST_SKIP() << "TCP server setup unavailable in this environment. err=" << static_cast<int>(server_open_err);
+    }
+    ASSERT_EQ(client.open("test/test_endpoint_tcp_client.json"), HAKO_PDU_ERR_OK);
+
+    auto key = create_key("robot_tcp_cb", 42);
+    std::vector<std::vector<std::byte>> callbacks;
+    server.subscribe_on_recv_callback(
+        key,
+        [&callbacks](const hakoniwa::pdu::PduResolvedKey&, std::span<const std::byte> data) {
+            callbacks.emplace_back(data.begin(), data.end());
+        });
+
+    ASSERT_EQ(server.start(), HAKO_PDU_ERR_OK);
+    ASSERT_EQ(client.start(), HAKO_PDU_ERR_OK);
+
+    std::this_thread::sleep_for(std::chrono::milliseconds(100));
+
+    const std::vector<std::vector<std::byte>> sends = {
+        {std::byte{'a'}},
+        {std::byte{'b'}},
+        {std::byte{'c'}}
+    };
+    for (const auto& payload : sends) {
+        ASSERT_EQ(client.send(key, payload), HAKO_PDU_ERR_OK);
+        std::this_thread::sleep_for(std::chrono::milliseconds(100));
+    }
+
+    ASSERT_EQ(callbacks.size(), sends.size());
+    for (size_t i = 0; i < sends.size(); ++i) {
+        ASSERT_EQ(callbacks[i].size(), sends[i].size());
+        EXPECT_EQ(callbacks[i][0], sends[i][0]);
+    }
+
+    std::vector<std::byte> recv_buffer(8);
+    size_t received_size = 0;
+    for (const auto& expected : sends) {
+        ASSERT_EQ(server.recv(key, recv_buffer, received_size), HAKO_PDU_ERR_OK);
+        ASSERT_EQ(received_size, expected.size());
+        EXPECT_EQ(recv_buffer[0], expected[0]);
+    }
+    EXPECT_EQ(server.recv(key, recv_buffer, received_size), HAKO_PDU_ERR_UNSUPPORTED);
+
+    hakoniwa::pdu::PduRecord record{};
+    EXPECT_EQ(server.recv_next(record), HAKO_PDU_ERR_UNSUPPORTED);
+
+    ASSERT_EQ(server.stop(), HAKO_PDU_ERR_OK);
+    ASSERT_EQ(client.stop(), HAKO_PDU_ERR_OK);
+    ASSERT_EQ(server.close(), HAKO_PDU_ERR_OK);
+    ASSERT_EQ(client.close(), HAKO_PDU_ERR_OK);
 }
 
 TEST_F(EndpointTest, TcpCommunicationV1Test) {
@@ -1596,6 +2139,57 @@ TEST_F(EndpointTest, StorageCommQueueRecvNextReturnsGlobalLogOrder) {
     EXPECT_EQ(record.payload, (std::vector<std::byte>{std::byte{0x03}}));
 
     ASSERT_EQ(reader.recv_next(record), HAKO_PDU_ERR_NO_ENTRY);
+    ASSERT_EQ(reader.stop(), HAKO_PDU_ERR_OK);
+    ASSERT_EQ(reader.close(), HAKO_PDU_ERR_OK);
+}
+
+TEST_F(EndpointTest, StorageCommQueueRecvNextReturnsNoEntryBeforeAnySend) {
+    namespace fs = std::filesystem;
+    const auto temp_base = fs::temp_directory_path() / "hako_pdu_storage_queue_recv_next_empty_test";
+    const auto cache_path = (fs::current_path() / "config/sample/cache/buffer.json").string();
+    fs::remove_all(temp_base);
+    fs::create_directories(temp_base);
+
+    const auto storage_path = temp_base / "storage_queue.bin";
+    const auto in_comm_path = temp_base / "storage_queue_in_comm.json";
+    const auto in_endpoint_path = temp_base / "endpoint_in.json";
+
+    {
+        std::fstream ofs(storage_path, std::ios::binary | std::ios::out | std::ios::trunc);
+        ASSERT_TRUE(ofs.is_open());
+        write_queue_storage_header(ofs, 2, sizeof(StorageHeaderV1));
+    }
+    {
+        std::ofstream ofs(in_comm_path);
+        ASSERT_TRUE(ofs.is_open());
+        ofs << nlohmann::json{
+            {"protocol", "storage"},
+            {"direction", "in"},
+            {"comm_raw_version", "v2"},
+            {"storage", {
+                {"backend", "file"},
+                {"mode", "queue"},
+                {"path", storage_path.string()}
+            }}
+        }.dump(2);
+    }
+    {
+        std::ofstream ofs(in_endpoint_path);
+        ASSERT_TRUE(ofs.is_open());
+        ofs << nlohmann::json{
+            {"name", "storage_queue_empty_reader"},
+            {"cache", cache_path},
+            {"comm", in_comm_path.string()}
+        }.dump(2);
+    }
+
+    hakoniwa::pdu::Endpoint reader("storage_queue_empty_reader", HAKO_PDU_ENDPOINT_DIRECTION_IN);
+    ASSERT_EQ(reader.open(in_endpoint_path.string()), HAKO_PDU_ERR_OK);
+    ASSERT_EQ(reader.start(), HAKO_PDU_ERR_OK);
+
+    hakoniwa::pdu::PduRecord record{};
+    EXPECT_EQ(reader.recv_next(record), HAKO_PDU_ERR_NO_ENTRY);
+
     ASSERT_EQ(reader.stop(), HAKO_PDU_ERR_OK);
     ASSERT_EQ(reader.close(), HAKO_PDU_ERR_OK);
 }
