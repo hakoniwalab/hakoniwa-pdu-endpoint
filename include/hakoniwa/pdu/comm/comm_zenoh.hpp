@@ -24,6 +24,7 @@ public:
     HakoPduErrorType is_running(bool& running) noexcept override;
     HakoPduErrorType send(const PduResolvedKey& pdu_key, std::span<const std::byte> data) noexcept override;
     HakoPduErrorType recv(const PduResolvedKey& pdu_key, std::span<std::byte> data, size_t& received_size) noexcept override;
+    HakoPduErrorType set_recv_event(const PduResolvedKey& pdu_key) noexcept override;
 
 private:
     HakoPduErrorType parse_config_(const std::string& config_path);
@@ -43,6 +44,7 @@ private:
 	    std::string subscriber_keyexpr_;
 	    z_view_keyexpr_t subscriber_keyexpr_view_{};
 	    std::map<std::pair<std::string, HakoPduChannelIdType>, bool> notify_on_recv_;
+        std::map<std::pair<std::string, HakoPduChannelIdType>, bool> explicit_recv_events_;
 
 	    z_owned_config_t config_{};
 	    z_owned_closure_sample_t sample_callback_{};

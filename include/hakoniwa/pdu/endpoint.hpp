@@ -361,6 +361,29 @@ public:
         return comm_->recv_next(out);
     }
 
+    virtual HakoPduErrorType set_recv_event(const PduResolvedKey& pdu_key) noexcept
+    {
+        if (!cache_) {
+            return HAKO_PDU_ERR_INVALID_CONFIG;
+        }
+        auto err = cache_->set_recv_event(pdu_key);
+        if (err != HAKO_PDU_ERR_OK) {
+            return err;
+        }
+        if (comm_) {
+            return comm_->set_recv_event(pdu_key);
+        }
+        return HAKO_PDU_ERR_OK;
+    }
+
+    virtual HakoPduErrorType get_pending_count(size_t& out_count) noexcept
+    {
+        if (!cache_) {
+            return HAKO_PDU_ERR_INVALID_CONFIG;
+        }
+        return cache_->get_pending_count(out_count);
+    }
+
     /**
      * @brief Get the PDU size for a given PduKey.
      * @param pdu_key The name-based PDU key.

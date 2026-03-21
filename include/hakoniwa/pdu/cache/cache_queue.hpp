@@ -25,6 +25,7 @@ private:
   std::mutex mtx_;
   std::unordered_map<PduResolvedKey, QueueEntry, PduResolvedKeyHash> queues_;
   std::deque<PduResolvedKey> arrival_order_;
+  std::unordered_map<PduResolvedKey, bool, PduResolvedKeyHash> tracked_keys_;
   bool is_running_ = false;
 
 public:
@@ -61,6 +62,7 @@ public:
     std::lock_guard<std::mutex> lock(mtx_);
     queues_.clear();
     arrival_order_.clear();
+    tracked_keys_.clear();
     is_running_ = false;
     return HAKO_PDU_ERR_OK;
   }
@@ -130,6 +132,24 @@ public:
       arrival_order_.erase(order_it);
     }
 
+    return HAKO_PDU_ERR_OK;
+  }
+
+  HakoPduErrorType set_recv_event(const PduResolvedKey &pdu_key) noexcept override {
+    std::lock_guard<std::mutex> lock(mtx_);
+    tracked_keys_[pdu_key] = true;
+    return HAKO_PDU_ERR_OK;
+  }
+
+  HakoPduErrorType get_pending_count(size_t &out_count) noexcept override {
+    std::lock_guard<std::mutex> lock(mtx_);
+    out_count = 0;
+    for (const auto &key : arrival_order_) {
+      auto tracked_it = tracked_keys_.find(key);
+      if (tracked_it != tracked_keys_.end() && tracked_it->second) {
+        ++out_count;
+      }
+    }
     return HAKO_PDU_ERR_OK;
   }
 

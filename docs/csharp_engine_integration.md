@@ -35,8 +35,6 @@ Recommended building blocks:
 
 - `Endpoint`
   - thin direct binding over the native endpoint
-- `EndpointAsync`
-  - queue-based receive notification with explicit `DrainPending()`
 
 Recommended runtime pattern:
 
@@ -44,8 +42,9 @@ Recommended runtime pattern:
 2. call `Open(...)`
 3. call `Start(...)`
 4. if the selected transport requires polling, call `ProcessRecvEvents()`
-5. if using `EndpointAsync`, call `DrainPending()` from the engine main thread
-6. call `Stop()` and `Close()` during shutdown
+5. call `SetRecvEvent(...)` for keys you want tracked as pending events
+6. consume pending receive state explicitly through `GetPendingCount()` and `RecvNext(...)`
+7. call `Stop()` and `Close()` during shutdown
 
 ## Native Library Placement
 
@@ -91,12 +90,12 @@ The resulting managed DLL should be referenced or copied into your engine-side C
 Suggested lifecycle mapping:
 
 - initialization:
-  - create `Endpoint` or `EndpointAsync`
+  - create `Endpoint`
   - `Open(...)`
   - `Start()`
 - per frame:
   - `ProcessRecvEvents()`
-  - `DrainPending()`
+  - `RecvNext(...)` or your own drain loop
 - shutdown:
   - `Stop()`
   - `Close()`
@@ -109,26 +108,47 @@ using Hakoniwa.PduEndpoint;
 public sealed class HakoniwaRuntime
 {
     private Endpoint? _endpoint;
-    private EndpointAsync? _async;
+    private readonly byte[] _buffer = new byte[1024];
 
     public void Initialize(string configPath)
     {
         _endpoint = new Endpoint("unity_endpoint", EndpointDirection.InOut);
-        _async = new EndpointAsync(_endpoint);
-        _async.Open(configPath);
-        _async.Start();
+        _endpoint.Open(configPath);
+        _endpoint.Start();
     }
 
     public void Tick()
     {
-        _async?.ProcessRecvEvents();
-        _async?.DrainPending();
+        if (_endpoint is null)
+        {
+            return;
+        }
+
+        _endpoint.ProcessRecvEvents();
+
+        while (true)
+        {
+            try
+            {
+                var record = _endpoint.RecvNext(_buffer.Length);
+                HandleRecord(record);
+            }
+            catch (EndpointException ex) when (ex.Error == HakoPduError.NoEntry)
+            {
+                break;
+            }
+        }
     }
 
     public void Shutdown()
     {
-        _async?.Stop();
-        _async?.Close();
+        _endpoint?.Stop();
+        _endpoint?.Close();
+    }
+
+    private void HandleRecord(PduRecord record)
+    {
+        // Application-owned dispatch.
     }
 }
 ```
@@ -138,12 +158,12 @@ public sealed class HakoniwaRuntime
 Suggested lifecycle mapping:
 
 - initialization:
-  - create `Endpoint` or `EndpointAsync`
+  - create `Endpoint`
   - `Open(...)`
   - `Start()`
 - per frame:
   - `ProcessRecvEvents()`
-  - `DrainPending()`
+  - `RecvNext(...)` or your own drain loop
 - shutdown:
   - `Stop()`
   - `Close()`
@@ -157,26 +177,46 @@ using Hakoniwa.PduEndpoint;
 public partial class HakoniwaRuntimeNode : Node
 {
     private Endpoint? _endpoint;
-    private EndpointAsync? _async;
 
     public override void _Ready()
     {
         _endpoint = new Endpoint("godot_endpoint", EndpointDirection.InOut);
-        _async = new EndpointAsync(_endpoint);
-        _async.Open("path/to/endpoint.json");
-        _async.Start();
+        _endpoint.Open("path/to/endpoint.json");
+        _endpoint.Start();
     }
 
     public override void _Process(double delta)
     {
-        _async?.ProcessRecvEvents();
-        _async?.DrainPending();
+        if (_endpoint is null)
+        {
+            return;
+        }
+
+        _endpoint.ProcessRecvEvents();
+
+        while (true)
+        {
+            try
+            {
+                var record = _endpoint.RecvNext(1024);
+                HandleRecord(record);
+            }
+            catch (EndpointException ex) when (ex.Error == HakoPduError.NoEntry)
+            {
+                break;
+            }
+        }
     }
 
     public override void _ExitTree()
     {
-        _async?.Stop();
-        _async?.Close();
+        _endpoint?.Stop();
+        _endpoint?.Close();
+    }
+
+    private void HandleRecord(PduRecord record)
+    {
+        // Application-owned dispatch.
     }
 }
 ```
@@ -189,7 +229,7 @@ Not every transport uses `ProcessRecvEvents()` in the same way.
   - requires explicit `ProcessRecvEvents()`
 - callback/thread-driven transports:
   - may not require polling
-  - `DrainPending()` still matters when using `EndpointAsync`
+  - pending receive state should still be consumed explicitly from upper-layer code
 
 Calling `ProcessRecvEvents()` every frame is still a reasonable uniform integration pattern.
 

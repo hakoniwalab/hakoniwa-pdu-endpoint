@@ -1,7 +1,10 @@
 from dataclasses import dataclass
 from pathlib import Path
 import ctypes
+from queue import Empty, Queue
 import sys
+import threading
+from typing import Callable, Dict, List, Optional, Tuple
 
 
 def _preload_runtime_libs() -> None:
@@ -63,6 +66,12 @@ class PduRecord:
     payload: bytes
 
 
+@dataclass
+class PduEvent:
+    key: PduResolvedKey
+    payload: bytes
+
+
 def _check(err: int, func_name: str) -> None:
     if err != 0:
         raise EndpointError(err, func_name)
@@ -110,6 +119,10 @@ def _make_recv_callback(callback):
     return _cb
 
 
+def _resolved_key_id(key: PduResolvedKey) -> Tuple[str, int]:
+    return (key.robot, key.channel_id)
+
+
 class Endpoint:
     def __init__(self, name: str, direction: str):
         direction_map = {
@@ -124,6 +137,11 @@ class Endpoint:
             raise EndpointError(2, "hako_pdu_endpoint_create")
         self._handle = handle
         self._callbacks = []
+        self._event_queue: Queue[PduEvent] = Queue()
+        self._handlers: Dict[Tuple[str, int], List[Callable[[PduEvent], None]]] = {}
+        self._dispatch_running = False
+        self._dispatch_thread: Optional[threading.Thread] = None
+        self._dispatch_lock = threading.Lock()
 
     def __del__(self):
         if getattr(self, "_handle", ffi.NULL) != ffi.NULL:
@@ -140,6 +158,7 @@ class Endpoint:
         )
 
     def close(self) -> None:
+        self.stop_dispatch()
         _check(lib.hako_pdu_endpoint_close(self._handle), "close")
 
     def start(self) -> None:
@@ -188,6 +207,55 @@ class Endpoint:
             "subscribe_on_recv_callback_by_name",
         )
 
+    def _enqueue_event(self, key: PduResolvedKey, payload: bytes) -> None:
+        self._event_queue.put(PduEvent(key=key, payload=payload))
+
+    def on_recv(self, key: PduResolvedKey, handler: Callable[[PduEvent], None]) -> None:
+        key_id = _resolved_key_id(key)
+        with self._dispatch_lock:
+            if key_id not in self._handlers:
+                self._handlers[key_id] = []
+                self.subscribe_on_recv_callback(key, self._enqueue_event)
+            self._handlers[key_id].append(handler)
+
+    def on_recv_by_name(self, key: PduKey, handler: Callable[[PduEvent], None]) -> None:
+        resolved_key = PduResolvedKey(
+            robot=key.robot,
+            channel_id=self.get_pdu_channel_id(key),
+        )
+        self.on_recv(resolved_key, handler)
+
+    def _dispatch_loop(self) -> None:
+        while self._dispatch_running:
+            try:
+                event = self._event_queue.get(timeout=0.1)
+            except Empty:
+                continue
+            key_id = _resolved_key_id(event.key)
+            with self._dispatch_lock:
+                handlers = list(self._handlers.get(key_id, ()))
+            for handler in handlers:
+                handler(event)
+
+    def start_dispatch(self) -> None:
+        if self._dispatch_running:
+            return
+        self._dispatch_running = True
+        self._dispatch_thread = threading.Thread(
+            target=self._dispatch_loop,
+            name="hakoniwa-pdu-endpoint-dispatch",
+            daemon=True,
+        )
+        self._dispatch_thread.start()
+
+    def stop_dispatch(self) -> None:
+        if not self._dispatch_running:
+            return
+        self._dispatch_running = False
+        if self._dispatch_thread is not None:
+            self._dispatch_thread.join(timeout=1.0)
+            self._dispatch_thread = None
+
     def recv(self, key: PduResolvedKey, buffer_size: int) -> bytes:
         c_key = _to_c_key(key)
         buffer = ffi.new(f"unsigned char[{buffer_size}]")
@@ -197,6 +265,21 @@ class Endpoint:
             "recv",
         )
         return bytes(ffi.buffer(buffer, received_size[0]))
+
+    def set_recv_event(self, key: PduResolvedKey) -> None:
+        c_key = _to_c_key(key)
+        _check(
+            lib.hako_pdu_endpoint_set_recv_event(self._handle, c_key),
+            "set_recv_event",
+        )
+
+    def get_pending_count(self) -> int:
+        out_count = ffi.new("size_t*")
+        _check(
+            lib.hako_pdu_endpoint_get_pending_count(self._handle, out_count),
+            "get_pending_count",
+        )
+        return int(out_count[0])
 
     def recv_by_name(self, key: PduKey, buffer_size: int) -> bytes:
         c_key = _to_c_pdu_key(key)

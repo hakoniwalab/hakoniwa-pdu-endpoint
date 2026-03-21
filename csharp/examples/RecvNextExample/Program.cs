@@ -21,22 +21,18 @@ internal static class Program
 
         var keyA = new PduResolvedKey("csharp_latest_a", 31);
         var keyB = new PduResolvedKey("csharp_latest_b", 32);
+        endpoint.SetRecvEvent(keyA);
+        endpoint.SetRecvEvent(keyB);
 
         endpoint.Send(keyA, new byte[] { 0x01 });
         endpoint.Send(keyB, new byte[] { 0x02 });
         endpoint.Send(keyA, new byte[] { 0x03 });
 
-        while (true)
+        var pending = endpoint.GetPendingCount();
+        for (var i = 0; i < pending; i++)
         {
-            try
-            {
-                var record = endpoint.RecvNext(16);
-                Console.WriteLine($"latest recv_next: {record.Key.Robot} {record.Key.ChannelId} [{BitConverter.ToString(record.Payload)}]");
-            }
-            catch (EndpointException ex) when (ex.Error == HakoPduError.NoEntry)
-            {
-                break;
-            }
+            var record = endpoint.RecvNext(16);
+            Console.WriteLine($"latest recv_next: {record.Key.Robot} {record.Key.ChannelId} [{BitConverter.ToString(record.Payload)}]");
         }
 
         endpoint.Stop();
@@ -53,22 +49,18 @@ internal static class Program
 
         var keyA = new PduResolvedKey("csharp_queue_a", 41);
         var keyB = new PduResolvedKey("csharp_queue_b", 42);
+        endpoint.SetRecvEvent(keyA);
+        endpoint.SetRecvEvent(keyB);
 
         endpoint.Send(keyA, new byte[] { 0x0A });
         endpoint.Send(keyB, new byte[] { 0x0B });
         endpoint.Send(keyA, new byte[] { 0x0C });
 
-        while (true)
+        var pending = endpoint.GetPendingCount();
+        for (var i = 0; i < pending; i++)
         {
-            try
-            {
-                var record = endpoint.RecvNext(16);
-                Console.WriteLine($"queue recv_next: {record.Key.Robot} {record.Key.ChannelId} [{BitConverter.ToString(record.Payload)}]");
-            }
-            catch (EndpointException ex) when (ex.Error == HakoPduError.NoEntry)
-            {
-                break;
-            }
+            var record = endpoint.RecvNext(16);
+            Console.WriteLine($"queue recv_next: {record.Key.Robot} {record.Key.ChannelId} [{BitConverter.ToString(record.Payload)}]");
         }
 
         endpoint.Stop();

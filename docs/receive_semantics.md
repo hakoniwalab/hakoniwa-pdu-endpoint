@@ -42,6 +42,12 @@ The core runtime should present transport-independent receive semantics:
 - applications may consume that state explicitly
 
 Language bindings such as Python and C# should not need to reconstruct receive meaning independently for each transport.
+Pending receive state should be owned by the native runtime and exposed through the C facade, not reconstructed in managed-language callback queues.
+
+Event tracking is opt-in.
+
+- plain `recv(...)` / `recv_next(...)` must remain usable without event registration
+- explicit event registration is for applications that want pending-event observation and callback-style dispatch built on top of native receive state
 
 ## Normalized Receive Model
 
@@ -50,10 +56,34 @@ The intended model is:
 1. transport receives data
 2. endpoint accepts the payload
 3. cache-backed receive state is updated
-4. optional callback notification may occur
-5. application consumes receive state through explicit APIs
+4. optional receive notification state is updated
+5. application consumes receive state through explicit pull APIs
+6. upper layers decide whether and when to invoke user handlers
 
-The important point is that transport callback timing and receive-state consumption are different concerns.
+The important point is that transport callback timing, pending-state creation, and user-handler dispatch are different concerns.
+
+## Event Registration
+
+The intended C-facade direction is to expose explicit receive-event registration, for example via an API such as `set_recv_event(key)`.
+
+Meaning:
+
+- the application marks a key as event-tracked
+- the native/C layer performs whatever transport-specific setup is needed
+- future pending-event APIs such as `get_pending_count()` report only tracked receive events
+
+Important rule:
+
+- event registration is optional
+- not registering a key must not prevent normal `recv(...)` or `recv_next(...)` usage
+
+Transport implications:
+
+- SHM callback may need internal native callback registration to populate runtime state
+- SHM poll still needs `process_recv_events()`
+- raw/callback-driven comms may not need extra setup beyond native bookkeeping
+
+These differences remain internal to the transport layer and must not leak into the C facade contract.
 
 ## Cache Modes
 
@@ -161,14 +191,28 @@ Reason:
 
 ## Callbacks
 
-Callbacks are notifications, not the receive-state model itself.
+Callbacks are compatibility notifications, not the receive-state model itself.
 
 Recommended runtime meaning:
 
-- callback delivery informs the application that receive state became pending
+- transport/native callback paths may inform the runtime that receive state became pending
 - callback delivery does not by itself define payload consumption
+- user-language callback dispatch should be driven from explicit pull/drain operations in the caller-controlled context
 
 This keeps callback-based transports and poll-based transports compatible with the same explicit read model.
+
+### Binding Implication
+
+Language bindings should not treat direct native callback delivery as the primary application-facing API for Unity/Godot-style integrations.
+
+Preferred model:
+
+- native runtime owns pending receive state
+- bindings register handlers locally if they want callback-style convenience
+- bindings pull pending events through explicit APIs such as `recv_next(...)`
+- bindings invoke user handlers only from caller-controlled code paths
+
+This prevents transport thread timing from leaking into managed runtimes.
 
 ## `process_recv_events()`
 
@@ -217,7 +261,8 @@ In practice:
 
 - do not silently change current transport behavior
 - do not reinterpret existing callback APIs as implicit payload consumption
-- add runtime receive-state support as explicit capability
+- keep existing callback APIs for compatibility and low-level integrations
+- add native/C-owned runtime receive-state support as the standard explicit capability
 
 This allows existing applications to continue working while new bindings and integrations adopt the normalized model.
 
@@ -234,3 +279,8 @@ It affects:
 - future language bindings
 
 Bindings should sit on top of this model rather than reinvent per-transport receive handling on their own.
+
+Current implication for the repository:
+
+- the long-term standard path is native/C-owned pending receive state plus explicit pull APIs
+- managed async queues in bindings are transitional or convenience layers, not the core receive model

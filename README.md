@@ -405,19 +405,31 @@ python3 python/hakoniwa_pdu_endpoint/build_c_endpoint_ffi.py
 python3 python/test/test_c_endpoint_smoke.py
 ```
 
-4. Run the async callback smoke test.
+4. Run the callback dispatch smoke test.
 
 ```bash
-python3 python/test/test_c_endpoint_async_smoke.py
+python3 python/test/test_c_endpoint_callback_smoke.py
 ```
 
-5. Run the runtime `recv_next` smoke test.
+5. Run the ROS-style callback smoke test.
+
+```bash
+python3 python/test/test_c_endpoint_ros_style_smoke.py
+```
+
+6. Run the runtime `recv_next` smoke test.
 
 ```bash
 python3 python/test/test_c_endpoint_recv_next_smoke.py
 ```
 
-6. Run the Python `EndpointContainer` smoke test.
+7. Run the Python pending-count smoke test.
+
+```bash
+python3 python/test/test_c_endpoint_pending_smoke.py
+```
+
+8. Run the Python `EndpointContainer` smoke test.
 
 ```bash
 python3 python/test/test_endpoint_container_smoke.py
@@ -427,15 +439,13 @@ Current Python layout:
 
 - thin C ABI wrapper:
   - `python/hakoniwa_pdu_endpoint/c_endpoint.py`
-- async callback wrapper:
-  - `python/hakoniwa_pdu_endpoint/c_endpoint_async.py`
 - pure-Python container:
   - `python/hakoniwa_pdu_endpoint/endpoint_container.py`
 
 Runnable Python examples are also provided:
 
 - `python/examples/endpoint_internal_cache.py`
-- `python/examples/endpoint_async_callback.py`
+- `python/examples/endpoint_callback.py`
 - `python/examples/endpoint_recv_next.py`
 - `python/examples/endpoint_container.py`
 
@@ -525,7 +535,6 @@ PYTHONPATH=python python3 python/examples/endpoint_internal_cache.py
 Current Python modules:
 
 - `hakoniwa_pdu_endpoint.c_endpoint`
-- `hakoniwa_pdu_endpoint.c_endpoint_async`
 - `hakoniwa_pdu_endpoint.endpoint_container`
 
 An initial C# binding scaffold is also available under:
@@ -537,11 +546,13 @@ An initial C# binding scaffold is also available under:
 Current Python tests/examples:
 
 - `python/test/test_c_endpoint_smoke.py`
-- `python/test/test_c_endpoint_async_smoke.py`
+- `python/test/test_c_endpoint_callback_smoke.py`
+- `python/test/test_c_endpoint_ros_style_smoke.py`
 - `python/test/test_c_endpoint_recv_next_smoke.py`
+- `python/test/test_c_endpoint_pending_smoke.py`
 - `python/test/test_endpoint_container_smoke.py`
 - `python/examples/endpoint_internal_cache.py`
-- `python/examples/endpoint_async_callback.py`
+- `python/examples/endpoint_callback.py`
 - `python/examples/endpoint_recv_next.py`
 - `python/examples/endpoint_container.py`
 
@@ -619,13 +630,6 @@ Current design constraints:
 - callback payload pointers are borrowed for the duration of the callback only
 - Python wrappers should copy callback payload bytes before returning from the callback
 
-For Python specifically, the recommended model is one layer above the thin
-`cffi` binding:
-
-- use the C callback only to capture and copy the event
-- enqueue the copied record in Python
-- dispatch Python handlers from a Python-owned thread
-
 For the C# binding design intended for Unity/Godot-style main-thread dispatch,
 see `docs/csharp_binding.md`.
 
@@ -656,8 +660,10 @@ Current verification in this repository:
 - Python smoke test:
 - Python smoke tests:
   - `python/test/test_c_endpoint_smoke.py`
-  - `python/test/test_c_endpoint_async_smoke.py`
+  - `python/test/test_c_endpoint_callback_smoke.py`
+  - `python/test/test_c_endpoint_ros_style_smoke.py`
   - `python/test/test_c_endpoint_recv_next_smoke.py`
+  - `python/test/test_c_endpoint_pending_smoke.py`
   - `python/test/test_endpoint_container_smoke.py`
 - C# smoke tests:
   - `csharp/tests/SmokeTests/`
@@ -668,21 +674,21 @@ A first `cffi` API-mode wrapper is provided under:
 
 - `python/hakoniwa_pdu_endpoint/build_c_endpoint_ffi.py`
 - `python/hakoniwa_pdu_endpoint/c_endpoint.py`
-- `python/hakoniwa_pdu_endpoint/c_endpoint_async.py`
 
 Typical flow:
 
 ```bash
 python python/hakoniwa_pdu_endpoint/build_c_endpoint_ffi.py
 python python/test/test_c_endpoint_smoke.py
-python python/test/test_c_endpoint_async_smoke.py
+python python/test/test_c_endpoint_callback_smoke.py
 ```
 
 This assumes the core library has already been built and is available in the
 repository build tree.
 
-`c_endpoint.py` is intentionally thin. It exposes the C facade almost
-directly.
+`c_endpoint.py` is the only Python binding entry point. It exposes the C facade
+almost directly, while also carrying optional callback convenience helpers such
+as `on_recv(...)`, `start_dispatch()`, and `stop_dispatch()`.
 
 `cffi` was chosen instead of direct `Python.h` embedding or a `ctypes`-first
 approach because:
@@ -694,17 +700,13 @@ approach because:
   project
 - callback-heavy usage is safer to evolve than with a `ctypes`-only path
 
-For callback-heavy Python applications, use `c_endpoint_async.py` as the
-recommended higher-level layer:
-
-- the low-level callback captures and copies the event
-- the copied event is pushed into a Python queue
-- a Python-owned dispatch thread invokes application handlers later
-
-The repository includes both smoke tests:
+The repository includes callback and pull-model smoke tests:
 
 - `python/test/test_c_endpoint_smoke.py`
-- `python/test/test_c_endpoint_async_smoke.py`
+- `python/test/test_c_endpoint_callback_smoke.py`
+- `python/test/test_c_endpoint_ros_style_smoke.py`
+- `python/test/test_c_endpoint_recv_next_smoke.py`
+- `python/test/test_c_endpoint_pending_smoke.py`
 - `python/test/test_endpoint_container_smoke.py`
 
 ### Python EndpointContainer
@@ -739,12 +741,10 @@ classDiagram
     class Endpoint
     class CFacade
     class PyEndpoint
-    class PyEndpointAsync
     class PyEndpointContainer
 
     Endpoint <.. CFacade : wraps
     CFacade <.. PyEndpoint : cffi API mode
-    PyEndpoint <.. PyEndpointAsync : higher-level async dispatch
     PyEndpoint <.. PyEndpointContainer : composed
 ```
 

@@ -8,7 +8,7 @@ The Python binding follows a layered design:
 
 - stable native boundary at the C facade
 - thin Python wrapper over the C facade
-- higher-level async wrapper above the thin binding
+- optional callback convenience inside the thin binding
 
 This keeps the core library language-neutral and makes callback behavior explicit.
 
@@ -19,10 +19,8 @@ Current structure:
 1. `c_endpoint.h` / `c_endpoint.cpp`
    - portable C ABI over `hakoniwa::pdu::Endpoint`
 2. `python/hakoniwa_pdu_endpoint/c_endpoint.py`
-   - thin `cffi` wrapper over the C ABI
-3. `python/hakoniwa_pdu_endpoint/c_endpoint_async.py`
-   - async callback wrapper built on top of the thin Python layer
-4. `python/hakoniwa_pdu_endpoint/endpoint_container.py`
+   - thin `cffi` wrapper over the C ABI, plus optional callback convenience
+3. `python/hakoniwa_pdu_endpoint/endpoint_container.py`
    - pure-Python container orchestration by composing wrapped endpoints
 
 This layering is intentional. Python does not reach directly into the C++ API.
@@ -50,44 +48,41 @@ Its responsibilities are:
 - raise Python exceptions from native error codes
 - keep callback objects alive on the Python side
 
-It should not add hidden threading or scheduling policy.
+It should not add hidden threading or scheduling policy, and it should not redefine receive semantics independently of the native layer.
 
-## Async Wrapper Responsibilities
+## Callback Convenience Responsibilities
 
-`c_endpoint_async.py` provides the higher-level callback model.
+`c_endpoint.py` also provides optional callback convenience helpers.
 
-Its responsibilities are:
+Their responsibilities are:
 
-- subscribe native receive callbacks through the thin wrapper
-- copy callback payload bytes immediately
-- enqueue copied events in a Python-owned queue
-- dispatch handlers later on a Python-owned thread
+- offer callback-style handling on top of the thin wrapper
+- avoid forcing user Python logic onto transport-facing callback threads
 
-This avoids running user Python logic directly on transport-facing callback threads.
+These helpers are convenience features, not the canonical definition of runtime receive behavior.
 
-## Callback Model
+## Standard Receive Model
 
-The underlying native callback should do the minimum possible work:
+The standard receive model should be defined by the native runtime and exposed through the C facade.
 
-- capture the resolved key
-- copy payload bytes into Python-managed memory
-- enqueue an event
-- return immediately
+Preferred model:
 
-The native callback must not rely on the payload pointer remaining valid after callback return.
-That pointer is borrowed only for the duration of the callback.
+- native/C layer owns pending receive state
+- Python consumes pending events through explicit APIs such as `recv(...)` and `recv_next(...)`
+- upper-layer Python code decides whether and when to dispatch user handlers
+- explicit event registration in the C facade is optional and should not be required for plain receive calls
+
+Direct native callback handling may remain available for compatibility, but it should not be the long-term primary receive model for all transports.
 
 ## Dispatch Model
 
-Python event handlers are not executed directly inside the native callback path.
+If callback-style convenience is desired:
 
-Instead:
+- a higher-level wrapper may build queueing/dispatch behavior on top of explicit pulls
+- or a compatibility callback wrapper may enqueue work and dispatch later
+- user Python handlers should still run from caller-controlled code paths where practical
 
-- the low-level callback copies and enqueues
-- a Python-owned dispatch thread reads queued events
-- registered Python handlers are invoked later from that thread
-
-This design is safer for callback-heavy usage because it keeps Python execution away from transport-facing timing constraints.
+This keeps Python behavior explicit and transport-independent.
 
 ## Current Event Types
 
@@ -126,8 +121,8 @@ Current responsibilities:
 
 The intended Python threading model is:
 
-- transport/native callback threads may trigger event capture
-- Python callback code is deferred to a Python-owned dispatch thread
+- transport/native callback threads may cause native receive state to become pending
+- Python code consumes that state through explicit API calls
 - the application remains responsible for endpoint lifecycle and any explicit poll calls such as `process_recv_events()`
 
 This matches the broader design philosophy of explicit integration control.
@@ -146,6 +141,7 @@ The Python binding is intentionally conservative:
 - native core stays language-neutral
 - C facade defines the ABI boundary
 - `cffi` provides a thin binding
-- async callback handling is implemented one layer above the thin binding
+- native/C layer should define runtime receive semantics
+- async callback handling, when used, remains an optional convenience layer above the thin binding
 
 This preserves explicit ownership, explicit threading, and explicit runtime behavior.

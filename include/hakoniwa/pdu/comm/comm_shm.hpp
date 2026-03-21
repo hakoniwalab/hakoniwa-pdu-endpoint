@@ -34,6 +34,7 @@ public:
     virtual HakoPduErrorType is_running(bool& running) noexcept override;
     // Only meaningful for SHM poll implementation; other SHM modes are no-op.
     virtual void process_recv_events() noexcept override;
+    virtual HakoPduErrorType set_recv_event(const PduResolvedKey& pdu_key) noexcept override;
 
     virtual HakoPduErrorType send(const PduResolvedKey& pdu_key, std::span<const std::byte> data) noexcept override;
     virtual HakoPduErrorType recv(const PduResolvedKey& pdu_key, std::span<std::byte> data, size_t& received_size) noexcept override;
@@ -46,6 +47,7 @@ private:
 
     // Member function to handle the dispatched callback
     void handle_shm_recv(int recv_event_id);
+    HakoPduErrorType register_recv_event_(const PduResolvedKey& pdu_key) noexcept;
 
     std::atomic<bool>                   running_;
     

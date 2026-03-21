@@ -115,6 +115,16 @@ internal static class NativeMethods
         out UIntPtr receivedSize);
 
     [DllImport(NativeLibraryName, CallingConvention = CallingConvention.Cdecl)]
+    internal static extern HakoPduError hako_pdu_endpoint_set_recv_event(
+        SafeEndpointHandle endpoint,
+        ref NativeResolvedKey key);
+
+    [DllImport(NativeLibraryName, CallingConvention = CallingConvention.Cdecl)]
+    internal static extern HakoPduError hako_pdu_endpoint_get_pending_count(
+        SafeEndpointHandle endpoint,
+        out UIntPtr outCount);
+
+    [DllImport(NativeLibraryName, CallingConvention = CallingConvention.Cdecl)]
     internal static extern HakoPduError hako_pdu_endpoint_recv_by_name(
         SafeEndpointHandle endpoint,
         ref NativePduKey key,

@@ -103,6 +103,12 @@ ffi.cdef(
         void* buffer,
         size_t buffer_size,
         size_t* received_size);
+    HakoPduErrorType hako_pdu_endpoint_set_recv_event(
+        hako_pdu_endpoint_handle_t* endpoint,
+        const hako_pdu_resolved_key_t* key);
+    HakoPduErrorType hako_pdu_endpoint_get_pending_count(
+        hako_pdu_endpoint_handle_t* endpoint,
+        size_t* out_count);
     HakoPduErrorType hako_pdu_endpoint_recv_by_name(
         hako_pdu_endpoint_handle_t* endpoint,
         const hako_pdu_key_t* key,

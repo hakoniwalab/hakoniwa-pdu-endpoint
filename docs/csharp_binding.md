@@ -7,7 +7,6 @@ The C# layer should follow the same architectural boundary as the Python binding
 
 - stable native boundary at the C facade
 - thin language wrapper over that facade
-- higher-level async/event wrapper above the thin binding
 
 This keeps the core C++ library language-neutral and prevents engine-specific concerns from leaking into the native layer.
 
@@ -24,7 +23,7 @@ These environments strongly prefer:
 - explicit control over when callbacks are delivered
 - avoidance of engine API calls from arbitrary transport threads
 
-That makes a direct native-callback-to-user-handler model unsafe as the default.
+That makes a direct native-callback-to-user-handler model unsafe as the default, and it also argues for native/C-owned pending receive state rather than managed callback reconstruction.
 
 ## Layering
 
@@ -36,56 +35,47 @@ Recommended structure:
 2. `Endpoint`
    - thin managed wrapper over the C facade
    - mirrors `open/start/post_start/stop/close/send/recv/...`
-3. `EndpointAsync`
-   - callback-safe event capture
-   - copies payloads immediately
-   - queues managed events for later dispatch
 
 This mirrors the current Python structure:
 
-- thin wrapper: `python/hakoniwa_pdu_endpoint/c_endpoint.py`
-- async wrapper: `python/hakoniwa_pdu_endpoint/c_endpoint_async.py`
+- wrapper and callback convenience: `python/hakoniwa_pdu_endpoint/c_endpoint.py`
 
-## Callback Model
+## Standard Receive Model
 
-The native callback should do the minimum possible work:
+The standard C# receive path should be pull-based.
 
-- resolve the managed receiver instance
-- copy the payload into managed memory
-- enqueue a `PduEvent`
-- return immediately
+Recommended model:
 
-The native callback must not:
+- native/C layer owns pending receive state
+- C# consumes pending events through `RecvNext(...)`
+- higher layers invoke user handlers only from caller-controlled code paths
+- explicit event registration in the C facade is optional, not required for plain receive APIs
 
-- block
-- call Unity or Godot APIs
-- run user handlers directly
-- keep borrowed native payload pointers after return
+This means the binding should not rely on direct native-to-managed callback delivery as the primary engine-facing receive model.
 
-This follows the existing C facade contract: callback payload pointers are borrowed only for the duration of the callback.
+Existing native callback registration may remain available as a low-level or compatibility API, but it should not define the standard Unity/Godot integration story.
 
 ## Event Delivery Model
-
-`EndpointAsync` should expose explicit draining of queued events from managed code.
 
 Recommended per-frame pattern:
 
 1. call `ProcessRecvEvents()` when the underlying comm needs polling
-2. call `DrainPending()` on the async wrapper
+2. call `GetPendingCount()`
+3. call `RecvNext(...)` for the pending records you want to consume
 3. invoke user handlers from the engine main thread
 
-This keeps transport-facing activity and engine-facing callback execution separate.
+This keeps transport-facing activity and engine-facing callback execution separate without rebuilding transport semantics in C#.
 
-## `process_recv_events()` vs `DrainPending()`
+## `process_recv_events()` vs Pull/Drain
 
 These are different responsibilities and should remain separate:
 
 - `process_recv_events()`
   - advances native-side receive handling for poll-based comm implementations
   - especially relevant for SHM poll integration
-- `DrainPending()`
-  - drains already-captured managed events from the async queue
-  - invokes user handlers on the caller's thread
+- `GetPendingCount()` / `RecvNext(...)`
+  - consumes already-pending receive state
+  - lets the caller invoke user handlers on its own thread
 
 Typical engine integration:
 
@@ -108,53 +98,43 @@ That includes:
 From the C# caller's point of view, all of these should normalize into the same behavior:
 
 - native side receives data
-- managed side records a pending receive event
+- native/C layer records pending receive state
 - the application explicitly drains pending events on its chosen thread
 
-This means native callback timing must not leak into the public managed callback model.
+This means transport callback timing must not leak into the public managed callback model.
 
 ## Why Explicit Main-Thread Dispatch
 
-Using a dedicated managed dispatch thread is possible, but should not be the default for engine integrations.
-
-Reason:
-
-- Unity objects are generally main-thread bound
-- Godot scene-tree interactions are generally main-thread bound
-- handler code often evolves to include engine API access, even if it starts as pure data handling
-
-Therefore the safe default is:
+The safe default is:
 
 - background/native threads may receive data
-- managed async wrapper may queue data
-- user handlers run only when the application explicitly pumps the queue
+- native/C layer may mark receive state pending
+- user handlers run only when the application explicitly pulls and dispatches events
 
 ## Memory and Lifetime Rules
 
 The C# binding should enforce these rules:
 
-- keep native callback delegates alive for as long as native code may call them
+- keep native callback delegates alive for as long as native code may call them, if callback APIs are used
 - use `GCHandle` for `user_data` style association when needed
-- copy callback payload bytes before returning from the native callback
 - release native handles deterministically
-- stop callback delivery before tearing down managed dispatch state
+- stop callback delivery before tearing down managed state
 
 Recommended implementation details:
 
 - use `SafeHandle` for the native endpoint handle
-- keep callback delegates in instance fields
-- model payloads as `byte[]` in queued events
+- keep callback delegates in instance fields when exposing compatibility callbacks
+- model pulled payloads as `byte[]`
 
-## Future Direction: Cache-Backed Pending Receive State
+## Native/C-Owned Pending Receive State
 
-The current C# scaffold keeps its own managed queue above the C facade.
-That is sufficient for an initial binding, but the more robust long-term design is to let the native endpoint layer expose transport-independent pending receive state.
+The native endpoint layer should expose transport-independent pending receive state through the C facade.
 
 See also:
 
 - `docs/receive_semantics.md`
 
-The reason is consistency:
+Reason:
 
 - TCP/UDP/WebSocket/MQTT/Zenoh receive on background/native callback paths
 - SHM callback mode also receives on callback paths
@@ -162,80 +142,22 @@ The reason is consistency:
 
 These should all converge to one native-side receive model before reaching C#.
 
-### Why Cache Is Relevant
+Important implications:
 
-The endpoint already writes received data into cache before notifying subscribers.
-That makes cache the natural place to extend receive semantics.
-
-However, the current cache abstraction is key-based storage, not a full pending-event abstraction.
-
-Important distinction:
-
-- `latest` cache is state-oriented
-- `queue` cache is per-key FIFO storage
-
-Neither alone provides a transport-independent global pending receive feed.
-
-### Proposed Direction
-
-Add pending receive event handling alongside cache semantics.
-
-Both cache modes would gain arrival-order tracking, but with different meaning:
-
-- `latest`
-  - keep only the latest payload per key
-  - keep at most one pending receive entry per key
-  - `recv_next` returns the next pending key in arrival order
-  - payload is then resolved from the latest stored value
-
-- `queue`
-  - keep multiple payloads per key
-  - keep arrival-order receive entries for every accepted payload
-  - `recv_next` consumes events in arrival order
-  - payload/event correspondence remains queue-like
-
-### Required Consistency Rule
-
-Receive-event registration must happen if and only if payload acceptance succeeded.
-
-In other words:
-
-- if payload storage fails, no receive event may be queued
-- if payload storage succeeds, receive-event state must be updated in the same critical section
-
-This prevents contradictions between visible receive events and readable payload data.
-
-### Interaction With `recv(key, ...)`
-
-This design must also handle applications that do not use event-driven receive.
-
-If an application consumes data directly through `recv(key, ...)`, pending receive state must remain consistent.
-
-That means:
-
-- reading by key may need to consume one pending receive indication for that key
-- `recv_next(...)` and `recv(key, ...)` must not drift apart over time
-
-This is especially important if both APIs are used in the same process.
-
-### Design Implication
-
-Because of that consistency requirement, pending receive handling should not be implemented as a loose side queue outside cache semantics.
-
-It should be integrated with cache read/write behavior so that:
-
-- write updates payload state and receive-event state together
-- key-based reads and arrival-order reads consume state consistently
-
-This is the direction that best matches the project's explicit semantics and transport-independent endpoint model.
+- pending receive state must be defined by native cache/runtime semantics
+- `recv_next(...)` is the primary binding-facing receive API
+- `get_pending_count(...)` is the standard loop-control API
+- `recv(key, ...)` and `recv_next(...)` must remain consistent
+- event registration should be opt-in and transport-independent from the binding point of view
+- callback registration in C# should be treated as low-level compatibility, not the core model
 
 ## Threading Rules
 
 The intended threading model is:
 
-- transport or native callback threads may enqueue events
+- transport or native callback threads may make receive state pending
 - no engine API access occurs on those threads
-- the engine main thread drains and dispatches events
+- the engine main thread pulls and dispatches events
 - polling comms are advanced only when the application calls `ProcessRecvEvents()`
 
 This is consistent with the project's broader design choice of explicit integration control over hidden scheduling.
@@ -255,18 +177,14 @@ Minimal expected managed APIs:
   - `ProcessRecvEvents`
   - `Send`
   - `SendByName`
+  - `SetRecvEvent`
+  - `GetPendingCount`
   - `Recv`
   - `RecvByName`
   - `RecvNext`
   - `GetPduSize`
   - `GetPduChannelId`
   - `GetPduName`
-
-- `EndpointAsync`
-  - `OnRecv`
-  - `OnRecvByName`
-  - `DrainPending`
-  - optional `TryDequeue`
 
 ## Non-Goals For v1
 
@@ -281,7 +199,8 @@ The C# binding should reuse the same boundary already established for Python:
 
 - C++ core stays unchanged
 - C facade remains the ABI contract
-- C# adds a thin wrapper plus an async queue layer
-- user callbacks are delivered explicitly on the main thread
+- native/C layer owns pending receive semantics
+- C# adds a thin wrapper over that model
+- user callbacks are delivered only from caller-controlled pull/drain code paths
 
 This is the safest model for Unity and Godot and is consistent with the project's explicit scheduling philosophy.

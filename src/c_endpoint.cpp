@@ -365,6 +365,34 @@ HakoPduErrorType hako_pdu_endpoint_recv(
     return impl->recv(cpp_key, to_mutable_byte_span(buffer, buffer_size), *received_size);
 }
 
+HakoPduErrorType hako_pdu_endpoint_set_recv_event(
+    hako_pdu_endpoint_handle_t* endpoint,
+    const hako_pdu_resolved_key_t* key)
+{
+    auto* impl = unwrap(endpoint);
+    if (impl == nullptr || key == nullptr) {
+        return HAKO_PDU_ERR_INVALID_ARGUMENT;
+    }
+
+    PduResolvedKey cpp_key{};
+    if (!to_cpp_key(key, cpp_key)) {
+        return HAKO_PDU_ERR_INVALID_ARGUMENT;
+    }
+    return impl->set_recv_event(cpp_key);
+}
+
+HakoPduErrorType hako_pdu_endpoint_get_pending_count(
+    hako_pdu_endpoint_handle_t* endpoint,
+    size_t* out_count)
+{
+    auto* impl = unwrap(endpoint);
+    if (impl == nullptr || out_count == nullptr) {
+        return HAKO_PDU_ERR_INVALID_ARGUMENT;
+    }
+    *out_count = 0;
+    return impl->get_pending_count(*out_count);
+}
+
 HakoPduErrorType hako_pdu_endpoint_recv_by_name(
     hako_pdu_endpoint_handle_t* endpoint,
     const hako_pdu_key_t* key,

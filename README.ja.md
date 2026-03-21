@@ -136,7 +136,7 @@ MQTT は broker ベースの pub/sub を `Endpoint` モデルのまま使いた�
 
 ## Quick Start For Python
 
-Python は `cffi` ベースの薄い binding と、その上の async wrapper で構成されています。
+Python は `cffi` ベースの `Endpoint` binding と、その上の pure-Python container で構成されています。
 
 代表コマンド:
 
@@ -148,13 +148,12 @@ bash test-python.bash
 主なモジュール:
 
 - `python/hakoniwa_pdu_endpoint/c_endpoint.py`
-- `python/hakoniwa_pdu_endpoint/c_endpoint_async.py`
 - `python/hakoniwa_pdu_endpoint/endpoint_container.py`
 
 主な examples:
 
 - `python/examples/endpoint_internal_cache.py`
-- `python/examples/endpoint_async_callback.py`
+- `python/examples/endpoint_callback.py`
 - `python/examples/endpoint_recv_next.py`
 - `python/examples/endpoint_container.py`
 

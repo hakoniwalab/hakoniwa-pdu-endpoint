@@ -62,6 +62,11 @@ public:
         (void)out;
         return HAKO_PDU_ERR_UNSUPPORTED;
     }
+    virtual HakoPduErrorType set_recv_event(const PduResolvedKey& pdu_key) noexcept
+    {
+        (void)pdu_key;
+        return HAKO_PDU_ERR_OK;
+    }
 
     virtual HakoPduErrorType set_on_recv_callback(
         std::function<void(const PduResolvedKey&, std::span<const std::byte>)> callback) noexcept

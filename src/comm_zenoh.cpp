@@ -96,6 +96,12 @@ HakoPduErrorType ZenohComm::recv(const PduResolvedKey& pdu_key, std::span<std::b
     return HAKO_PDU_ERR_UNSUPPORTED;
 }
 
+HakoPduErrorType ZenohComm::set_recv_event(const PduResolvedKey& pdu_key) noexcept
+{
+    explicit_recv_events_[NotifyKey{pdu_key.robot, pdu_key.channel_id}] = true;
+    return HAKO_PDU_ERR_OK;
+}
+
 HakoPduErrorType ZenohComm::parse_config_(const std::string& config_path)
 {
     std::ifstream ifs(config_path);
@@ -291,6 +297,10 @@ void ZenohComm::on_sample_(z_loaned_sample_t* sample)
 
 bool ZenohComm::should_notify_on_recv_(const PduResolvedKey& key) const
 {
+    auto explicit_it = explicit_recv_events_.find(NotifyKey{key.robot, key.channel_id});
+    if (explicit_it != explicit_recv_events_.end()) {
+        return explicit_it->second;
+    }
     if (notify_on_recv_.empty()) {
         return true;
     }

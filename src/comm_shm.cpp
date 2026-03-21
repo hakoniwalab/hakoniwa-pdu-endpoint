@@ -65,6 +65,33 @@ PduCommShm::~PduCommShm() {
     close();
 }
 
+HakoPduErrorType PduCommShm::register_recv_event_(const PduResolvedKey& pdu_key) noexcept
+{
+    for (const auto& existing : recv_notify_keys_) {
+        if (existing == pdu_key) {
+            return HAKO_PDU_ERR_OK;
+        }
+    }
+    recv_notify_keys_.push_back(pdu_key);
+
+    if (!running_.load() || !impl_) {
+        return HAKO_PDU_ERR_OK;
+    }
+
+    int event_id = -1;
+    if (impl_->register_rcv_event(pdu_key, PduCommShm::shm_recv_callback, event_id) != 0) {
+        return HAKO_PDU_ERR_INVALID_CONFIG;
+    }
+
+    {
+        std::lock_guard<std::mutex> lock(event_map_mutex_);
+        event_id_to_instance_map_[event_id] = this;
+        event_id_to_key_map_[event_id] = pdu_key;
+    }
+    registered_event_ids_.push_back(event_id);
+    return HAKO_PDU_ERR_OK;
+}
+
 HakoPduErrorType PduCommShm::create_pdu_lchannels(const std::string& config_path) {
     if (!pdu_def_) { // Access inherited member
         std::cerr << "PduCommShm Error: PDU definition is not set." << std::endl;
@@ -250,6 +277,11 @@ void PduCommShm::process_recv_events() noexcept
 HakoPduErrorType PduCommShm::is_running(bool& running) noexcept {
     running = running_.load();
     return HAKO_PDU_ERR_OK;
+}
+
+HakoPduErrorType PduCommShm::set_recv_event(const PduResolvedKey& pdu_key) noexcept
+{
+    return register_recv_event_(pdu_key);
 }
 
 HakoPduErrorType PduCommShm::send(const PduResolvedKey& pdu_key, std::span<const std::byte> data) noexcept {

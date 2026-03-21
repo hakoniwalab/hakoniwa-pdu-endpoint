@@ -12,24 +12,24 @@ internal static class Program
             : "config/sample/endpoint_internal_cache.json";
 
         using var endpoint = new Endpoint("csharp_minimal", EndpointDirection.InOut);
-        var endpointAsync = new EndpointAsync(endpoint);
-
-        endpointAsync.Open(configPath);
-        endpointAsync.Start();
+        endpoint.Open(configPath);
+        endpoint.Start();
 
         var key = new PduResolvedKey("robot1", 1);
-        endpointAsync.OnRecv(key, ev =>
+        endpoint.SetRecvEvent(key);
+
+        endpoint.Send(key, new byte[] { 0x01, 0x02, 0x03 });
+
+        endpoint.ProcessRecvEvents();
+        var pending = endpoint.GetPendingCount();
+        for (var i = 0; i < pending; i++)
         {
-            Console.WriteLine($"received robot={ev.Key.Robot} channel={ev.Key.ChannelId} size={ev.Payload.Length}");
-        });
+            var record = endpoint.RecvNext(16);
+            Console.WriteLine($"received robot={record.Key.Robot} channel={record.Key.ChannelId} size={record.Payload.Length}");
+        }
+        Console.WriteLine($"pending_processed={pending}");
 
-        endpointAsync.Send(key, new byte[] { 0x01, 0x02, 0x03 });
-
-        endpointAsync.ProcessRecvEvents();
-        var dispatched = endpointAsync.DrainPending();
-        Console.WriteLine($"dispatched={dispatched}");
-
-        endpointAsync.Stop();
-        endpointAsync.Close();
+        endpoint.Stop();
+        endpoint.Close();
     }
 }

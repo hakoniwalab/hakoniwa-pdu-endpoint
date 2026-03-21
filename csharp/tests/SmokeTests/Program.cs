@@ -1,5 +1,4 @@
 using System;
-using System.Collections.Generic;
 using System.Threading;
 using Hakoniwa.PduEndpoint;
 
@@ -22,9 +21,10 @@ internal static class Program
         var tests = new[]
         {
             new TestCase("InternalLatestSendRecvWorks", InternalLatestSendRecvWorks),
+            new TestCase("RecvByKeyWithoutSetRecvEventWorks", RecvByKeyWithoutSetRecvEventWorks),
             new TestCase("InternalLatestRecvNextWorks", InternalLatestRecvNextWorks),
             new TestCase("InternalQueueRecvNextWorks", InternalQueueRecvNextWorks),
-            new TestCase("AsyncDrainPendingWorks", AsyncDrainPendingWorks),
+            new TestCase("SetRecvEventPendingCountWorks", SetRecvEventPendingCountWorks),
             new TestCase("TcpSendRecvWorks", TcpSendRecvWorks),
         };
 
@@ -101,6 +101,23 @@ internal static class Program
         endpoint.Close();
     }
 
+    private static void RecvByKeyWithoutSetRecvEventWorks()
+    {
+        using var endpoint = new Endpoint("csharp_test_recv_by_key", EndpointDirection.InOut);
+        endpoint.Open("config/sample/endpoint_internal_cache.json");
+        endpoint.Start();
+
+        var key = new PduResolvedKey("csharp_test_recv_by_key_robot", 505);
+        var payload = new byte[] { 0x51, 0x52, 0x53 };
+
+        endpoint.Send(key, payload);
+        var recv = endpoint.Recv(key, 16);
+        AssertBytes(recv, payload, "recv-by-key payload mismatch");
+
+        endpoint.Stop();
+        endpoint.Close();
+    }
+
     private static void InternalQueueRecvNextWorks()
     {
         using var endpoint = new Endpoint("csharp_test_queue_next", EndpointDirection.InOut);
@@ -132,26 +149,35 @@ internal static class Program
         endpoint.Close();
     }
 
-    private static void AsyncDrainPendingWorks()
+    private static void SetRecvEventPendingCountWorks()
     {
-        using var endpoint = new Endpoint("csharp_test_async", EndpointDirection.InOut);
-        endpoint.Open("config/sample/endpoint_internal_cache.json");
+        using var endpoint = new Endpoint("csharp_test_pending_count", EndpointDirection.InOut);
+        endpoint.Open("test/test_endpoint_buffer.json");
+        endpoint.Start();
 
-        var asyncEndpoint = new EndpointAsync(endpoint);
-        var key = new PduResolvedKey("csharp_test_async_robot", 531);
-        var hits = new List<byte[]>();
+        var keyA = new PduResolvedKey("csharp_test_pending_a", 523);
+        var keyB = new PduResolvedKey("csharp_test_pending_b", 524);
 
-        asyncEndpoint.OnRecv(key, ev => hits.Add(ev.Payload));
-        asyncEndpoint.Start();
-        asyncEndpoint.Send(key, new byte[] { 0x21, 0x22 });
+        endpoint.SetRecvEvent(keyA);
+        endpoint.SetRecvEvent(keyB);
 
-        var drained = asyncEndpoint.DrainPending();
-        Assert(drained == 1, $"expected drained=1 but got {drained}");
-        Assert(hits.Count == 1, $"expected one async hit but got {hits.Count}");
-        AssertBytes(hits[0], new byte[] { 0x21, 0x22 }, "async payload mismatch");
+        endpoint.Send(keyA, new byte[] { 0x11 });
+        endpoint.Send(keyB, new byte[] { 0x12 });
+        endpoint.Send(keyA, new byte[] { 0x13 });
 
-        asyncEndpoint.Stop();
-        asyncEndpoint.Close();
+        var pending = endpoint.GetPendingCount();
+        Assert(pending == 2, $"expected pending=2 but got {pending}");
+
+        var record = endpoint.RecvNext(16);
+        Assert(record.Key.Equals(keyA), "pending recv_next first key mismatch");
+        AssertBytes(record.Payload, new byte[] { 0x13 }, "pending recv_next first payload mismatch");
+
+        record = endpoint.RecvNext(16);
+        Assert(record.Key.Equals(keyB), "pending recv_next second key mismatch");
+        AssertBytes(record.Payload, new byte[] { 0x12 }, "pending recv_next second payload mismatch");
+
+        endpoint.Stop();
+        endpoint.Close();
     }
 
     private static void TcpSendRecvWorks()

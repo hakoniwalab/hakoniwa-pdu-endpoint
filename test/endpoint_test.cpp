@@ -18,6 +18,9 @@
 #include <cerrno>
 #include <cstring>
 #include <sstream>
+#ifndef _WIN32
+#include <dlfcn.h>
+#endif
 #include "hakoniwa/pdu/comm/packet.hpp"
 #include "hakoniwa/pdu/comm/storage_format.hpp"
 #include "hakoniwa/pdu/endpoint_comm_multiplexer.hpp"
@@ -230,6 +233,13 @@ namespace {
             std::memcpy(capture->payload.data(), data, size);
         }
     }
+
+#ifndef _WIN32
+    template <typename T>
+    T load_c_endpoint_symbol(const char* name) {
+        return reinterpret_cast<T>(dlsym(RTLD_DEFAULT, name));
+    }
+#endif
 }
 
 class EndpointTest : public ::testing::Test {
@@ -580,6 +590,218 @@ TEST_F(EndpointTest, CEndpointInternalQueueRecvNextReturnsGlobalArrivalOrder) {
     ASSERT_EQ(hako_pdu_endpoint_stop(endpoint), HAKO_PDU_ERR_OK);
     ASSERT_EQ(hako_pdu_endpoint_close(endpoint), HAKO_PDU_ERR_OK);
     hako_pdu_endpoint_destroy(endpoint);
+}
+
+TEST_F(EndpointTest, CEndpointRecvNextWorksWithoutRecvEventRegistration) {
+    auto* endpoint = hako_pdu_endpoint_create("c_internal_recv_next_without_event_test", HAKO_PDU_ENDPOINT_DIRECTION_INOUT);
+    ASSERT_NE(endpoint, nullptr);
+
+    ASSERT_EQ(
+        hako_pdu_endpoint_open(endpoint, "test/test_endpoint_queue.json"),
+        HAKO_PDU_ERR_OK);
+    ASSERT_EQ(hako_pdu_endpoint_start(endpoint), HAKO_PDU_ERR_OK);
+
+    hako_pdu_resolved_key_t key_a{};
+    hako_pdu_resolved_key_t key_b{};
+    std::snprintf(key_a.robot, sizeof(key_a.robot), "%s", "robot_c_no_event_a");
+    std::snprintf(key_b.robot, sizeof(key_b.robot), "%s", "robot_c_no_event_b");
+    key_a.channel_id = 75;
+    key_b.channel_id = 76;
+
+    const std::uint8_t payload_a1[] = {0x21};
+    const std::uint8_t payload_b1[] = {0x22};
+
+    ASSERT_EQ(hako_pdu_endpoint_send(endpoint, &key_a, payload_a1, sizeof(payload_a1)), HAKO_PDU_ERR_OK);
+    ASSERT_EQ(hako_pdu_endpoint_send(endpoint, &key_b, payload_b1, sizeof(payload_b1)), HAKO_PDU_ERR_OK);
+
+    std::uint8_t recv_buf[8] = {};
+    hako_pdu_resolved_key_t out_key{};
+    std::uint64_t out_timestamp_ns = 0;
+    size_t received_size = 0;
+
+    ASSERT_EQ(
+        hako_pdu_endpoint_recv_next(endpoint, recv_buf, sizeof(recv_buf), &out_key, &out_timestamp_ns, &received_size),
+        HAKO_PDU_ERR_OK);
+    EXPECT_STREQ(out_key.robot, "robot_c_no_event_a");
+    EXPECT_EQ(out_key.channel_id, 75U);
+    ASSERT_EQ(received_size, 1U);
+    EXPECT_EQ(recv_buf[0], std::uint8_t{0x21});
+
+    ASSERT_EQ(
+        hako_pdu_endpoint_recv_next(endpoint, recv_buf, sizeof(recv_buf), &out_key, &out_timestamp_ns, &received_size),
+        HAKO_PDU_ERR_OK);
+    EXPECT_STREQ(out_key.robot, "robot_c_no_event_b");
+    EXPECT_EQ(out_key.channel_id, 76U);
+    ASSERT_EQ(received_size, 1U);
+    EXPECT_EQ(recv_buf[0], std::uint8_t{0x22});
+
+    ASSERT_EQ(
+        hako_pdu_endpoint_recv_next(endpoint, recv_buf, sizeof(recv_buf), &out_key, &out_timestamp_ns, &received_size),
+        HAKO_PDU_ERR_NO_ENTRY);
+
+    ASSERT_EQ(hako_pdu_endpoint_stop(endpoint), HAKO_PDU_ERR_OK);
+    ASSERT_EQ(hako_pdu_endpoint_close(endpoint), HAKO_PDU_ERR_OK);
+    hako_pdu_endpoint_destroy(endpoint);
+}
+
+TEST_F(EndpointTest, CEndpointRecvWorksWithoutRecvEventRegistration) {
+    auto* endpoint = hako_pdu_endpoint_create("c_internal_recv_without_event_test", HAKO_PDU_ENDPOINT_DIRECTION_INOUT);
+    ASSERT_NE(endpoint, nullptr);
+
+    ASSERT_EQ(
+        hako_pdu_endpoint_open(endpoint, "test/test_endpoint_buffer.json"),
+        HAKO_PDU_ERR_OK);
+    ASSERT_EQ(hako_pdu_endpoint_start(endpoint), HAKO_PDU_ERR_OK);
+
+    hako_pdu_resolved_key_t key{};
+    std::snprintf(key.robot, sizeof(key.robot), "%s", "robot_c_recv_no_event");
+    key.channel_id = 77;
+
+    const std::uint8_t payload[] = {0x31, 0x32};
+    ASSERT_EQ(hako_pdu_endpoint_send(endpoint, &key, payload, sizeof(payload)), HAKO_PDU_ERR_OK);
+
+    std::uint8_t recv_buf[8] = {};
+    size_t received_size = 0;
+    ASSERT_EQ(
+        hako_pdu_endpoint_recv(endpoint, &key, recv_buf, sizeof(recv_buf), &received_size),
+        HAKO_PDU_ERR_OK);
+    ASSERT_EQ(received_size, 2U);
+    EXPECT_EQ(recv_buf[0], std::uint8_t{0x31});
+    EXPECT_EQ(recv_buf[1], std::uint8_t{0x32});
+
+    ASSERT_EQ(hako_pdu_endpoint_stop(endpoint), HAKO_PDU_ERR_OK);
+    ASSERT_EQ(hako_pdu_endpoint_close(endpoint), HAKO_PDU_ERR_OK);
+    hako_pdu_endpoint_destroy(endpoint);
+}
+
+TEST_F(EndpointTest, CEndpointSetRecvEventSpecLatestPendingCountAndRecvNext) {
+#ifdef _WIN32
+    GTEST_SKIP() << "Dynamic symbol lookup for future C API spec is only enabled on POSIX test builds.";
+#else
+    using SetRecvEventFn = HakoPduErrorType (*)(hako_pdu_endpoint_handle_t*, const hako_pdu_resolved_key_t*);
+    using GetPendingCountFn = HakoPduErrorType (*)(hako_pdu_endpoint_handle_t*, size_t*);
+
+    const auto set_recv_event = load_c_endpoint_symbol<SetRecvEventFn>("hako_pdu_endpoint_set_recv_event");
+    const auto get_pending_count = load_c_endpoint_symbol<GetPendingCountFn>("hako_pdu_endpoint_get_pending_count");
+    if (set_recv_event == nullptr || get_pending_count == nullptr) {
+        GTEST_SKIP() << "Future C receive-event APIs are not implemented yet.";
+    }
+
+    auto* endpoint = hako_pdu_endpoint_create("c_set_recv_event_latest_spec_test", HAKO_PDU_ENDPOINT_DIRECTION_INOUT);
+    ASSERT_NE(endpoint, nullptr);
+
+    ASSERT_EQ(hako_pdu_endpoint_open(endpoint, "test/test_endpoint_buffer.json"), HAKO_PDU_ERR_OK);
+    ASSERT_EQ(hako_pdu_endpoint_start(endpoint), HAKO_PDU_ERR_OK);
+
+    hako_pdu_resolved_key_t key_a{};
+    hako_pdu_resolved_key_t key_b{};
+    std::snprintf(key_a.robot, sizeof(key_a.robot), "%s", "robot_c_set_event_latest_a");
+    std::snprintf(key_b.robot, sizeof(key_b.robot), "%s", "robot_c_set_event_latest_b");
+    key_a.channel_id = 81;
+    key_b.channel_id = 82;
+
+    ASSERT_EQ(set_recv_event(endpoint, &key_a), HAKO_PDU_ERR_OK);
+    ASSERT_EQ(set_recv_event(endpoint, &key_b), HAKO_PDU_ERR_OK);
+
+    ASSERT_EQ(hako_pdu_endpoint_send(endpoint, &key_a, "\x01", 1), HAKO_PDU_ERR_OK);
+    ASSERT_EQ(hako_pdu_endpoint_send(endpoint, &key_b, "\x02", 1), HAKO_PDU_ERR_OK);
+    ASSERT_EQ(hako_pdu_endpoint_send(endpoint, &key_a, "\x03", 1), HAKO_PDU_ERR_OK);
+
+    size_t pending_count = 0;
+    ASSERT_EQ(get_pending_count(endpoint, &pending_count), HAKO_PDU_ERR_OK);
+    EXPECT_EQ(pending_count, 2U);
+
+    std::uint8_t recv_buf[8] = {};
+    hako_pdu_resolved_key_t out_key{};
+    std::uint64_t out_timestamp_ns = 0;
+    size_t received_size = 0;
+
+    ASSERT_EQ(
+        hako_pdu_endpoint_recv_next(endpoint, recv_buf, sizeof(recv_buf), &out_key, &out_timestamp_ns, &received_size),
+        HAKO_PDU_ERR_OK);
+    EXPECT_STREQ(out_key.robot, "robot_c_set_event_latest_a");
+    EXPECT_EQ(recv_buf[0], std::uint8_t{0x03});
+
+    ASSERT_EQ(
+        hako_pdu_endpoint_recv_next(endpoint, recv_buf, sizeof(recv_buf), &out_key, &out_timestamp_ns, &received_size),
+        HAKO_PDU_ERR_OK);
+    EXPECT_STREQ(out_key.robot, "robot_c_set_event_latest_b");
+    EXPECT_EQ(recv_buf[0], std::uint8_t{0x02});
+
+    ASSERT_EQ(hako_pdu_endpoint_stop(endpoint), HAKO_PDU_ERR_OK);
+    ASSERT_EQ(hako_pdu_endpoint_close(endpoint), HAKO_PDU_ERR_OK);
+    hako_pdu_endpoint_destroy(endpoint);
+#endif
+}
+
+TEST_F(EndpointTest, CEndpointSetRecvEventSpecQueuePendingCountAndRecvNext) {
+#ifdef _WIN32
+    GTEST_SKIP() << "Dynamic symbol lookup for future C API spec is only enabled on POSIX test builds.";
+#else
+    using SetRecvEventFn = HakoPduErrorType (*)(hako_pdu_endpoint_handle_t*, const hako_pdu_resolved_key_t*);
+    using GetPendingCountFn = HakoPduErrorType (*)(hako_pdu_endpoint_handle_t*, size_t*);
+
+    const auto set_recv_event = load_c_endpoint_symbol<SetRecvEventFn>("hako_pdu_endpoint_set_recv_event");
+    const auto get_pending_count = load_c_endpoint_symbol<GetPendingCountFn>("hako_pdu_endpoint_get_pending_count");
+    if (set_recv_event == nullptr || get_pending_count == nullptr) {
+        GTEST_SKIP() << "Future C receive-event APIs are not implemented yet.";
+    }
+
+    auto* endpoint = hako_pdu_endpoint_create("c_set_recv_event_queue_spec_test", HAKO_PDU_ENDPOINT_DIRECTION_INOUT);
+    ASSERT_NE(endpoint, nullptr);
+
+    ASSERT_EQ(hako_pdu_endpoint_open(endpoint, "test/test_endpoint_queue.json"), HAKO_PDU_ERR_OK);
+    ASSERT_EQ(hako_pdu_endpoint_start(endpoint), HAKO_PDU_ERR_OK);
+
+    hako_pdu_resolved_key_t key_a{};
+    hako_pdu_resolved_key_t key_b{};
+    std::snprintf(key_a.robot, sizeof(key_a.robot), "%s", "robot_c_set_event_queue_a");
+    std::snprintf(key_b.robot, sizeof(key_b.robot), "%s", "robot_c_set_event_queue_b");
+    key_a.channel_id = 83;
+    key_b.channel_id = 84;
+
+    ASSERT_EQ(set_recv_event(endpoint, &key_a), HAKO_PDU_ERR_OK);
+    ASSERT_EQ(set_recv_event(endpoint, &key_b), HAKO_PDU_ERR_OK);
+
+    const std::uint8_t payload_a1[] = {0x41};
+    const std::uint8_t payload_b1[] = {0x42};
+    const std::uint8_t payload_a2[] = {0x43};
+
+    ASSERT_EQ(hako_pdu_endpoint_send(endpoint, &key_a, payload_a1, sizeof(payload_a1)), HAKO_PDU_ERR_OK);
+    ASSERT_EQ(hako_pdu_endpoint_send(endpoint, &key_b, payload_b1, sizeof(payload_b1)), HAKO_PDU_ERR_OK);
+    ASSERT_EQ(hako_pdu_endpoint_send(endpoint, &key_a, payload_a2, sizeof(payload_a2)), HAKO_PDU_ERR_OK);
+
+    size_t pending_count = 0;
+    ASSERT_EQ(get_pending_count(endpoint, &pending_count), HAKO_PDU_ERR_OK);
+    EXPECT_EQ(pending_count, 3U);
+
+    std::uint8_t recv_buf[8] = {};
+    hako_pdu_resolved_key_t out_key{};
+    std::uint64_t out_timestamp_ns = 0;
+    size_t received_size = 0;
+
+    ASSERT_EQ(
+        hako_pdu_endpoint_recv_next(endpoint, recv_buf, sizeof(recv_buf), &out_key, &out_timestamp_ns, &received_size),
+        HAKO_PDU_ERR_OK);
+    EXPECT_STREQ(out_key.robot, "robot_c_set_event_queue_a");
+    EXPECT_EQ(recv_buf[0], std::uint8_t{0x41});
+
+    ASSERT_EQ(
+        hako_pdu_endpoint_recv_next(endpoint, recv_buf, sizeof(recv_buf), &out_key, &out_timestamp_ns, &received_size),
+        HAKO_PDU_ERR_OK);
+    EXPECT_STREQ(out_key.robot, "robot_c_set_event_queue_b");
+    EXPECT_EQ(recv_buf[0], std::uint8_t{0x42});
+
+    ASSERT_EQ(
+        hako_pdu_endpoint_recv_next(endpoint, recv_buf, sizeof(recv_buf), &out_key, &out_timestamp_ns, &received_size),
+        HAKO_PDU_ERR_OK);
+    EXPECT_STREQ(out_key.robot, "robot_c_set_event_queue_a");
+    EXPECT_EQ(recv_buf[0], std::uint8_t{0x43});
+
+    ASSERT_EQ(hako_pdu_endpoint_stop(endpoint), HAKO_PDU_ERR_OK);
+    ASSERT_EQ(hako_pdu_endpoint_close(endpoint), HAKO_PDU_ERR_OK);
+    hako_pdu_endpoint_destroy(endpoint);
+#endif
 }
 
 TEST_F(EndpointTest, CEndpointRecvReturnsNoSpaceWhenBufferTooSmall) {

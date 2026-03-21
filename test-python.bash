@@ -6,8 +6,10 @@ BUILD_FIRST=${BUILD_FIRST:-ON}
 
 PYTHON_TESTS=(
   "${PROJECT_ROOT}/python/test/test_c_endpoint_smoke.py"
-  "${PROJECT_ROOT}/python/test/test_c_endpoint_async_smoke.py"
+  "${PROJECT_ROOT}/python/test/test_c_endpoint_callback_smoke.py"
+  "${PROJECT_ROOT}/python/test/test_c_endpoint_ros_style_smoke.py"
   "${PROJECT_ROOT}/python/test/test_c_endpoint_recv_next_smoke.py"
+  "${PROJECT_ROOT}/python/test/test_c_endpoint_pending_smoke.py"
   "${PROJECT_ROOT}/python/test/test_endpoint_container_smoke.py"
 )
 

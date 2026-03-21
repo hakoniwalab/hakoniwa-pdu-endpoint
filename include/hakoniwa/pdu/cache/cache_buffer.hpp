@@ -25,6 +25,7 @@ private:
   std::unordered_map<PduResolvedKey, BufferEntry, PduResolvedKeyHash> buffers_;
   std::deque<PduResolvedKey> pending_order_;
   std::unordered_map<PduResolvedKey, bool, PduResolvedKeyHash> pending_keys_;
+  std::unordered_map<PduResolvedKey, bool, PduResolvedKeyHash> tracked_keys_;
   bool is_running_ = false;
 
 public:
@@ -60,6 +61,7 @@ public:
     buffers_.clear();
     pending_order_.clear();
     pending_keys_.clear();
+    tracked_keys_.clear();
     is_running_ = false;
     return HAKO_PDU_ERR_OK;
   }
@@ -118,6 +120,27 @@ public:
     received_size = src.size();
     pending_keys_[pdu_key] = false;
 
+    return HAKO_PDU_ERR_OK;
+  }
+
+  HakoPduErrorType set_recv_event(const PduResolvedKey &pdu_key) noexcept override {
+    std::lock_guard<std::mutex> lock(mtx_);
+    tracked_keys_[pdu_key] = true;
+    return HAKO_PDU_ERR_OK;
+  }
+
+  HakoPduErrorType get_pending_count(size_t &out_count) noexcept override {
+    std::lock_guard<std::mutex> lock(mtx_);
+    out_count = 0;
+    for (const auto &[key, tracked] : tracked_keys_) {
+      if (!tracked) {
+        continue;
+      }
+      auto pending_it = pending_keys_.find(key);
+      if (pending_it != pending_keys_.end() && pending_it->second) {
+        ++out_count;
+      }
+    }
     return HAKO_PDU_ERR_OK;
   }
 

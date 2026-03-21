@@ -16,7 +16,6 @@ The binding follows the same boundary as the Python integration:
 - C++ core
 - C facade
 - thin managed wrapper
-- async queue layer above the thin wrapper
 
 See:
 
@@ -30,16 +29,7 @@ The managed side currently provides:
 
 - native handle ownership via `SafeHandle`
 - thin `Endpoint` wrapper over the C facade
-- `EndpointAsync` queue-based event capture and explicit `DrainPending()`
 - simple smoke-test coverage under `csharp/tests/`
-
-The default callback model is:
-
-- native callback copies payload into managed memory
-- managed event is queued immediately
-- user handlers run only when `DrainPending()` is called
-
-This is the intended safe default for Unity and Godot style main-thread integration.
 
 ## Scope Boundary
 
@@ -57,7 +47,7 @@ This repository does not provide:
 - engine-version-specific packaging glue
 
 That boundary is intentional.
-The goal is to expose `Endpoint` and `EndpointAsync` cleanly and let engine-side projects decide how they connect those APIs to their own lifecycle.
+The goal is to expose `Endpoint` cleanly and let engine-side projects decide how they connect that API to their own lifecycle.
 
 ## Native Library Requirement
 
@@ -83,6 +73,7 @@ Example:
 
 - `csharp/examples/MinimalExample/MinimalExample.csproj`
 - `csharp/examples/ManualPumpExample/ManualPumpExample.csproj`
+- `csharp/examples/RecvByKeyExample/RecvByKeyExample.csproj`
 - `csharp/examples/RecvNextExample/RecvNextExample.csproj`
 
 Smoke tests:
@@ -117,11 +108,12 @@ For Unity or Godot integration, the expected usage is to keep engine-specific li
 
 Typical pattern:
 
-1. hold `Endpoint` or `EndpointAsync` in your engine-side object
+1. hold `Endpoint` in your engine-side object
 2. initialize/open/start during your engine's startup lifecycle
 3. call `ProcessRecvEvents()` if the selected transport requires polling
-4. call `DrainPending()` from the engine main thread when using `EndpointAsync`
-5. stop/close during shutdown
+4. call `SetRecvEvent(...)` for keys you want pending-event bookkeeping on
+5. call `GetPendingCount()` and `RecvNext(...)` from your engine main thread
+6. stop/close during shutdown
 
 The repository examples intentionally stop at this boundary.
 

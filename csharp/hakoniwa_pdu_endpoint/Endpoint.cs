@@ -142,6 +142,24 @@ public sealed class Endpoint : IDisposable
         return Slice(buffer, receivedSize);
     }
 
+    public void SetRecvEvent(PduResolvedKey key)
+    {
+        ThrowIfDisposed();
+        var nativeKey = ToNative(key);
+        Check(
+            NativeMethods.hako_pdu_endpoint_set_recv_event(_handle, ref nativeKey),
+            "set_recv_event");
+    }
+
+    public int GetPendingCount()
+    {
+        ThrowIfDisposed();
+        Check(
+            NativeMethods.hako_pdu_endpoint_get_pending_count(_handle, out var outCount),
+            "get_pending_count");
+        return checked((int)outCount.ToUInt64());
+    }
+
     public byte[] RecvByName(PduKey key, int bufferSize)
     {
         ThrowIfDisposed();
