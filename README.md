@@ -1555,3 +1555,85 @@ classDiagram
     -   **High-Level SHM Endpoint**: Use `PduCommShm` with a `PduDefinition` file for easy, name-based access to Hakoniwa shared memory.
     -   **Low-Level TCP Synchronizer**: Use a `TcpComm` with no `PduDefinition` to sync data between two endpoints using manually managed channel IDs.
     -   **In-Memory Message Bus**: Use a `PduLatestQueue` with the `comm` module set to `null`.
+
+## Maintainer Release Flow
+
+For maintainers, the current release model is:
+
+- GitHub Releases distribute native shared libraries (`.dll`, `.so`, `.dylib`)
+- PyPI distributes the Python package metadata and wrapper
+- native shared libraries are still external prerequisites for Python users
+
+Suggested release order for version `1.0.0`-style releases:
+
+1. Update the version in:
+   - `pyproject.toml`
+   - `CMakeLists.txt`
+2. Build native shared libraries for each target platform.
+3. Create and push the Git tag (`v1.0.0` style).
+4. Create the GitHub Release and upload native assets.
+5. Build Python distributions and upload them to PyPI.
+
+Typical native build commands:
+
+Linux:
+
+```bash
+cmake -S . -B build-shared -DBUILD_SHARED_LIBS=ON
+cmake --build build-shared --target hakoniwa_pdu_endpoint
+```
+
+Artifact:
+
+```bash
+build-shared/src/libhakoniwa_pdu_endpoint.so
+```
+
+macOS:
+
+```bash
+cmake -S . -B build-shared -DBUILD_SHARED_LIBS=ON
+cmake --build build-shared --target hakoniwa_pdu_endpoint
+```
+
+Artifact:
+
+```bash
+build-shared/src/libhakoniwa_pdu_endpoint.dylib
+```
+
+Windows:
+
+```powershell
+.\build-win.ps1 -BuildShared -BuildDirName build-win -Configuration Release -ToolchainFile C:\project\vcpkg\scripts\buildsystems\vcpkg.cmake -VcpkgTriplet x64-windows -Platform x64
+```
+
+Artifacts:
+
+```powershell
+.\build-win\src\Release\hakoniwa_pdu_endpoint.dll
+.\build-win\src\Release\hakoniwa_pdu_endpoint.lib
+```
+
+Suggested GitHub Release asset names:
+
+- `hakoniwa_pdu_endpoint-linux-x86_64.so`
+- `hakoniwa_pdu_endpoint-macos-x86_64.dylib` or `hakoniwa_pdu_endpoint-macos-arm64.dylib`
+- `hakoniwa_pdu_endpoint-windows-x64.dll`
+- `hakoniwa_pdu_endpoint-windows-x64.lib`
+
+Typical PyPI publish commands:
+
+```bash
+rm -rf dist python/hakoniwa_pdu_endpoint.egg-info
+python -m build
+python -m twine check dist/*
+python -m twine upload dist/*
+```
+
+Typical Git tag / release start:
+
+```bash
+git tag v1.0.0
+git push origin v1.0.0
+```
