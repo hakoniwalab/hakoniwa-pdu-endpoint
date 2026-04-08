@@ -136,7 +136,7 @@ jobs:
         run: |
           git clone https://github.com/microsoft/vcpkg.git C:\vcpkg
           & C:\vcpkg\bootstrap-vcpkg.bat
-          & C:\vcpkg\vcpkg.exe install boost-headers:x64-windows
+          & C:\vcpkg\vcpkg.exe install boost-asio:x64-windows boost-beast:x64-windows
 
       - name: Run Windows Python Smoke Tests
         shell: pwsh

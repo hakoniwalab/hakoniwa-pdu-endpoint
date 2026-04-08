@@ -200,7 +200,7 @@ Windows で詰まりやすい点:
 - `py` が無い:
   `python` を使うか、`-PythonCommand python` を指定する
 - `BoostConfig.cmake` が見つからない:
-  `vcpkg` で `boost-headers:x64-windows` を入れ、`-ToolchainFile`、`-VcpkgTriplet`、`-Platform x64` を渡す
+  `vcpkg` で `boost-asio:x64-windows` と `boost-beast:x64-windows` を入れ、`-ToolchainFile`、`-VcpkgTriplet`、`-Platform x64` を渡す
 - `generator platform: x64 ... used previously`:
   既存 build directory を削除するか、`-Clean` を使う
 - Python 3.12 で `setuptools` が無い:

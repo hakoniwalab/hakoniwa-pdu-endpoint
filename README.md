@@ -94,7 +94,7 @@ This design is intentionally biased toward large, multi-asset simulations: it fa
 -   C++20 compatible compiler (e.g., GCC, Clang, MSVC)
 -   CMake (version 3.16 or later)
 -   Boost headers (header-only usage)
-    -   On Windows, the recommended path is `vcpkg` (`boost-headers:x64-windows`) and passing its toolchain file to CMake.
+    -   On Windows, the recommended path is `vcpkg` (`boost-asio:x64-windows` and `boost-beast:x64-windows`) and passing its toolchain file to CMake.
 -   GoogleTest (for running tests, provided by your system package)
 -   (Optional) Hakoniwa Core Library, if using Shared Memory (`comm_shm`) communication or Hakoniwa time sources.
     -   Expected install prefix: `/usr/local/hakoniwa` (headers in `/usr/local/hakoniwa/include`, libs in `/usr/local/hakoniwa/lib`)
@@ -168,7 +168,7 @@ If `.\build-win.ps1` fails with `Could not find ... BoostConfig.cmake`, install 
     git clone https://github.com/microsoft/vcpkg.git
     cd vcpkg
     .\bootstrap-vcpkg.bat
-    .\vcpkg.exe install boost-headers:x64-windows
+    .\vcpkg.exe install boost-asio:x64-windows boost-beast:x64-windows
     ```
 
 2.  **Build this project with the vcpkg toolchain**:
@@ -583,7 +583,7 @@ Windows troubleshooting:
 - `py` command not found:
   use `python` instead of `py -3`, or pass `-PythonCommand python` to `build-python-win.ps1`
 - `Could not find ... BoostConfig.cmake` during CMake configure:
-  install `boost-headers:x64-windows` with `vcpkg` and pass `-ToolchainFile`, `-VcpkgTriplet`, and `-Platform x64`
+  install `boost-asio:x64-windows` and `boost-beast:x64-windows` with `vcpkg` and pass `-ToolchainFile`, `-VcpkgTriplet`, and `-Platform x64`
 - `generator platform: x64 does not match the platform used previously`:
   remove the existing build directory or use `-Clean`
 - `This CFFI feature requires setuptools on Python >= 3.12`:
