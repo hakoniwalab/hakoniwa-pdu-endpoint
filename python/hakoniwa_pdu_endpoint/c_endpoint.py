@@ -1,33 +1,120 @@
 from dataclasses import dataclass
 from pathlib import Path
 import ctypes
+import importlib.util
+import os
 from queue import Empty, Queue
 import sys
 import threading
 from typing import Callable, Dict, List, Optional, Tuple
 
 
+_ENV_SHARED_LIB = "HAKO_PDU_ENDPOINT_SHARED_LIB"
+_ENV_LIB_DIR = "HAKO_PDU_ENDPOINT_LIB_DIR"
+_repo_root = Path(__file__).resolve().parents[2]
+
+
+def _candidate_native_lib_names() -> List[str]:
+    if sys.platform == "win32":
+        return ["hakoniwa_pdu_endpoint.dll"]
+    if sys.platform == "darwin":
+        return ["libhakoniwa_pdu_endpoint.dylib"]
+    return ["libhakoniwa_pdu_endpoint.so"]
+
+
+def _candidate_ffi_suffixes() -> List[str]:
+    suffixes = list(dict.fromkeys(importlib.machinery.EXTENSION_SUFFIXES))
+    if sys.platform != "win32":
+        suffixes.append(".so")
+    return suffixes
+
+
+def _candidate_python_build_roots() -> List[Path]:
+    roots: List[Path] = []
+    for build_dir_name in ("build", "build-win", "build-win2", "build-shared"):
+        root = _repo_root / build_dir_name / "python"
+        if root.exists():
+            roots.append(root)
+    return roots
+
+
+def _candidate_native_lib_dirs() -> List[Path]:
+    dirs: List[Path] = []
+    env_lib_dir = os.environ.get(_ENV_LIB_DIR)
+    if env_lib_dir:
+        dirs.append(Path(env_lib_dir).expanduser())
+
+    env_shared_lib = os.environ.get(_ENV_SHARED_LIB)
+    if env_shared_lib:
+        dirs.append(Path(env_shared_lib).expanduser().resolve().parent)
+
+    for candidate in (
+        _repo_root / "build" / "src",
+        _repo_root / "build-shared" / "src",
+        _repo_root / "build-win" / "src" / "Release",
+        _repo_root / "build-win2" / "src" / "Release",
+        Path("/usr/local/hakoniwa/lib"),
+    ):
+        if candidate.exists():
+            dirs.append(candidate)
+
+    seen = set()
+    unique_dirs: List[Path] = []
+    for candidate in dirs:
+        resolved = candidate.resolve()
+        if resolved in seen:
+            continue
+        seen.add(resolved)
+        unique_dirs.append(resolved)
+    return unique_dirs
+
+
+def _add_runtime_search_dirs() -> None:
+    if sys.platform != "win32":
+        return
+    for lib_dir in _candidate_native_lib_dirs():
+        try:
+            os.add_dll_directory(str(lib_dir))
+        except (FileNotFoundError, OSError):
+            continue
+
+
 def _preload_runtime_libs() -> None:
-    hakoniwa_lib_dir = Path("/usr/local/hakoniwa/lib")
-    for lib_name in ("libconductor.dylib", "libassets.dylib", "libshakoc.dylib"):
-        lib_path = hakoniwa_lib_dir / lib_name
-        if lib_path.exists():
-            ctypes.CDLL(str(lib_path), mode=ctypes.RTLD_GLOBAL)
+    _add_runtime_search_dirs()
+
+    env_shared_lib = os.environ.get(_ENV_SHARED_LIB)
+    if env_shared_lib:
+        lib_path = Path(env_shared_lib).expanduser().resolve()
+        if not lib_path.exists():
+            raise FileNotFoundError(f"{_ENV_SHARED_LIB} points to a missing file: {lib_path}")
+        load_kwargs = {}
+        if hasattr(ctypes, "RTLD_GLOBAL") and sys.platform != "win32":
+            load_kwargs["mode"] = ctypes.RTLD_GLOBAL
+        ctypes.CDLL(str(lib_path), **load_kwargs)
+        return
+
+    if sys.platform == "darwin":
+        for lib_dir in _candidate_native_lib_dirs():
+            for lib_name in ("libconductor.dylib", "libassets.dylib", "libshakoc.dylib"):
+                lib_path = lib_dir / lib_name
+                if lib_path.exists():
+                    ctypes.CDLL(str(lib_path), mode=ctypes.RTLD_GLOBAL)
 
 
 _preload_runtime_libs()
 
-_repo_root = Path(__file__).resolve().parents[2]
-_python_build_root = _repo_root / "build" / "python"
-if _python_build_root.exists():
+_python_build_roots = _candidate_python_build_roots()
+for _python_build_root in reversed(_python_build_roots):
     sys.path.insert(0, str(_python_build_root))
 
 try:
     from ._c_endpoint_ffi import ffi, lib
 except ModuleNotFoundError:
-    import importlib.util
-
-    _ffi_candidates = sorted((_python_build_root / "hakoniwa_pdu_endpoint").glob("_c_endpoint_ffi*.so"))
+    _ffi_candidates: List[Path] = []
+    for _python_build_root in _python_build_roots:
+        package_dir = _python_build_root / "hakoniwa_pdu_endpoint"
+        for suffix in _candidate_ffi_suffixes():
+            _ffi_candidates.extend(sorted(package_dir.glob(f"_c_endpoint_ffi*{suffix}")))
     if not _ffi_candidates:
         raise
     _ffi_path = _ffi_candidates[0]

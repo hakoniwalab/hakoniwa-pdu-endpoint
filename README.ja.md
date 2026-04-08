@@ -137,13 +137,76 @@ MQTT は broker ベースの pub/sub を `Endpoint` モデルのまま使いた�
 ## Quick Start For Python
 
 Python は `cffi` ベースの `Endpoint` binding と、その上の pure-Python container で構成されています。
+`pyproject.toml` は Python 依存関係の定義に使いますが、native の
+`hakoniwa_pdu_endpoint` 共有ライブラリは別途必要です。
 
 代表コマンド:
 
 ```bash
+python3 -m pip install -e .
 bash build-python.bash
 bash test-python.bash
 ```
+
+Windows helper:
+
+- `.\build-python-win.ps1`
+- `.\test-python-win.ps1`
+
+Python ローダーは native 共有ライブラリを次の順で探索します。
+
+- `HAKO_PDU_ENDPOINT_SHARED_LIB`
+- `HAKO_PDU_ENDPOINT_LIB_DIR`
+- リポジトリ配下の `build*/src`
+- OS 標準の探索パス
+
+Windows では PowerShell helper を使う想定です。
+
+```powershell
+python -m pip install --upgrade pip setuptools wheel cffi
+.\build-python-win.ps1 `
+  -BuildNative `
+  -BuildFfi `
+  -BuildDirName build-win `
+  -Configuration Release `
+  -PythonCommand python `
+  -ToolchainFile C:\project\vcpkg\scripts\buildsystems\vcpkg.cmake `
+  -VcpkgTriplet x64-windows `
+  -Platform x64
+python .\python\test\test_c_endpoint_smoke.py
+python .\python\test\test_endpoint_container_smoke.py
+```
+
+または Windows 用の smoke-test helper を使います。
+
+```powershell
+.\test-python-win.ps1 `
+  -BuildFirst `
+  -BuildDirName build-win `
+  -Configuration Release `
+  -PythonCommand python `
+  -ToolchainFile C:\project\vcpkg\scripts\buildsystems\vcpkg.cmake `
+  -VcpkgTriplet x64-windows `
+  -Platform x64
+```
+
+当面の Windows Python 対応範囲:
+
+- 対象: internal cache を使う基本 smoke test
+- 非対象: SHM / Zenoh / MQTT
+
+Windows で詰まりやすい点:
+
+- `py` が無い:
+  `python` を使うか、`-PythonCommand python` を指定する
+- `BoostConfig.cmake` が見つからない:
+  `vcpkg` で `boost-headers:x64-windows` を入れ、`-ToolchainFile`、`-VcpkgTriplet`、`-Platform x64` を渡す
+- `generator platform: x64 ... used previously`:
+  既存 build directory を削除するか、`-Clean` を使う
+- Python 3.12 で `setuptools` が無い:
+  `python -m pip install --upgrade setuptools wheel cffi`
+- 実行時に `hakoniwa_pdu_endpoint.dll` が見つからない:
+  `HAKO_PDU_ENDPOINT_SHARED_LIB` と `HAKO_PDU_ENDPOINT_LIB_DIR` を設定する
 
 主なモジュール:
 

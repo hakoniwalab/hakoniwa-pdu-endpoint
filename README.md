@@ -148,6 +148,7 @@ Python:
 - build native + `cffi`: `bash build-python.bash`
 - run Python smoke tests: `bash test-python.bash`
 - Windows helper: `.\build-python-win.ps1`
+- Windows smoke tests: `.\test-python-win.ps1`
 
 C#:
 
@@ -399,6 +400,15 @@ cmake --build build -j4
 python3 python/hakoniwa_pdu_endpoint/build_c_endpoint_ffi.py
 ```
 
+The Python loader resolves the native library in this order:
+
+- `HAKO_PDU_ENDPOINT_SHARED_LIB`
+- `HAKO_PDU_ENDPOINT_LIB_DIR`
+- repository-local build outputs such as `build*/src`
+- OS default search paths
+
+This keeps the Python side independent from a hard-coded OS-specific install layout.
+
 3. Run the thin-wrapper smoke test.
 
 ```bash
@@ -501,20 +511,22 @@ bash test-csharp.bash
 ## Python Installation
 
 Current Python support is source-tree based. There is no packaged wheel yet.
+`pyproject.toml` is provided for Python dependency metadata, but the native
+`hakoniwa_pdu_endpoint` shared library is still a separate prerequisite.
 
 Install/use flow:
 
-1. Build the core C++ library.
+1. Install the Python package metadata and dependencies.
+
+```bash
+python3 -m pip install -e .
+```
+
+2. Build the core C++ library.
 
 ```bash
 cmake -S . -B build
 cmake --build build -j4
-```
-
-2. Install the Python dependency.
-
-```bash
-python3 -m pip install cffi
 ```
 
 3. Build the `cffi` extension module.
@@ -522,6 +534,62 @@ python3 -m pip install cffi
 ```bash
 python3 python/hakoniwa_pdu_endpoint/build_c_endpoint_ffi.py
 ```
+
+If the native library is not in a default build location, point Python at it explicitly:
+
+```bash
+export HAKO_PDU_ENDPOINT_SHARED_LIB=/path/to/libhakoniwa_pdu_endpoint.so
+export HAKO_PDU_ENDPOINT_LIB_DIR=/path/to/native/libs
+python3 python/hakoniwa_pdu_endpoint/build_c_endpoint_ffi.py
+```
+
+On Windows, use the PowerShell helper and point the runtime loader at the built DLL:
+
+```powershell
+python -m pip install --upgrade pip setuptools wheel cffi
+.\build-python-win.ps1 `
+  -BuildNative `
+  -BuildFfi `
+  -BuildDirName build-win `
+  -Configuration Release `
+  -PythonCommand python `
+  -ToolchainFile C:\project\vcpkg\scripts\buildsystems\vcpkg.cmake `
+  -VcpkgTriplet x64-windows `
+  -Platform x64
+python .\python\test\test_c_endpoint_smoke.py
+python .\python\test\test_endpoint_container_smoke.py
+```
+
+Or run the Windows smoke-test helper:
+
+```powershell
+.\test-python-win.ps1 `
+  -BuildFirst `
+  -BuildDirName build-win `
+  -Configuration Release `
+  -PythonCommand python `
+  -ToolchainFile C:\project\vcpkg\scripts\buildsystems\vcpkg.cmake `
+  -VcpkgTriplet x64-windows `
+  -Platform x64
+```
+
+Current Windows Python scope is intentionally narrow:
+
+- supported first target: internal-cache-based smoke tests
+- not yet supported: SHM, Zenoh, MQTT
+
+Windows troubleshooting:
+
+- `py` command not found:
+  use `python` instead of `py -3`, or pass `-PythonCommand python` to `build-python-win.ps1`
+- `Could not find ... BoostConfig.cmake` during CMake configure:
+  install `boost-headers:x64-windows` with `vcpkg` and pass `-ToolchainFile`, `-VcpkgTriplet`, and `-Platform x64`
+- `generator platform: x64 does not match the platform used previously`:
+  remove the existing build directory or use `-Clean`
+- `This CFFI feature requires setuptools on Python >= 3.12`:
+  run `python -m pip install --upgrade setuptools wheel cffi`
+- `hakoniwa_pdu_endpoint.dll` is not found at runtime:
+  set `HAKO_PDU_ENDPOINT_SHARED_LIB` and `HAKO_PDU_ENDPOINT_LIB_DIR` to the built DLL and its directory
 
 4. Run Python with the repository `python/` directory on `PYTHONPATH`, or run
 from the repository root as shown in the examples.

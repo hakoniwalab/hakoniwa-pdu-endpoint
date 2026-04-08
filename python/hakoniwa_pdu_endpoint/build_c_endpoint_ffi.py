@@ -1,4 +1,6 @@
 #!/usr/bin/env python3
+import os
+import sys
 from pathlib import Path
 
 from cffi import FFI
@@ -142,15 +144,47 @@ def configure_ffi():
     include_dir = repo_root / "include"
     build_dir = repo_root / "build"
     python_build_root = build_dir / "python"
-    hakoniwa_lib_dir = Path("/usr/local/hakoniwa/lib")
+
+    env_shared_lib = os.environ.get("HAKO_PDU_ENDPOINT_SHARED_LIB")
+    env_lib_dir = os.environ.get("HAKO_PDU_ENDPOINT_LIB_DIR")
+
+    library_dirs = []
+    libraries = ["hakoniwa_pdu_endpoint"]
+    extra_link_args = []
+    extra_compile_args = []
+
+    if sys.platform == "win32":
+        extra_compile_args.append("/utf-8")
+
+    if env_lib_dir:
+        library_dirs.append(str(Path(env_lib_dir).expanduser().resolve()))
+    elif env_shared_lib:
+        shared_lib_path = Path(env_shared_lib).expanduser().resolve()
+        library_dirs.append(str(shared_lib_path.parent))
+        if sys.platform == "win32":
+            import_lib = shared_lib_path.with_suffix(".lib")
+            if import_lib.exists():
+                extra_link_args.append(str(import_lib))
+        elif shared_lib_path.suffix in {".so", ".dylib"}:
+            extra_link_args.append(str(shared_lib_path))
+    else:
+        for candidate in (
+            build_dir / "src",
+            repo_root / "build-shared" / "src",
+            repo_root / "build-win" / "src" / "Release",
+            repo_root / "build-win2" / "src" / "Release",
+        ):
+            if candidate.exists():
+                library_dirs.append(str(candidate.resolve()))
 
     ffi.set_source(
         "hakoniwa_pdu_endpoint._c_endpoint_ffi",
         '#include "hakoniwa/pdu/c_endpoint.h"',
         include_dirs=[str(include_dir)],
-        libraries=["hakoniwa_pdu_endpoint", "assets", "shakoc"],
-        library_dirs=[str(build_dir / "src"), str(hakoniwa_lib_dir)],
-        runtime_library_dirs=[str(build_dir / "src"), str(hakoniwa_lib_dir)],
+        libraries=libraries,
+        library_dirs=library_dirs,
+        extra_compile_args=extra_compile_args,
+        extra_link_args=extra_link_args,
     )
     return python_build_root
 

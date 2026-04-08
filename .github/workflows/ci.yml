@@ -5,7 +5,7 @@ on:
   pull_request:
 
 jobs:
-  build-and-test:
+  linux-native:
     runs-on: ubuntu-latest
     steps:
       - name: Install Dependencies
@@ -40,3 +40,112 @@ jobs:
         env:
           LD_LIBRARY_PATH: /usr/local/hakoniwa/lib
         run: ctest --test-dir build --rerun-failed --output-on-failure
+
+  linux-python:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Install Dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y g++-12 cmake libboost-dev python3 python3-pip
+
+      - name: Update Compiler Alternatives
+        run: |
+          sudo update-alternatives --install /usr/bin/g++ g++ /usr/bin/g++-12 12
+
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install Python Dependencies
+        run: python3 -m pip install --upgrade pip setuptools wheel cffi
+
+      - name: Build Shared Native Library
+        run: |
+          cmake -S . -B build-py -DBUILD_SHARED_LIBS=ON -DHAKO_PDU_ENDPOINT_ENABLE_HAKONIWA_CORE=OFF
+          cmake --build build-py --config Release --target hakoniwa_pdu_endpoint
+
+      - name: Build Python cffi Module
+        env:
+          HAKO_PDU_ENDPOINT_SHARED_LIB: ${{ github.workspace }}/build-py/src/libhakoniwa_pdu_endpoint.so
+          HAKO_PDU_ENDPOINT_LIB_DIR: ${{ github.workspace }}/build-py/src
+        run: python3 python/hakoniwa_pdu_endpoint/build_c_endpoint_ffi.py
+
+      - name: Run Linux Python Smoke Tests
+        env:
+          HAKO_PDU_ENDPOINT_SHARED_LIB: ${{ github.workspace }}/build-py/src/libhakoniwa_pdu_endpoint.so
+          HAKO_PDU_ENDPOINT_LIB_DIR: ${{ github.workspace }}/build-py/src
+        run: |
+          python3 python/test/test_c_endpoint_smoke.py
+          python3 python/test/test_endpoint_container_smoke.py
+
+  macos-python:
+    runs-on: macos-latest
+    steps:
+      - name: Install Dependencies
+        run: |
+          brew update
+          brew install cmake boost
+
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install Python Dependencies
+        run: python -m pip install --upgrade pip setuptools wheel cffi
+
+      - name: Build Shared Native Library
+        run: |
+          cmake -S . -B build-py -DBUILD_SHARED_LIBS=ON -DHAKO_PDU_ENDPOINT_ENABLE_HAKONIWA_CORE=OFF
+          cmake --build build-py --config Release --target hakoniwa_pdu_endpoint
+
+      - name: Build Python cffi Module
+        env:
+          HAKO_PDU_ENDPOINT_SHARED_LIB: ${{ github.workspace }}/build-py/src/libhakoniwa_pdu_endpoint.dylib
+          HAKO_PDU_ENDPOINT_LIB_DIR: ${{ github.workspace }}/build-py/src
+        run: python python/hakoniwa_pdu_endpoint/build_c_endpoint_ffi.py
+
+      - name: Run macOS Python Smoke Tests
+        env:
+          HAKO_PDU_ENDPOINT_SHARED_LIB: ${{ github.workspace }}/build-py/src/libhakoniwa_pdu_endpoint.dylib
+          HAKO_PDU_ENDPOINT_LIB_DIR: ${{ github.workspace }}/build-py/src
+        run: |
+          python python/test/test_c_endpoint_smoke.py
+          python python/test/test_endpoint_container_smoke.py
+
+  windows-python:
+    runs-on: windows-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install Python Dependencies
+        shell: pwsh
+        run: python -m pip install --upgrade pip setuptools wheel cffi
+
+      - name: Install vcpkg and Boost Headers
+        shell: pwsh
+        run: |
+          git clone https://github.com/microsoft/vcpkg.git C:\vcpkg
+          & C:\vcpkg\bootstrap-vcpkg.bat
+          & C:\vcpkg\vcpkg.exe install boost-headers:x64-windows
+
+      - name: Run Windows Python Smoke Tests
+        shell: pwsh
+        run: >
+          .\test-python-win.ps1
+          -BuildFirst
+          -BuildDirName build-win
+          -Configuration Release
+          -PythonCommand python
+          -ToolchainFile C:\vcpkg\scripts\buildsystems\vcpkg.cmake
+          -VcpkgTriplet x64-windows
+          -Platform x64
