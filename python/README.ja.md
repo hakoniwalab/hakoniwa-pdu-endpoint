@@ -117,6 +117,7 @@ client sent: hakoniwa websocket demo
 server 側では次のように表示されます。
 
 ```text
+server callback: robot=py_ws_demo_robot channel_id=1 payload=b'hakoniwa websocket demo'
 server received: hakoniwa websocket demo
 ```
 
