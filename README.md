@@ -1622,6 +1622,16 @@ Suggested GitHub Release asset names:
 - `hakoniwa_pdu_endpoint-windows-x64.dll`
 - `hakoniwa_pdu_endpoint-windows-x64.lib`
 
+To avoid manual renaming, use:
+
+```bash
+python tools/prepare_release_assets.py --platform linux --arch x86_64 --build-dir build-shared
+python tools/prepare_release_assets.py --platform macos --arch arm64 --build-dir build-shared
+python tools/prepare_release_assets.py --platform windows --arch x64 --build-dir build-win
+```
+
+This copies the built artifacts into `release-assets/` with the suggested GitHub Release asset names.
+
 Typical PyPI publish commands:
 
 ```bash
