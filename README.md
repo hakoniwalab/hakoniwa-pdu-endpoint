@@ -1615,22 +1615,53 @@ Artifacts:
 .\build-win\src\Release\hakoniwa_pdu_endpoint.lib
 ```
 
-Suggested GitHub Release asset names:
+Suggested GitHub Release bundle names:
 
-- `hakoniwa_pdu_endpoint-linux-x86_64.so`
-- `hakoniwa_pdu_endpoint-macos-x86_64.dylib` or `hakoniwa_pdu_endpoint-macos-arm64.dylib`
-- `hakoniwa_pdu_endpoint-windows-x64.dll`
-- `hakoniwa_pdu_endpoint-windows-x64.lib`
+- `hakoniwa-pdu-endpoint-linux-x86_64-cp312.zip`
+- `hakoniwa-pdu-endpoint-macos-x86_64-cp312.zip` or `hakoniwa-pdu-endpoint-macos-arm64-cp312.zip`
+- `hakoniwa-pdu-endpoint-windows-x64-cp312.zip`
 
-To avoid manual renaming, use:
+Each zip contains:
+
+- the native shared library
+- the built `cffi` extension module
+- a small `README.txt`
+
+After the native shared library is built for that platform, the release tool can build the
+matching `cffi` extension and create the zipped bundle in one step:
 
 ```bash
-python tools/prepare_release_assets.py --platform linux --arch x86_64 --build-dir build-shared
-python tools/prepare_release_assets.py --platform macos --arch arm64 --build-dir build-shared
-python tools/prepare_release_assets.py --platform windows --arch x64 --build-dir build-win
+python tools/prepare_release_assets.py --platform linux --arch x86_64 --python-tag cp312 --build-dir build-shared
+python tools/prepare_release_assets.py --platform macos --arch arm64 --python-tag cp312 --build-dir build-shared
+python tools/prepare_release_assets.py --platform windows --arch x64 --python-tag cp312 --build-dir build-win
 ```
 
-This copies the built artifacts into `release-assets/` with the suggested GitHub Release asset names.
+This creates zipped bundles under `release-assets/` with the suggested GitHub Release names.
+
+Bundle build commands by platform:
+
+Linux:
+
+```bash
+cmake -S . -B build-shared -DBUILD_SHARED_LIBS=ON
+cmake --build build-shared --target hakoniwa_pdu_endpoint
+python tools/prepare_release_assets.py --platform linux --arch x86_64 --python-tag cp312 --build-dir build-shared
+```
+
+Windows:
+
+```powershell
+.\build-win.ps1 -BuildShared -BuildDirName build-win -Configuration Release -ToolchainFile C:\project\vcpkg\scripts\buildsystems\vcpkg.cmake -VcpkgTriplet x64-windows -Platform x64
+python tools/prepare_release_assets.py --platform windows --arch x64 --python-tag cp312 --build-dir build-win
+```
+
+macOS:
+
+```bash
+cmake -S . -B build-shared -DBUILD_SHARED_LIBS=ON
+cmake --build build-shared --target hakoniwa_pdu_endpoint
+python tools/prepare_release_assets.py --platform macos --arch arm64 --python-tag cp312 --build-dir build-shared
+```
 
 Typical PyPI publish commands:
 

@@ -3,6 +3,8 @@
 
 build
 build/python
+dist/
+release-assets/
 csharp/**/bin/
 csharp/**/obj/
 
@@ -10,10 +12,12 @@ csharp/**/obj/
 __pycache__/
 python/__pycache__/
 python/hakoniwa_pdu_endpoint/__pycache__/
+python/hakoniwa_pdu_endpoint.egg-info/
 python/hakoniwa_pdu_endpoint/hakoniwa_pdu_endpoint/
 python/hakoniwa_pdu_endpoint/_c_endpoint_ffi.c
 python/hakoniwa_pdu_endpoint/_c_endpoint_ffi.o
 python/hakoniwa_pdu_endpoint/_c_endpoint_ffi*.so
+python/hakoniwa_pdu_endpoint/_c_endpoint_ffi*.pyd
 
 # Compiled Object files
 *.slo

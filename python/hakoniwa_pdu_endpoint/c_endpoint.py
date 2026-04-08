@@ -69,6 +69,30 @@ def _candidate_native_lib_dirs() -> List[Path]:
     return unique_dirs
 
 
+def _candidate_ffi_dirs() -> List[Path]:
+    dirs: List[Path] = []
+
+    env_lib_dir = os.environ.get(_ENV_LIB_DIR)
+    if env_lib_dir:
+        dirs.append(Path(env_lib_dir).expanduser().resolve())
+
+    env_shared_lib = os.environ.get(_ENV_SHARED_LIB)
+    if env_shared_lib:
+        dirs.append(Path(env_shared_lib).expanduser().resolve().parent)
+
+    for root in _candidate_python_build_roots():
+        dirs.append((root / "hakoniwa_pdu_endpoint").resolve())
+
+    seen = set()
+    unique_dirs: List[Path] = []
+    for candidate in dirs:
+        if candidate in seen:
+            continue
+        seen.add(candidate)
+        unique_dirs.append(candidate)
+    return unique_dirs
+
+
 def _add_runtime_search_dirs() -> None:
     if sys.platform != "win32":
         return
@@ -111,8 +135,7 @@ try:
     from ._c_endpoint_ffi import ffi, lib
 except ModuleNotFoundError:
     _ffi_candidates: List[Path] = []
-    for _python_build_root in _python_build_roots:
-        package_dir = _python_build_root / "hakoniwa_pdu_endpoint"
+    for package_dir in _candidate_ffi_dirs():
         for suffix in _candidate_ffi_suffixes():
             _ffi_candidates.extend(sorted(package_dir.glob(f"_c_endpoint_ffi*{suffix}")))
     if not _ffi_candidates:
