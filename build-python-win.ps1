@@ -86,7 +86,9 @@ if ($DoBuildNative) {
         $ConfigureArgs = @(
             "-S", $ProjectRoot,
             "-B", $BuildDir,
-            "-DBUILD_SHARED_LIBS=ON"
+            "-DBUILD_SHARED_LIBS=ON",
+            "-DHAKO_PDU_ENDPOINT_BUILD_TESTS=OFF",
+            "-DHAKO_PDU_ENDPOINT_BUILD_EXAMPLES=OFF"
         )
 
         if (-not [string]::IsNullOrWhiteSpace($ResolvedGenerator)) {

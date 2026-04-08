@@ -61,7 +61,7 @@ jobs:
 
       - name: Build Shared Native Library
         run: |
-          cmake -S . -B build-py -DBUILD_SHARED_LIBS=ON -DHAKO_PDU_ENDPOINT_ENABLE_HAKONIWA_CORE=OFF
+          cmake -S . -B build-py -DBUILD_SHARED_LIBS=ON -DHAKO_PDU_ENDPOINT_ENABLE_HAKONIWA_CORE=OFF -DHAKO_PDU_ENDPOINT_BUILD_TESTS=OFF -DHAKO_PDU_ENDPOINT_BUILD_EXAMPLES=OFF
           cmake --build build-py --config Release --target hakoniwa_pdu_endpoint
 
       - name: Build Python cffi Module
@@ -99,7 +99,7 @@ jobs:
 
       - name: Build Shared Native Library
         run: |
-          cmake -S . -B build-py -DBUILD_SHARED_LIBS=ON -DHAKO_PDU_ENDPOINT_ENABLE_HAKONIWA_CORE=OFF
+          cmake -S . -B build-py -DBUILD_SHARED_LIBS=ON -DHAKO_PDU_ENDPOINT_ENABLE_HAKONIWA_CORE=OFF -DHAKO_PDU_ENDPOINT_BUILD_TESTS=OFF -DHAKO_PDU_ENDPOINT_BUILD_EXAMPLES=OFF
           cmake --build build-py --config Release --target hakoniwa_pdu_endpoint
 
       - name: Build Python cffi Module
