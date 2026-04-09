@@ -248,6 +248,9 @@ Linux/macOS で詰まりやすい点:
 - install 後に import できない:
   install 先を `PYTHONPATH` に追加してください。例:
   `export PYTHONPATH="/usr/local/hakoniwa/share/hakoniwa-pdu-endpoint/python:$PYTHONPATH"`
+- install 後も virtualenv / site-packages 側の `hakoniwa-pdu-endpoint` を読んでしまう:
+  同名 package が既に入っていて prefix install を隠しています。`python -c "import hakoniwa_pdu_endpoint; print(hakoniwa_pdu_endpoint.__file__)"` で読み込み元を確認し、必要なら削除してください:
+  `python -m pip uninstall hakoniwa-pdu-endpoint`
 
 または Windows 用の smoke-test helper を使います。
 

@@ -589,6 +589,9 @@ Linux/macOS troubleshooting:
 - import succeeds before install but fails after prefix install:
   add the installed package root to `PYTHONPATH`, for example:
   `export PYTHONPATH="/usr/local/hakoniwa/share/hakoniwa-pdu-endpoint/python:$PYTHONPATH"`
+- import still resolves to a virtualenv/site-packages copy after prefix install:
+  another `hakoniwa-pdu-endpoint` may already be installed in the active Python environment and shadow the prefix-installed files. Check `python -c "import hakoniwa_pdu_endpoint; print(hakoniwa_pdu_endpoint.__file__)"` and remove the conflicting package if needed:
+  `python -m pip uninstall hakoniwa-pdu-endpoint`
 
 If the native library is not in a default build location, point Python at it explicitly:
 
