@@ -12,6 +12,7 @@ from typing import Callable, Dict, List, Optional, Tuple
 _ENV_SHARED_LIB = "HAKO_PDU_ENDPOINT_SHARED_LIB"
 _ENV_LIB_DIR = "HAKO_PDU_ENDPOINT_LIB_DIR"
 _repo_root = Path(__file__).resolve().parents[2]
+_package_dir = Path(__file__).resolve().parent
 
 
 def _candidate_native_lib_names() -> List[str]:
@@ -40,6 +41,7 @@ def _candidate_python_build_roots() -> List[Path]:
 
 def _candidate_native_lib_dirs() -> List[Path]:
     dirs: List[Path] = []
+    dirs.append(_package_dir)
     env_lib_dir = os.environ.get(_ENV_LIB_DIR)
     if env_lib_dir:
         dirs.append(Path(env_lib_dir).expanduser())
@@ -71,6 +73,7 @@ def _candidate_native_lib_dirs() -> List[Path]:
 
 def _candidate_ffi_dirs() -> List[Path]:
     dirs: List[Path] = []
+    dirs.append(_package_dir)
 
     env_lib_dir = os.environ.get(_ENV_LIB_DIR)
     if env_lib_dir:

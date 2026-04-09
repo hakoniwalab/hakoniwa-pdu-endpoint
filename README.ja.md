@@ -92,8 +92,10 @@ Core C++:
 Python:
 
 - build native + `cffi`: `bash build-python.bash`
+- prefix 配下へ Python runtime 一式を配置: `bash install-python.bash`
 - smoke tests: `bash test-python.bash`
 - Windows: `.\build-python-win.ps1`
+- Windows install: `.\install-python-win.ps1`
 
 C#:
 
@@ -140,6 +142,34 @@ Python は `cffi` ベースの `Endpoint` binding と、その上の pure-Python
 `pyproject.toml` は Python 依存関係の定義に使いますが、native の
 `hakoniwa_pdu_endpoint` 共有ライブラリは別途必要です。
 
+リポジトリから prefix 配下へまとめて配置したい場合は、次を使えます。
+
+```bash
+bash install-python.bash
+export PYTHONPATH="/usr/local/hakoniwa/share/hakoniwa-pdu-endpoint/python:$PYTHONPATH"
+```
+
+install 後の確認は次の順で行えます。
+
+1. まず import できることを確認する:
+
+```bash
+python3 -c "from hakoniwa_pdu_endpoint import c_endpoint; print('import ok')"
+```
+
+2. smoke test を流す:
+
+```bash
+PYTHON_CMD=python3 BUILD_FIRST=OFF bash test-python.bash
+```
+
+最小確認だけでよければ、次の 2 本でも十分です。
+
+```bash
+python3 python/test/test_c_endpoint_smoke.py
+python3 python/test/test_endpoint_container_smoke.py
+```
+
 代表コマンド:
 
 ```bash
@@ -177,6 +207,48 @@ python .\python\test\test_c_endpoint_smoke.py
 python .\python\test\test_endpoint_container_smoke.py
 ```
 
+prefix 配下へまとめて配置したい場合:
+
+```powershell
+.\install-python-win.ps1 `
+  -BuildFirst `
+  -BuildDirName build-win `
+  -Configuration Release `
+  -PythonCommand python `
+  -Prefix C:\hakoniwa `
+  -ToolchainFile C:\project\vcpkg\scripts\buildsystems\vcpkg.cmake `
+  -VcpkgTriplet x64-windows `
+  -Platform x64
+$env:PYTHONPATH="C:\hakoniwa\share\hakoniwa-pdu-endpoint\python;$env:PYTHONPATH"
+```
+
+Windows install 後の確認は次の順です。
+
+1. import できることを確認する:
+
+```powershell
+python -c "from hakoniwa_pdu_endpoint import c_endpoint; print('import ok')"
+```
+
+2. 最小 smoke test を流す:
+
+```powershell
+python .\python\test\test_c_endpoint_smoke.py
+python .\python\test\test_endpoint_container_smoke.py
+```
+
+Linux/macOS で詰まりやすい点:
+
+- `cffi` と `_cffi_backend` の `Version mismatch`:
+  virtualenv の Python を使っているのに、`PYTHONPATH` が system の `dist-packages` を指していて混在しています。build 時は `PYTHONPATH` を空にしてください。例:
+  `PYTHONPATH= PYTHON_CMD=python3 BUILD_SHARED_LIBS=ON bash build-python.bash`
+- `sudo bash install-python.bash` で `ModuleNotFoundError: No module named 'cffi'`:
+  `sudo` により virtualenv ではない Python に切り替わっています。virtualenv の Python を明示してください。例:
+  `sudo env "PYTHON_CMD=$VIRTUAL_ENV/bin/python" PYTHONPATH= bash install-python.bash`
+- install 後に import できない:
+  install 先を `PYTHONPATH` に追加してください。例:
+  `export PYTHONPATH="/usr/local/hakoniwa/share/hakoniwa-pdu-endpoint/python:$PYTHONPATH"`
+
 または Windows 用の smoke-test helper を使います。
 
 ```powershell
@@ -205,6 +277,8 @@ Windows で詰まりやすい点:
   既存 build directory を削除するか、`-Clean` を使う
 - Python 3.12 で `setuptools` が無い:
   `python -m pip install --upgrade setuptools wheel cffi`
+- `cffi` と `_cffi_backend` の `Version mismatch`:
+  build 時に別の Python 環境の `PYTHONPATH` を混ぜない
 - 実行時に `hakoniwa_pdu_endpoint.dll` が見つからない:
   `HAKO_PDU_ENDPOINT_SHARED_LIB` と `HAKO_PDU_ENDPOINT_LIB_DIR` を設定する
 

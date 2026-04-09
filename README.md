@@ -146,8 +146,10 @@ Core C++:
 Python:
 
 - build native + `cffi`: `bash build-python.bash`
+- install Python runtime files into a prefix: `bash install-python.bash`
 - run Python smoke tests: `bash test-python.bash`
 - Windows helper: `.\build-python-win.ps1`
+- Windows install helper: `.\install-python-win.ps1`
 - Windows smoke tests: `.\test-python-win.ps1`
 
 C#:
@@ -514,6 +516,41 @@ Current Python support is source-tree based. There is no packaged wheel yet.
 `pyproject.toml` is provided for Python dependency metadata, but the native
 `hakoniwa_pdu_endpoint` shared library is still a separate prerequisite.
 
+If you want a prefix-style local install from this repository, use:
+
+```bash
+bash install-python.bash
+export PYTHONPATH="/usr/local/hakoniwa/share/hakoniwa-pdu-endpoint/python:$PYTHONPATH"
+```
+
+This installs:
+
+- the pure-Python package files
+- the built `cffi` extension module
+- the native shared library
+- bundled JSON schema files
+
+After a prefix install, verify the installation in this order:
+
+1. Confirm that Python can import the package:
+
+```bash
+python3 -c "from hakoniwa_pdu_endpoint import c_endpoint; print('import ok')"
+```
+
+2. Run the thin-wrapper smoke test:
+
+```bash
+PYTHON_CMD=python3 BUILD_FIRST=OFF bash test-python.bash
+```
+
+If you only want the minimum two runtime checks instead of the full smoke suite:
+
+```bash
+python3 python/test/test_c_endpoint_smoke.py
+python3 python/test/test_endpoint_container_smoke.py
+```
+
 Install/use flow:
 
 1. Install the Python package metadata and dependencies.
@@ -534,6 +571,24 @@ cmake --build build -j4
 ```bash
 python3 python/hakoniwa_pdu_endpoint/build_c_endpoint_ffi.py
 ```
+
+Or, if you want one helper that builds and installs the Python runtime files:
+
+```bash
+PREFIX=/usr/local/hakoniwa bash install-python.bash
+```
+
+Linux/macOS troubleshooting:
+
+- `Version mismatch` between `cffi` and `_cffi_backend`:
+  your shell is mixing different Python package roots, often because `PYTHONPATH` points at system `dist-packages` while the interpreter comes from a virtualenv. Clear `PYTHONPATH` for the build, for example:
+  `PYTHONPATH= PYTHON_CMD=python3 BUILD_SHARED_LIBS=ON bash build-python.bash`
+- `ModuleNotFoundError: No module named 'cffi'` while running `sudo bash install-python.bash`:
+  `sudo` may switch to a Python interpreter that does not have the virtualenv packages. Pass the virtualenv interpreter explicitly, for example:
+  `sudo env "PYTHON_CMD=$VIRTUAL_ENV/bin/python" PYTHONPATH= bash install-python.bash`
+- import succeeds before install but fails after prefix install:
+  add the installed package root to `PYTHONPATH`, for example:
+  `export PYTHONPATH="/usr/local/hakoniwa/share/hakoniwa-pdu-endpoint/python:$PYTHONPATH"`
 
 If the native library is not in a default build location, point Python at it explicitly:
 
@@ -556,6 +611,36 @@ python -m pip install --upgrade pip setuptools wheel cffi
   -ToolchainFile C:\project\vcpkg\scripts\buildsystems\vcpkg.cmake `
   -VcpkgTriplet x64-windows `
   -Platform x64
+python .\python\test\test_c_endpoint_smoke.py
+python .\python\test\test_endpoint_container_smoke.py
+```
+
+If you want a prefix-style local install on Windows:
+
+```powershell
+.\install-python-win.ps1 `
+  -BuildFirst `
+  -BuildDirName build-win `
+  -Configuration Release `
+  -PythonCommand python `
+  -Prefix C:\hakoniwa `
+  -ToolchainFile C:\project\vcpkg\scripts\buildsystems\vcpkg.cmake `
+  -VcpkgTriplet x64-windows `
+  -Platform x64
+$env:PYTHONPATH="C:\hakoniwa\share\hakoniwa-pdu-endpoint\python;$env:PYTHONPATH"
+```
+
+After a Windows prefix install, verify the installation in this order:
+
+1. Confirm that Python can import the package:
+
+```powershell
+python -c "from hakoniwa_pdu_endpoint import c_endpoint; print('import ok')"
+```
+
+2. Run the minimum smoke tests:
+
+```powershell
 python .\python\test\test_c_endpoint_smoke.py
 python .\python\test\test_endpoint_container_smoke.py
 ```
@@ -588,6 +673,8 @@ Windows troubleshooting:
   remove the existing build directory or use `-Clean`
 - `This CFFI feature requires setuptools on Python >= 3.12`:
   run `python -m pip install --upgrade setuptools wheel cffi`
+- `Version mismatch` between `cffi` and `_cffi_backend`:
+  avoid mixing multiple Python package roots. In particular, do not leave a foreign `PYTHONPATH` pointing at another Python installation while building the cffi module
 - `hakoniwa_pdu_endpoint.dll` is not found at runtime:
   set `HAKO_PDU_ENDPOINT_SHARED_LIB` and `HAKO_PDU_ENDPOINT_LIB_DIR` to the built DLL and its directory
 

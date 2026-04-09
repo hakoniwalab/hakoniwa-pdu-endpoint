@@ -3,6 +3,7 @@ set -euo pipefail
 
 PROJECT_ROOT=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
 BUILD_FIRST=${BUILD_FIRST:-ON}
+PYTHON_CMD=${PYTHON_CMD:-python3}
 
 PYTHON_TESTS=(
   "${PROJECT_ROOT}/python/test/test_c_endpoint_smoke.py"
@@ -23,7 +24,7 @@ fi
 
 say "Running Python smoke tests..."
 for test_script in "${PYTHON_TESTS[@]}"; do
-  python3 "${test_script}"
+  PYTHONPATH= "${PYTHON_CMD}" "${test_script}"
 done
 
 say "Done."
