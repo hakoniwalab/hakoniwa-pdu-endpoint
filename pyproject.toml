@@ -5,7 +5,7 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "hakoniwa-pdu-endpoint"
 version = "1.0.0"
-description = "Python utilities and cffi bindings for hakoniwa-pdu-endpoint"
+description = "Source-tree Python helpers for hakoniwa-pdu-endpoint; native library and cffi runtime are installed separately"
 readme = "README.md"
 requires-python = ">=3.9"
 license = { text = "MIT" }
