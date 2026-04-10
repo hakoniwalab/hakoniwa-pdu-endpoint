@@ -1,26 +1,15 @@
 param(
-    [ValidateSet("Debug", "Release", "RelWithDebInfo", "MinSizeRel")]
-    [string]$Configuration = "Release",
-    [string]$BuildDirName = "build-win",
-    [string]$Generator = "",
-    [string]$Platform = "",
-    [string]$ToolchainFile = "",
-    [string]$VcpkgTriplet = "",
+    [ValidateSet("bootstrap", "use-existing")]
+    [string]$Mode = "bootstrap",
     [string]$PythonCommand = "",
-    [string]$Prefix = "C:\hakoniwa",
-    [int]$Parallel = 0,
-    [switch]$Clean,
-    [switch]$BuildFirst
+    [string]$Prefix = "$env:LOCALAPPDATA\Hakoniwa\hakoniwa-pdu-endpoint",
+    [string]$Version = "v1.0.0",
+    [string]$RuntimeArchiveName = "hakoniwa-pdu-endpoint-windows-x64-cp312.zip",
+    [string]$RuntimeUrl = "",
+    [switch]$RunSmokeTest
 )
 
 $ErrorActionPreference = "Stop"
-
-$ProjectRoot = Split-Path -Parent $MyInvocation.MyCommand.Path
-$BuildDir = Join-Path $ProjectRoot $BuildDirName
-$PythonBuildDir = Join-Path $ProjectRoot "build\python"
-$InstallRoot = Join-Path $Prefix "share\hakoniwa-pdu-endpoint\python"
-$PackageName = "hakoniwa_pdu_endpoint"
-$PackageInstallDir = Join-Path $InstallRoot $PackageName
 
 function Say {
     param([string]$Message)
@@ -48,99 +37,104 @@ function Get-PythonCommand {
             Args = @()
         }
     }
-    if (Get-Command python3 -ErrorAction SilentlyContinue) {
-        return @{
-            Exe = "python3"
-            Args = @()
-        }
-    }
     throw "Python launcher not found. Install Python or pass -PythonCommand."
 }
 
-function Find-FfiArtifact {
-    param([string]$PackageBuildDir)
+function Install-PythonPackages {
+    param($PythonCmd)
 
-    $Candidates = Get-ChildItem -Path $PackageBuildDir -Filter "_c_endpoint_ffi*" -File -ErrorAction SilentlyContinue |
-        Where-Object { $_.Extension -in @(".pyd", ".dll") } |
-        Sort-Object Name
-    if ($Candidates.Count -eq 0) {
-        throw "cffi artifact not found under: $PackageBuildDir"
-    }
-    return $Candidates[0].FullName
+    Say "Installing Python packages..."
+    & $PythonCmd.Exe @($PythonCmd.Args) -m pip install --upgrade pip setuptools wheel cffi
+    & $PythonCmd.Exe @($PythonCmd.Args) -m pip install --upgrade hakoniwa-pdu hakoniwa-pdu-endpoint
 }
 
-if ($BuildFirst.IsPresent) {
-    Say "Building native library and Python cffi module..."
-    $BuildArgs = @{
-        Configuration = $Configuration
-        BuildDirName = $BuildDirName
-    }
-    if (-not [string]::IsNullOrWhiteSpace($Generator)) {
-        $BuildArgs["Generator"] = $Generator
-    }
-    if (-not [string]::IsNullOrWhiteSpace($Platform)) {
-        $BuildArgs["Platform"] = $Platform
-    }
-    if (-not [string]::IsNullOrWhiteSpace($ToolchainFile)) {
-        $BuildArgs["ToolchainFile"] = $ToolchainFile
-    }
-    if (-not [string]::IsNullOrWhiteSpace($VcpkgTriplet)) {
-        $BuildArgs["VcpkgTriplet"] = $VcpkgTriplet
-    }
-    if (-not [string]::IsNullOrWhiteSpace($PythonCommand)) {
-        $BuildArgs["PythonCommand"] = $PythonCommand
-    }
-    if ($Parallel -gt 0) {
-        $BuildArgs["Parallel"] = $Parallel
-    }
-    if ($Clean.IsPresent) {
-        $BuildArgs["Clean"] = $true
-    }
-    $BuildArgs["BuildNative"] = $true
-    $BuildArgs["BuildFfi"] = $true
+function Install-RuntimeBundle {
+    param([string]$RuntimeRoot, [string]$Url, [string]$ArchiveName)
 
-    & (Join-Path $ProjectRoot "build-python-win.ps1") @BuildArgs
-    if ($LASTEXITCODE -ne 0) {
-        throw "build-python-win.ps1 failed (exit code: $LASTEXITCODE)."
+    New-Item -ItemType Directory -Force -Path $RuntimeRoot | Out-Null
+    $ArchivePath = Join-Path $RuntimeRoot $ArchiveName
+    Say "Downloading runtime bundle..."
+    Invoke-WebRequest -UseBasicParsing -Uri $Url -OutFile $ArchivePath
+    Say "Extracting runtime bundle..."
+    Expand-Archive -Force -Path $ArchivePath -DestinationPath $RuntimeRoot
+    Remove-Item -Force $ArchivePath
+}
+
+function Find-RuntimeArtifacts {
+    param([string]$RuntimeRoot)
+
+    $Dll = Get-ChildItem -Path $RuntimeRoot -Recurse -Filter "*.dll" -ErrorAction Stop |
+        Where-Object { $_.Name -like "*hakoniwa*pdu*endpoint*" } |
+        Select-Object -First 1
+    $Ffi = Get-ChildItem -Path $RuntimeRoot -Recurse -Filter "_c_endpoint_ffi*.pyd" -ErrorAction Stop |
+        Select-Object -First 1
+
+    if (-not $Dll) {
+        throw "Runtime bundle does not contain hakoniwa_pdu_endpoint dll."
     }
+    if (-not $Ffi) {
+        throw "Runtime bundle does not contain _c_endpoint_ffi*.pyd."
+    }
+
+    return @{
+        Dll = $Dll
+        Ffi = $Ffi
+    }
+}
+
+function Install-RuntimeIntoPythonPackage {
+    param($PythonCmd, [string]$RuntimeRoot)
+
+    $PackageDir = & $PythonCmd.Exe @($PythonCmd.Args) -c "import pathlib, hakoniwa_pdu_endpoint; print(pathlib.Path(hakoniwa_pdu_endpoint.__file__).resolve().parent)"
+    $PackageDir = $PackageDir.Trim()
+    $Artifacts = Find-RuntimeArtifacts -RuntimeRoot $RuntimeRoot
+    Copy-Item -Force $Artifacts.Ffi.FullName (Join-Path $PackageDir $Artifacts.Ffi.Name)
+    Copy-Item -Force $Artifacts.Dll.FullName (Join-Path $PackageDir $Artifacts.Dll.Name)
+    return @{
+        PackageDir = $PackageDir
+        Dll = $Artifacts.Dll
+    }
+}
+
+function Run-SmokeTest {
+    param($PythonCmd, [string]$PackageDir, [string]$DllPath)
+
+    Say "Running smoke test..."
+    $env:HAKO_PDU_ENDPOINT_SHARED_LIB = $DllPath
+    $env:HAKO_PDU_ENDPOINT_LIB_DIR = $PackageDir
+    & $PythonCmd.Exe @($PythonCmd.Args) -c "from hakoniwa_pdu_endpoint import c_endpoint; print('import ok')"
+}
+
+if ([string]::IsNullOrWhiteSpace($RuntimeUrl)) {
+    $RuntimeUrl = "https://github.com/hakoniwalab/hakoniwa-pdu-endpoint/releases/download/$Version/$RuntimeArchiveName"
 }
 
 $PythonCmd = Get-PythonCommand -Requested $PythonCommand
-$NativeLibDir = Join-Path $BuildDir "src\$Configuration"
-$SharedLib = Join-Path $NativeLibDir "hakoniwa_pdu_endpoint.dll"
-$ImportLib = Join-Path $NativeLibDir "hakoniwa_pdu_endpoint.lib"
-$PackageSourceDir = Join-Path $ProjectRoot "python\$PackageName"
-$PackageBuildDir = Join-Path $PythonBuildDir $PackageName
+$RuntimeRoot = Join-Path $Prefix "runtime"
 
-if (-not (Test-Path $SharedLib)) {
-    throw "Shared library not found: $SharedLib. Run build-python-win.ps1 or pass -BuildFirst."
+Say "Mode=$Mode"
+Say "Prefix=$Prefix"
+Say "RuntimeRoot=$RuntimeRoot"
+Say "RuntimeUrl=$RuntimeUrl"
+
+switch ($Mode) {
+    "bootstrap" {
+        Install-PythonPackages -PythonCmd $PythonCmd
+        Install-RuntimeBundle -RuntimeRoot $RuntimeRoot -Url $RuntimeUrl -ArchiveName $RuntimeArchiveName
+    }
+    "use-existing" {
+        Say "Using existing Python/runtime installation"
+    }
 }
 
-if (-not (Test-Path $PackageSourceDir)) {
-    throw "Python package directory not found: $PackageSourceDir"
-}
+$RuntimeInstall = Install-RuntimeIntoPythonPackage -PythonCmd $PythonCmd -RuntimeRoot $RuntimeRoot
 
-$FfiArtifact = Find-FfiArtifact -PackageBuildDir $PackageBuildDir
+Say "Set these environment variables before using the Python binding if needed:"
+Say "  HAKO_PDU_ENDPOINT_SHARED_LIB=$($RuntimeInstall.Dll.FullName)"
+Say "  HAKO_PDU_ENDPOINT_LIB_DIR=$($RuntimeInstall.PackageDir)"
 
-Say "Installing Python runtime files to $PackageInstallDir"
-New-Item -ItemType Directory -Force -Path $PackageInstallDir | Out-Null
-Copy-Item -Path (Join-Path $PackageSourceDir "*") -Destination $PackageInstallDir -Recurse -Force
-Copy-Item -Path $FfiArtifact -Destination (Join-Path $PackageInstallDir (Split-Path $FfiArtifact -Leaf)) -Force
-Copy-Item -Path $SharedLib -Destination (Join-Path $PackageInstallDir "hakoniwa_pdu_endpoint.dll") -Force
-if (Test-Path $ImportLib) {
-    Copy-Item -Path $ImportLib -Destination (Join-Path $PackageInstallDir "hakoniwa_pdu_endpoint.lib") -Force
-}
-
-$SchemaDir = Join-Path $ProjectRoot "config\schema"
-if (Test-Path $SchemaDir) {
-    $SchemaInstallDir = Join-Path $PackageInstallDir "schema"
-    New-Item -ItemType Directory -Force -Path $SchemaInstallDir | Out-Null
-    Copy-Item -Path (Join-Path $SchemaDir "*") -Destination $SchemaInstallDir -Recurse -Force
+if ($RunSmokeTest -or $Mode -eq "bootstrap") {
+    Run-SmokeTest -PythonCmd $PythonCmd -PackageDir $RuntimeInstall.PackageDir -DllPath $RuntimeInstall.Dll.FullName
 }
 
 Say "Done."
-Say "Import check example:"
-Say "  `$env:PYTHONPATH=`"$InstallRoot;`$env:PYTHONPATH`""
-Say "Optional explicit runtime hints:"
-Say "  `$env:HAKO_PDU_ENDPOINT_LIB_DIR=`"$PackageInstallDir`""
-Say "  `$env:HAKO_PDU_ENDPOINT_SHARED_LIB=`"$PackageInstallDir\hakoniwa_pdu_endpoint.dll`""

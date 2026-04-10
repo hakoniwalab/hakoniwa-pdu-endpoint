@@ -16,6 +16,20 @@ Python package に加えて、OS に対応した native shared library が必要
 pip install hakoniwa-pdu-endpoint
 ```
 
+または、このリポジトリを clone 済みなら利用者向け installer を使えます。
+
+### POSIX (Linux/macOS)
+
+```bash
+bash install-python.bash
+```
+
+### Windows
+
+```powershell
+.\install-python-win.ps1
+```
+
 ## 2. release bundle を取得する
 
 GitHub Releases から、自分の OS / CPU / Python ABI に対応した zip bundle を取得してください。
