@@ -17,7 +17,10 @@ _package_dir = Path(__file__).resolve().parent
 
 def _candidate_native_lib_names() -> List[str]:
     if sys.platform == "win32":
-        return ["hakoniwa_pdu_endpoint.dll"]
+        return [
+            "hakoniwa_pdu_endpoint.dll",
+            "hakoniwa_pdu_endpoint-windows-x64.dll",
+        ]
     if sys.platform == "darwin":
         return ["libhakoniwa_pdu_endpoint.dylib"]
     return ["libhakoniwa_pdu_endpoint.so"]

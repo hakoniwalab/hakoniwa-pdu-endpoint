@@ -88,11 +88,14 @@ function Install-RuntimeIntoPythonPackage {
     $PackageDir = & $PythonCmd.Exe @($PythonCmd.Args) -c "import pathlib, hakoniwa_pdu_endpoint; print(pathlib.Path(hakoniwa_pdu_endpoint.__file__).resolve().parent)"
     $PackageDir = $PackageDir.Trim()
     $Artifacts = Find-RuntimeArtifacts -RuntimeRoot $RuntimeRoot
-    Copy-Item -Force $Artifacts.Ffi.FullName (Join-Path $PackageDir $Artifacts.Ffi.Name)
-    Copy-Item -Force $Artifacts.Dll.FullName (Join-Path $PackageDir $Artifacts.Dll.Name)
+    $PackageFfiPath = Join-Path $PackageDir $Artifacts.Ffi.Name
+    $PackageDllPath = Join-Path $PackageDir "hakoniwa_pdu_endpoint.dll"
+    Copy-Item -Force $Artifacts.Ffi.FullName $PackageFfiPath
+    Copy-Item -Force $Artifacts.Dll.FullName $PackageDllPath
     return @{
         PackageDir = $PackageDir
-        Dll = $Artifacts.Dll
+        DllPath = $PackageDllPath
+        FfiPath = $PackageFfiPath
     }
 }
 
@@ -102,6 +105,7 @@ function Run-SmokeTest {
     Say "Running smoke test..."
     $env:HAKO_PDU_ENDPOINT_SHARED_LIB = $DllPath
     $env:HAKO_PDU_ENDPOINT_LIB_DIR = $PackageDir
+    $env:PATH = "$PackageDir;$env:PATH"
     & $PythonCmd.Exe @($PythonCmd.Args) -c "from hakoniwa_pdu_endpoint import c_endpoint; print('import ok')"
 }
 
@@ -130,11 +134,11 @@ switch ($Mode) {
 $RuntimeInstall = Install-RuntimeIntoPythonPackage -PythonCmd $PythonCmd -RuntimeRoot $RuntimeRoot
 
 Say "Set these environment variables before using the Python binding if needed:"
-Say "  HAKO_PDU_ENDPOINT_SHARED_LIB=$($RuntimeInstall.Dll.FullName)"
+Say "  HAKO_PDU_ENDPOINT_SHARED_LIB=$($RuntimeInstall.DllPath)"
 Say "  HAKO_PDU_ENDPOINT_LIB_DIR=$($RuntimeInstall.PackageDir)"
 
 if ($RunSmokeTest -or $Mode -eq "bootstrap") {
-    Run-SmokeTest -PythonCmd $PythonCmd -PackageDir $RuntimeInstall.PackageDir -DllPath $RuntimeInstall.Dll.FullName
+    Run-SmokeTest -PythonCmd $PythonCmd -PackageDir $RuntimeInstall.PackageDir -DllPath $RuntimeInstall.DllPath
 }
 
 Say "Done."
