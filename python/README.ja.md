@@ -22,6 +22,7 @@ pip install hakoniwa-pdu-endpoint
 
 ```bash
 bash install-python.bash
+bash install-python-runtime.bash
 ```
 
 ### Windows
@@ -47,12 +48,22 @@ zip を展開したディレクトリには次のものが入っています。
 
 - native shared library
 - `cffi` extension module
+- `hakoniwa_pdu_endpoint` pure-Python runtime files
 - `README.txt`
 
 展開先は、たとえば次のようなディレクトリを使います。
 
 - Linux/macOS: `$HOME/.local/lib/hakoniwa-pdu-endpoint/`
 - Windows: `C:\hakoniwa\hakoniwa-pdu-endpoint\bin\`
+
+POSIX では installer を 2 段に分けています。
+
+- `install-python.bash`
+  - package install と bundle download
+- `install-python-runtime.bash`
+  - installed package directory への runtime overlay
+
+copy 権限だけが必要な環境では、後者だけ `sudo` 実行できます。
 
 ## 3. 環境変数を設定する
 

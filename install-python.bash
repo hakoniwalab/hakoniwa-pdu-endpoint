@@ -68,18 +68,6 @@ if [[ -z "${RUNTIME_URL}" ]]; then
   RUNTIME_URL="https://github.com/hakoniwalab/hakoniwa-pdu-endpoint/releases/download/${VERSION}/${ARCHIVE_BASENAME}"
 fi
 
-runtime_shared_lib_path() {
-  case "$(uname -s)" in
-    Linux) printf "%s/%s\n" "${PREFIX_DIR}" "hakoniwa_pdu_endpoint-linux-x86_64.so" ;;
-    Darwin)
-      case "$(uname -m)" in
-        arm64) printf "%s/%s\n" "${PREFIX_DIR}" "hakoniwa_pdu_endpoint-macos-arm64.dylib" ;;
-        x86_64) printf "%s/%s\n" "${PREFIX_DIR}" "hakoniwa_pdu_endpoint-macos-x86_64.dylib" ;;
-      esac
-      ;;
-  esac
-}
-
 install_python_packages() {
   say "Installing Python packages..."
   "${PIP_CMD[@]}" install --upgrade pip setuptools wheel cffi
@@ -94,17 +82,6 @@ download_runtime_bundle() {
   say "Extracting runtime bundle..."
   unzip -o "${archive_path}" -d "${PREFIX_DIR}" >/dev/null
   rm -f "${archive_path}"
-}
-
-run_smoke_test() {
-  local lib_path
-  lib_path="$(runtime_shared_lib_path)"
-  say "Running smoke test..."
-  env \
-    HAKO_PDU_ENDPOINT_SHARED_LIB="${lib_path}" \
-    HAKO_PDU_ENDPOINT_LIB_DIR="${PREFIX_DIR}" \
-    PYTHONPATH= \
-    "${PYTHON_CMD}" -c "from hakoniwa_pdu_endpoint import c_endpoint; print('import ok')"
 }
 
 say "MODE=${MODE}"
@@ -125,12 +102,9 @@ case "${MODE}" in
     ;;
 esac
 
-say "Set these environment variables before using the Python binding:"
-say "  export HAKO_PDU_ENDPOINT_SHARED_LIB=$(runtime_shared_lib_path)"
-say "  export HAKO_PDU_ENDPOINT_LIB_DIR=${PREFIX_DIR}"
-
-if [[ "${RUN_SMOKE_TEST}" == "1" ]]; then
-  run_smoke_test
-fi
+say "Downloaded runtime bundle into: ${PREFIX_DIR}"
+say "Next step: overlay runtime files into the installed Python package:"
+say "  bash install-python-runtime.bash"
+say "If the target Python package directory is system-owned, run only that overlay step with sudo."
 
 say "Done."

@@ -520,15 +520,13 @@ If you want a prefix-style local install from this repository, use:
 
 ```bash
 bash install-python.bash
-export PYTHONPATH="/usr/local/hakoniwa/share/hakoniwa-pdu-endpoint/python:$PYTHONPATH"
+bash install-python-runtime.bash
 ```
 
-This installs:
+This workflow installs:
 
-- the pure-Python package files
-- the built `cffi` extension module
-- the native shared library
-- bundled JSON schema files
+- step 1: Python package metadata/dependencies and the runtime bundle
+- step 2: the bundle-provided pure-Python runtime files, `_c_endpoint_ffi`, shared library, and schema files into the installed package dir
 
 After a prefix install, verify the installation in this order:
 
@@ -576,6 +574,7 @@ Or, if you want one helper that builds and installs the Python runtime files:
 
 ```bash
 PREFIX=/usr/local/hakoniwa bash install-python.bash
+PREFIX=/usr/local/hakoniwa bash install-python-runtime.bash
 ```
 
 Linux/macOS troubleshooting:
@@ -586,9 +585,12 @@ Linux/macOS troubleshooting:
 - `ModuleNotFoundError: No module named 'cffi'` while running `sudo bash install-python.bash`:
   `sudo` may switch to a Python interpreter that does not have the virtualenv packages. Pass the virtualenv interpreter explicitly, for example:
   `sudo env "PYTHON_CMD=$VIRTUAL_ENV/bin/python" PYTHONPATH= bash install-python.bash`
+- `sudo` is only needed to overlay files into a system-owned package directory:
+  run the bootstrap/download step as a normal user, then run only the overlay step with sudo if required:
+  `sudo env "PYTHON_CMD=$VIRTUAL_ENV/bin/python" PREFIX_DIR=$HOME/.local/lib/hakoniwa-pdu-endpoint bash install-python-runtime.bash`
 - import succeeds before install but fails after prefix install:
-  add the installed package root to `PYTHONPATH`, for example:
-  `export PYTHONPATH="/usr/local/hakoniwa/share/hakoniwa-pdu-endpoint/python:$PYTHONPATH"`
+  check which package directory Python resolves first:
+  `python -c "import hakoniwa_pdu_endpoint; print(hakoniwa_pdu_endpoint.__file__)"`
 - import still resolves to a virtualenv/site-packages copy after prefix install:
   another `hakoniwa-pdu-endpoint` may already be installed in the active Python environment and shadow the prefix-installed files. Check `python -c "import hakoniwa_pdu_endpoint; print(hakoniwa_pdu_endpoint.__file__)"` and remove the conflicting package if needed:
   `python -m pip uninstall hakoniwa-pdu-endpoint`

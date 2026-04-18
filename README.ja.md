@@ -146,8 +146,27 @@ Python は `cffi` ベースの `Endpoint` binding と、その上の pure-Python
 
 ```bash
 bash install-python.bash
-export PYTHONPATH="/usr/local/hakoniwa/share/hakoniwa-pdu-endpoint/python:$PYTHONPATH"
+bash install-python-runtime.bash
 ```
+
+この 2 段構成では、
+
+- `install-python.bash`
+  - `pip install`
+  - runtime bundle download / extract
+- `install-python-runtime.bash`
+  - pip で入った `hakoniwa_pdu_endpoint` package directory へ runtime を補完配置
+
+を分けます。
+
+overlay step は必要なら `sudo` で実行できます。この installer は、pip で入った `hakoniwa_pdu_endpoint` package directory に対して、
+
+- bundle 内の pure-Python runtime files
+- `_c_endpoint_ffi`
+- native shared library
+- schema files
+
+を補完配置します。
 
 install 後の確認は次の順で行えます。
 

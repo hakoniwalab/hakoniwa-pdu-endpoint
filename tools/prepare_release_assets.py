@@ -172,14 +172,19 @@ def write_bundle_readme(
                 f"arch: {arch}",
                 f"python abi: {python_tag}",
                 "",
-                "Install the Python package separately:",
-                "  pip install hakoniwa-pdu-endpoint",
+                "Bundle contents:",
+                "  - native shared library",
+                "  - cffi extension module",
+                "  - hakoniwa_pdu_endpoint pure-Python runtime files",
                 "",
-                "Set these environment variables to this extracted directory:",
-                f"  HAKO_PDU_ENDPOINT_LIB_DIR=<bundle-dir>",
-                f"  HAKO_PDU_ENDPOINT_SHARED_LIB=<bundle-dir>/{shared_lib_name}",
+                "Typical installer behavior:",
+                "  - install the Python package separately",
+                "  - overlay hakoniwa_pdu_endpoint/* from this bundle into the installed package dir",
+                "  - place the shared library and _c_endpoint_ffi beside c_endpoint.py",
                 "",
-                "Then run your Python code that imports hakoniwa_pdu_endpoint.c_endpoint.",
+                "If you use this bundle manually, set these environment variables:",
+                f"  HAKO_PDU_ENDPOINT_LIB_DIR=<installed-package-dir>",
+                f"  HAKO_PDU_ENDPOINT_SHARED_LIB=<installed-package-dir>/{shared_lib_name}",
             ]
         ),
         encoding="utf-8",
@@ -235,6 +240,11 @@ def main() -> int:
     cffi_target = bundle_dir / cffi_ext.name
     shutil.copy2(cffi_ext, cffi_target)
     copied.append(cffi_target)
+
+    package_src = repo_root / "python" / "hakoniwa_pdu_endpoint"
+    package_dst = bundle_dir / "hakoniwa_pdu_endpoint"
+    shutil.copytree(package_src, package_dst)
+    copied.extend(sorted(path for path in package_dst.rglob("*") if path.is_file()))
 
     write_bundle_readme(bundle_dir, platform, arch, python_tag, shared_lib_name, version)
     copied.append(bundle_dir / "README.txt")
