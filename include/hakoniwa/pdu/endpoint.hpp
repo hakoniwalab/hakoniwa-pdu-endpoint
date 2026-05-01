@@ -102,7 +102,7 @@ public:
                 }
                 // Pass PDU definition to comm module
                 comm_->set_pdu_definition(pdu_def_);
-                HakoPduErrorType err = comm_->create_pdu_lchannels(resolved_comm_config_path.string());
+                err = comm_->create_pdu_lchannels(resolved_comm_config_path.string());
                 if (err != HAKO_PDU_ERR_OK) {
                     std::cerr << "Failed to create_pdu_lchannels PDU Comm: " << static_cast<int>(err) << std::endl;
                     return err;
@@ -147,7 +147,7 @@ public:
                 std::cerr << "Failed to create PDU Cache module: " << resolved_cache_config_path << std::endl;
                 return HAKO_PDU_ERR_INVALID_CONFIG;
             }
-            HakoPduErrorType err = cache_->open(resolved_cache_config_path.string());
+            err = cache_->open(resolved_cache_config_path.string());
             if (err != HAKO_PDU_ERR_OK) {
                 std::cerr << "Failed to open PDU Cache: " << static_cast<int>(err) << std::endl;
                 return err;

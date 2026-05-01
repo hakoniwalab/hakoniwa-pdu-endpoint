@@ -7,6 +7,8 @@ param(
     [string]$ToolchainFile = "",
     [string]$VcpkgTriplet = "",
     [string]$PythonCommand = "",
+    [switch]$EnableHakoniwaCore,
+    [string]$HakoniwaCoreRoot = "",
     [int]$Parallel = 0,
     [switch]$Clean,
     [switch]$BuildNative,
@@ -90,6 +92,13 @@ if ($DoBuildNative) {
             "-DHAKO_PDU_ENDPOINT_BUILD_TESTS=OFF",
             "-DHAKO_PDU_ENDPOINT_BUILD_EXAMPLES=OFF"
         )
+
+        if ($EnableHakoniwaCore) {
+            $ConfigureArgs += "-DHAKO_PDU_ENDPOINT_ENABLE_HAKONIWA_CORE=ON"
+            if (-not [string]::IsNullOrWhiteSpace($HakoniwaCoreRoot)) {
+                $ConfigureArgs += "-DHAKO_PDU_ENDPOINT_HAKONIWA_CORE_ROOT=$HakoniwaCoreRoot"
+            }
+        }
 
         if (-not [string]::IsNullOrWhiteSpace($ResolvedGenerator)) {
             $ConfigureArgs += @("-G", $ResolvedGenerator)

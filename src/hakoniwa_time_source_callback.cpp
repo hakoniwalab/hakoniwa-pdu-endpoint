@@ -1,5 +1,5 @@
 #include "hakoniwa/time_source/hakoniwa_time_source_impl.hpp"
-#include "hakoniwa/hako_asset.h"
+#include "hako_asset.h"
 
 namespace hakoniwa::time_source {
 
