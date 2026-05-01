@@ -146,7 +146,7 @@ if(WIN32)
 endif()
 
 if(MSVC)
-  target_compile_options(hakoniwa_pdu_endpoint PRIVATE /utf-8)
+  target_compile_options(hakoniwa_pdu_endpoint PRIVATE /utf-8 /bigobj)
   target_compile_definitions(hakoniwa_pdu_endpoint PRIVATE _CRT_SECURE_NO_WARNINGS _WIN32_WINNT=0x0A00)
 endif()
 
