@@ -18,7 +18,6 @@ public:
     virtual void cleanup() = 0;
 
 protected:
-protected:
     void create_send_buffer_for_key(int num)
     {
         pdu_keys_.clear();

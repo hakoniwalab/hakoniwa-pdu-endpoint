@@ -1,23 +1,28 @@
 #include "pub_runner.hpp"
 #include "hakoniwa/pdu/endpoint.hpp"
+
 #include <iostream>
-#include <vector>
-#include <numeric>
+#include <stdexcept>
 
 namespace benchmarks::runner {
 
-void PubUdpRunner::prepare(int num, std::string endpoint_config_path) {
-    endpoint_ = std::make_unique<hakoniwa::pdu::Endpoint>("pub_runner_udp", HAKO_PDU_ENDPOINT_DIRECTION_OUT);
+void PubUdpRunner::prepare(int num, std::string endpoint_config_path)
+{
+    endpoint_ = std::make_unique<hakoniwa::pdu::Endpoint>(
+        "pub_runner_udp",
+        HAKO_PDU_ENDPOINT_DIRECTION_OUT);
+
     if (endpoint_->open(endpoint_config_path) != HAKO_PDU_ERR_OK) {
-        std::cerr << "Failed to open UDP publisher endpoint" << std::endl;
-        // In a real scenario, proper error handling (e.g., throwing an exception) would be better.
-        return;
+        endpoint_.reset();
+        throw std::runtime_error("Failed to open UDP publisher endpoint");
     }
+
     if (endpoint_->start() != HAKO_PDU_ERR_OK) {
-        std::cerr << "Failed to start UDP publisher endpoint" << std::endl;
-        // Proper error handling.
-        return;
+        endpoint_->close();
+        endpoint_.reset();
+        throw std::runtime_error("Failed to start UDP publisher endpoint");
     }
+
     create_send_buffer_for_key(num);
 }
 
