@@ -2,6 +2,11 @@ cmake_minimum_required(VERSION 3.10)
 
 project(benchmark_runners)
 
+include_directories(
+    "${CMAKE_SOURCE_DIR}/include"
+    "${CMAKE_SOURCE_DIR}/benchmarks"
+)
+
 add_subdirectory(comm)
 
 add_executable(benchmark_pub_runner

@@ -8,8 +8,10 @@ file(GLOB_RECURSE SOURCES "*.cpp")
 # Create a static library from these sources
 add_library(runner_comm STATIC ${SOURCES})
 
+
 # Specify include directories for this library
 target_include_directories(runner_comm PUBLIC
-    ${CMAKE_CURRENT_SOURCE_DIR}/../../include # for hakoniwa headers
-    ${CMAKE_CURRENT_SOURCE_DIR}/../.. # for common (benchmark_config.hpp)
+    "${CMAKE_SOURCE_DIR}/include" # for hakoniwa headers
+    "${CMAKE_SOURCE_DIR}/benchmarks" # for common (benchmark_config.hpp)
 )
+target_link_libraries(runner_comm PRIVATE hakoniwa_pdu_endpoint)

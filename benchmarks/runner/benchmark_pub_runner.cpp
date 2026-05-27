@@ -1,7 +1,6 @@
 #include <iostream>
 
-
-int main(int argc, char* argv[]) {
-    std::cout << "This is a placeholder for the benchmark_pub_runner executable." << std::endl;
+int main() {
+    std::cout << "Running benchmark_pub_runner" << std::endl;
     return 0;
 }

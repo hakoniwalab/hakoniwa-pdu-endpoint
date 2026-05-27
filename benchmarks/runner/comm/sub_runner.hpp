@@ -1,6 +1,6 @@
 #pragma once
 
-#include "comm/runner.hpp"
+#include "runner.hpp"
 
 namespace benchmarks::runner {
 
