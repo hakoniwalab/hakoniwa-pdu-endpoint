@@ -1,0 +1,5 @@
+{
+  "name": "ep_shm_publisher",
+  "cache": "../cache/buffer.json",
+  "comm": "comm/publisher_shm_comm.json"
+}

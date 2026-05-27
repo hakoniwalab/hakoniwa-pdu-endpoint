@@ -1,0 +1,9 @@
+{
+  "protocol": "udp",
+  "name": "udp_publisher",
+  "direction": "out",
+  "remote": {
+    "address": "127.0.0.1",
+    "port": 54001
+  }
+}

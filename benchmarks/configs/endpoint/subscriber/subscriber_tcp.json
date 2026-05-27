@@ -1,0 +1,5 @@
+{
+  "name": "ep_udp_subscriber",
+  "cache": "../cache/buffer.json",
+  "comm": "comm/subscriber_udp_comm.json"
+}

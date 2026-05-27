@@ -1,0 +1,5 @@
+{
+  "name": "ep_udp_publisher",
+  "cache": "../cache/buffer.json",
+  "comm": "comm/publisher_udp_comm.json"
+}

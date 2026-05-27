@@ -1,0 +1,5 @@
+{
+  "name": "ep_shm_subscriber",
+  "cache": "../cache/buffer.json",
+  "comm": "comm/subscriber_shm_comm.json"
+}

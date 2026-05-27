@@ -1,0 +1,12 @@
+{
+  "protocol": "shm",
+  "impl_type": "callback",
+  "name": "shm_publisher",
+  "direction": "inout",
+  "io": {
+    "robots": [
+      { "name": "Drone-1", "pdu": [ {"name": "pos", "notify_on_recv": false } ] },
+      { "name": "Drone-2", "pdu": [ {"name": "pos", "notify_on_recv": false } ] }
+    ]
+  }
+}
