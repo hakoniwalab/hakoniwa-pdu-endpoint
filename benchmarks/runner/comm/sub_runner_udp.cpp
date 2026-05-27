@@ -2,7 +2,7 @@
 
 namespace benchmarks::runner {
 
-void SubUdpRunner::prepare(std::string endpoint_config_path) {
+void SubUdpRunner::prepare(int num, std::string endpoint_config_path) {
     // TODO: Implementation
 }
 

@@ -2,7 +2,7 @@
 
 namespace benchmarks::runner {
 
-void SubShmRunner::prepare(std::string endpoint_config_path) {
+void SubShmRunner::prepare(int num, std::string endpoint_config_path) {
     // TODO: Implementation
 }
 

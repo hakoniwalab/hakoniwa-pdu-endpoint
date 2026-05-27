@@ -2,7 +2,7 @@
 
 namespace benchmarks::runner {
 
-void PubShmRunner::prepare(std::string endpoint_config_path) {
+void PubShmRunner::prepare(int num, std::string endpoint_config_path) {
     // TODO: Implementation
 }
 

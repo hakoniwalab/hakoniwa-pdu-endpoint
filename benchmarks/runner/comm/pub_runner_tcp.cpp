@@ -2,7 +2,7 @@
 
 namespace benchmarks::runner {
 
-void PubTcpRunner::prepare(std::string endpoint_config_path) {
+void PubTcpRunner::prepare(int num, std::string endpoint_config_path) {
     // TODO: Implementation
 }
 

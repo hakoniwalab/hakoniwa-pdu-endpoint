@@ -5,6 +5,7 @@ project(benchmark_runners)
 include_directories(
     "${CMAKE_SOURCE_DIR}/include"
     "${CMAKE_SOURCE_DIR}/benchmarks"
+    "/usr/local/hakoniwa/include/hakoniwa/pdu"
 )
 
 add_subdirectory(comm)
