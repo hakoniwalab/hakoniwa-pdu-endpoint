@@ -8,11 +8,6 @@ namespace benchmarks::runner {
 
 SubShmRunner* SubShmRunner::instance_ = nullptr;
 
-void SubShmRunner::on_recv(int recv_event_id)
-{
-    printf("INFO: on_recv: %d\n", recv_event_id);
-    //TODO
-}
 int SubShmRunner::my_on_initialize(hako_asset_context_t* context)
 {
     (void)context;
@@ -36,7 +31,22 @@ int SubShmRunner::my_on_reset(hako_asset_context_t* context)
 int SubShmRunner::my_on_manual_timing_control(hako_asset_context_t* context)
 {
     (void)context;
-    (void)hako_asset_usleep(instance_->benchmark_config_.delta_time_usec);
+    if (instance_ == nullptr) {
+        throw std::runtime_error("SubShmRunner instance is not set in on_manual_timing_control");
+    }
+    while (true) {
+        if (instance_->is_receive_completed()) {
+            break;
+        }
+        auto now = now_ns();
+        if (instance_->benchmark_config_.timeout_sec > 0 &&
+            now > instance_->benchmark_config_.timeout_sec * 1'000'000'000ULL) {
+            std::cout << "INFO: Timeout reached in on_manual_timing_control, stopping conductor." << std::endl;
+            break;
+        }
+        (void)hako_asset_usleep(instance_->benchmark_config_.delta_time_usec);
+    }
+    instance_->record_receive_benchmark("shm", instance_->is_receive_completed());
     return 0;
 }
 

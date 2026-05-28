@@ -276,15 +276,14 @@ protected:
             recv_cv_.notify_all();
         }
     }
-
-    void wait_receive_benchmark(const char* protocol)
+    bool is_receive_completed()
     {
-        std::unique_lock<std::mutex> lock(recv_mutex_);
-        const auto timeout = std::chrono::seconds(benchmark_config_.timeout_sec);
-        const bool completed = recv_cv_.wait_for(lock, timeout, [this]() {
-            return received_count_.load() >= expected_count_.load();
-        });
-
+        int received = received_count_.load();
+        int expected = expected_count_.load();
+        return received >= expected;
+    }
+    void record_receive_benchmark(const char* protocol, bool completed)
+    {
         const int received = received_count_.load();
         const int expected = expected_count_.load();
         const auto first = first_recv_ns_;
@@ -301,9 +300,19 @@ protected:
             << " last_recv_ns=" << last
             << " recv_span_ms=" << recv_span_ms
             << " completed=" << (completed ? 1 : 0);
-        write_benchmark_log(oss.str());
-
+        write_benchmark_log(oss.str());        
+    }
+    void wait_receive_benchmark(const char* protocol)
+    {
+        std::unique_lock<std::mutex> lock(recv_mutex_);
+        const auto timeout = std::chrono::seconds(benchmark_config_.timeout_sec);
+        const bool completed = recv_cv_.wait_for(lock, timeout, [this]() {
+            return is_receive_completed();
+        });
+        record_receive_benchmark(protocol, completed);
         if (!completed) {
+            int received = received_count_.load();
+            int expected = expected_count_.load();
             throw std::runtime_error(
                 std::string("Timed out waiting for ") + protocol +
                 " PDUs: received=" + std::to_string(received) +
