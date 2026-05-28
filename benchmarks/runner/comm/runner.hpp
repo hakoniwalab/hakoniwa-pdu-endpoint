@@ -4,10 +4,12 @@
 #include <chrono>
 #include <condition_variable>
 #include <cstdint>
+#include <filesystem>
 #include <fstream>
 #include <iostream>
 #include <memory>
 #include <mutex>
+#include <sstream>
 #include <stdexcept>
 #include <string>
 #include <vector>
@@ -26,6 +28,8 @@ enum class CommType {
 
 struct BenchmarkConfig {
     std::string benchmark_config_path;
+    std::string protocol;
+    std::string log_path;
     CommType comm_type;
     int try_num;
     int timeout_sec;
@@ -52,6 +56,7 @@ public:
         try {
             if (config.contains("protocol")) {
                 std::string protocol = config["protocol"].get<std::string>();
+                benchmark_config_.protocol = protocol;
                 if (protocol == "shm") {
                     benchmark_config_.comm_type = CommType::SHM;
                 } else if (protocol == "tcp") {
@@ -76,6 +81,9 @@ public:
                 throw std::runtime_error("Benchmark config missing 'config_path': " + config_path);
             }
             benchmark_config_.timeout_sec = config.value("timeout_sec", 30);
+            benchmark_config_.log_path = config.value(
+                "log_path",
+                benchmark_config_.benchmark_config_path + "/benchmark-" + benchmark_config_.protocol + ".log");
         } catch (const nlohmann::json::exception& e) {
             throw std::runtime_error("JSON access failed for benchmark config: " + config_path + ". Details: " + e.what());
         }
@@ -91,6 +99,58 @@ protected:
         return static_cast<std::uint64_t>(
             std::chrono::duration_cast<std::chrono::nanoseconds>(
                 std::chrono::steady_clock::now().time_since_epoch()).count());
+    }
+
+    std::filesystem::path log_path_for_role(const char* role) const
+    {
+        std::filesystem::path base(benchmark_config_.log_path);
+        const auto parent = base.parent_path();
+        const auto stem = base.stem().string();
+        const auto ext = base.extension().string();
+
+        std::string filename;
+        if (!stem.empty() && ext == ".log") {
+            filename = stem + "_" + role + ext;
+        } else if (!base.filename().empty()) {
+            filename = base.filename().string() + "_" + role + ".log";
+        } else {
+            filename = std::string("benchmark-") + benchmark_config_.protocol + "_" + role + ".log";
+        }
+        return parent.empty() ? std::filesystem::path(filename) : parent / filename;
+    }
+
+    void open_benchmark_log(const char* role)
+    {
+        const auto path = log_path_for_role(role);
+        const auto parent = path.parent_path();
+        if (!parent.empty()) {
+            std::filesystem::create_directories(parent);
+        }
+
+        benchmark_log_.open(path, std::ios::out | std::ios::trunc);
+        if (!benchmark_log_.is_open()) {
+            throw std::runtime_error("Failed to open benchmark log file: " + path.string());
+        }
+        std::cout << "Benchmark log: " << path.string() << std::endl;
+    }
+
+    void close_benchmark_log()
+    {
+        std::lock_guard<std::mutex> lock(log_mutex_);
+        if (benchmark_log_.is_open()) {
+            benchmark_log_.flush();
+            benchmark_log_.close();
+        }
+    }
+
+    void write_benchmark_log(const std::string& line)
+    {
+        std::lock_guard<std::mutex> lock(log_mutex_);
+        if (benchmark_log_.is_open()) {
+            benchmark_log_ << line << std::endl;
+        } else {
+            std::cout << line << std::endl;
+        }
     }
 
     void prepare_pdudefs(int num)
@@ -187,14 +247,15 @@ protected:
             }
             last_recv_ns_ = ts;
         }
-        std::cout
-            << "BENCH_SUB_EVENT protocol=" << protocol
+
+        std::ostringstream oss;
+        oss << "BENCH_SUB_EVENT protocol=" << protocol
             << " robot=" << received_key.robot
             << " channel=" << received_key.channel_id
             << " size=" << data.size()
             << " count=" << count
-            << " recv_ns=" << ts
-            << std::endl;
+            << " recv_ns=" << ts;
+        write_benchmark_log(oss.str());
 
         if (count >= expected_count_.load()) {
             recv_cv_.notify_all();
@@ -217,15 +278,15 @@ protected:
             ? static_cast<double>(last - first) / 1000000.0
             : 0.0;
 
-        std::cout
-            << "BENCH_SUB_SUMMARY protocol=" << protocol
+        std::ostringstream oss;
+        oss << "BENCH_SUB_SUMMARY protocol=" << protocol
             << " expected=" << expected
             << " received=" << received
             << " first_recv_ns=" << first
             << " last_recv_ns=" << last
             << " recv_span_ms=" << recv_span_ms
-            << " completed=" << (completed ? 1 : 0)
-            << std::endl;
+            << " completed=" << (completed ? 1 : 0);
+        write_benchmark_log(oss.str());
 
         if (!completed) {
             throw std::runtime_error(
@@ -248,6 +309,8 @@ protected:
     std::uint64_t last_recv_ns_ = 0;
     std::mutex recv_mutex_;
     std::condition_variable recv_cv_;
+    std::ofstream benchmark_log_;
+    std::mutex log_mutex_;
 };
 
 }
