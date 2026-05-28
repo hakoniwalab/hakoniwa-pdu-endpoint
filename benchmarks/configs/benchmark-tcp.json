@@ -2,5 +2,6 @@
     "protocol": "tcp",
     "try_num": 1024,
     "timeout_sec": 30,
-    "config_path": "benchmarks/configs"
+    "config_path": "benchmarks/configs",
+    "log_path": "benchmarks/logs/benchmark-tcp.log"
 }
