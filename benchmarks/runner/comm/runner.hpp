@@ -7,6 +7,7 @@
 #include <filesystem>
 #include <fstream>
 #include <iostream>
+#include <limits>
 #include <memory>
 #include <mutex>
 #include <sstream>
@@ -16,7 +17,6 @@
 
 #include "nlohmann/json.hpp"
 #include "hakoniwa/pdu/endpoint.hpp"
-#include "geometry_msgs/pdu_cpptype_conv_Twist.hpp"
 
 namespace benchmarks::runner {
 
@@ -30,6 +30,7 @@ struct BenchmarkConfig {
     std::string benchmark_config_path;
     std::string protocol;
     std::string log_path;
+    std::string pdu_name;
     uint64_t delta_time_usec;
     uint64_t max_delay_usec;
     CommType comm_type;
@@ -85,6 +86,7 @@ public:
             benchmark_config_.timeout_sec = config.value("timeout_sec", 30);
             benchmark_config_.delta_time_usec = config.value("delta_time_usec", 1000);
             benchmark_config_.max_delay_usec = config.value("max_delay_usec", 1000);
+            benchmark_config_.pdu_name = config.value("pdu_name", "pos");
             benchmark_config_.log_path = config.value(
                 "log_path",
                 benchmark_config_.benchmark_config_path + "/benchmark-" + benchmark_config_.protocol + ".log");
@@ -162,6 +164,27 @@ protected:
         }
     }
 
+    void flush_benchmark_log()
+    {
+        std::vector<std::string> lines;
+        {
+            std::lock_guard<std::mutex> lock(log_mutex_);
+            lines = benchmark_log_lines_;
+        }
+
+        if (benchmark_log_path_.empty()) {
+            return;
+        }
+
+        std::ofstream ofs(benchmark_log_path_, std::ios::out | std::ios::trunc);
+        if (!ofs.is_open()) {
+            throw std::runtime_error("Failed to open benchmark log file: " + benchmark_log_path_.string());
+        }
+        for (const auto& line : lines) {
+            ofs << line << '\n';
+        }
+    }
+
     void write_benchmark_log(const std::string& line)
     {
         std::lock_guard<std::mutex> lock(log_mutex_);
@@ -174,20 +197,24 @@ protected:
         if (!pdu_def) {
             throw std::runtime_error("PDU definition is not available in endpoint");
         }
-        hakoniwa::pdu::PduKey key_org = {"Drone-1", "pos"};
+        hakoniwa::pdu::PduKey key_org = {"Drone-1", benchmark_config_.pdu_name};
         size_t pdu_size = endpoint_->get_pdu_size(key_org);
         int channel_id = endpoint_->get_pdu_channel_id(key_org);
         if (pdu_size == 0) {
             throw std::runtime_error(
                 "Failed to get PDU size for key: " + key_org.robot + "/" + key_org.pdu);
         }
+        hakoniwa::pdu::PduDef template_def;
+        if (!pdu_def->resolve(key_org.robot, key_org.pdu, template_def)) {
+            throw std::runtime_error(
+                "Failed to resolve PDU definition for key: " + key_org.robot + "/" + key_org.pdu);
+        }
         for (int i = 1; i < num; ++i) {
-            pdu_def->add_definition("Drone-" + std::to_string(i + 1), {
-                .type = "geometry_msgs/Twist",
-                .org_name = key_org.pdu,
-                .channel_id = channel_id,
-                .pdu_size = pdu_size
-            });
+            template_def.org_name = key_org.pdu;
+            template_def.name = key_org.pdu;
+            template_def.channel_id = channel_id;
+            template_def.pdu_size = pdu_size;
+            pdu_def->add_definition("Drone-" + std::to_string(i + 1), template_def);
         }
     }
 
@@ -198,7 +225,7 @@ protected:
         buf_.clear();
         send_size_ = 0;
         for (int i = 0; i < num; ++i) {
-            hakoniwa::pdu::PduKey key = {"Drone-" + std::to_string(i + 1), "pos"};
+            hakoniwa::pdu::PduKey key = {"Drone-" + std::to_string(i + 1), benchmark_config_.pdu_name};
 
             size_t pdu_size = endpoint_->get_pdu_size(key);
             if (pdu_size == 0) {
@@ -214,30 +241,11 @@ protected:
             throw std::runtime_error("No PDU keys were created");
         }
 
-        hakoniwa::pdu::PduKey key = pdu_keys_[0];
-        buf_.resize(pdu_sizes_[0]);
-
-        HakoCpp_Twist twist{};
-        twist.linear.x = 0.0;
-        twist.linear.y = 0.1;
-        twist.linear.z = 0.2;
-        twist.angular.x = 0.3;
-        twist.angular.y = 0.4;
-        twist.angular.z = 0.5;
-
-        hako::pdu::msgs::geometry_msgs::Twist twist_convertor;
-        send_size_ = twist_convertor.cpp2pdu(
-            twist,
-            reinterpret_cast<char*>(buf_.data()),
-            static_cast<int>(buf_.size()));
-
-        if (send_size_ <= 0) {
-            std::cerr
-                << "Failed to convert Twist to PDU for key: "
-                << key.robot << "/" << key.pdu
-                << std::endl;
-            throw std::runtime_error("PDU conversion failed");
+        if (pdu_sizes_[0] > static_cast<size_t>(std::numeric_limits<int>::max())) {
+            throw std::runtime_error("PDU size is too large for benchmark send size");
         }
+        buf_.assign(pdu_sizes_[0], std::byte{0});
+        send_size_ = static_cast<int>(buf_.size());
     }
 
     void reset_receive_benchmark(int expected_count)

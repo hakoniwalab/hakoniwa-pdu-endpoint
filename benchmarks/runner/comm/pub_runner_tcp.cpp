@@ -4,8 +4,24 @@
 #include <iostream>
 #include <sstream>
 #include <stdexcept>
+#include <thread>
 
 namespace benchmarks::runner {
+
+namespace {
+bool wait_until_endpoint_running(hakoniwa::pdu::Endpoint& endpoint, int timeout_sec)
+{
+    const auto deadline = std::chrono::steady_clock::now() + std::chrono::seconds(timeout_sec);
+    bool running = false;
+    while (std::chrono::steady_clock::now() < deadline) {
+        if (endpoint.is_running(running) == HAKO_PDU_ERR_OK && running) {
+            return true;
+        }
+        std::this_thread::sleep_for(std::chrono::milliseconds(10));
+    }
+    return false;
+}
+} // namespace
 
 void PubTcpRunner::prepare()
 {
@@ -26,6 +42,12 @@ void PubTcpRunner::prepare()
         endpoint_.reset();
         throw std::runtime_error("Failed to start TCP publisher endpoint: " + endpoint_config_path);
     }
+    if (!wait_until_endpoint_running(*endpoint_, benchmark_config_.timeout_sec)) {
+        endpoint_->stop();
+        endpoint_->close();
+        endpoint_.reset();
+        throw std::runtime_error("Timed out waiting for TCP publisher connection: " + endpoint_config_path);
+    }
     prepare_pdudefs(benchmark_config_.try_num);
     create_send_buffer_for_key(benchmark_config_.try_num);
 }
@@ -39,7 +61,17 @@ void PubTcpRunner::run()
     int sent_count = 0;
     const auto send_start_ns = now_ns();
     for (int i = 0; i < benchmark_config_.try_num; ++i) {
-        if (endpoint_->send(pdu_keys_[i], std::span<const std::byte>(buf_.data(), static_cast<size_t>(send_size_))) != HAKO_PDU_ERR_OK) {
+        HakoPduErrorType send_err = HAKO_PDU_ERR_OK;
+        const auto retry_deadline = std::chrono::steady_clock::now() + std::chrono::seconds(benchmark_config_.timeout_sec);
+        do {
+            send_err = endpoint_->send(pdu_keys_[i], std::span<const std::byte>(buf_.data(), static_cast<size_t>(send_size_)));
+            if (send_err != HAKO_PDU_ERR_NOT_RUNNING) {
+                break;
+            }
+            (void)wait_until_endpoint_running(*endpoint_, 1);
+        } while (std::chrono::steady_clock::now() < retry_deadline);
+
+        if (send_err != HAKO_PDU_ERR_OK) {
             std::cerr << "Failed to send PDU for key: " << pdu_keys_[i].robot << "/" << pdu_keys_[i].pdu << std::endl;
             throw std::runtime_error("Failed to send PDU for key: " + pdu_keys_[i].robot + "/" + pdu_keys_[i].pdu);
         }

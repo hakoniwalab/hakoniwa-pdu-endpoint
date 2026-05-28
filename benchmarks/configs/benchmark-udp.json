@@ -2,6 +2,7 @@
     "protocol": "udp",
     "try_num": 16,
     "timeout_sec": 30,
+    "pdu_name": "lidar_points",
     "config_path": "benchmarks/configs",
     "log_path": "benchmarks/logs/benchmark-udp.log"
 }

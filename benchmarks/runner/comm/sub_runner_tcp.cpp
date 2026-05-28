@@ -23,7 +23,7 @@ void SubTcpRunner::prepare()
     }
     prepare_pdudefs(benchmark_config_.try_num);
     for (int i = 0; i < benchmark_config_.try_num; ++i) {
-        hakoniwa::pdu::PduKey key = {"Drone-" + std::to_string(i + 1), "pos"};
+        hakoniwa::pdu::PduKey key = {"Drone-" + std::to_string(i + 1), benchmark_config_.pdu_name};
         const auto channel_id = endpoint_->get_pdu_channel_id(key);
         if (channel_id < 0) {
             endpoint_->close();

@@ -34,13 +34,15 @@ int SubShmRunner::my_on_manual_timing_control(hako_asset_context_t* context)
     if (instance_ == nullptr) {
         throw std::runtime_error("SubShmRunner instance is not set in on_manual_timing_control");
     }
+    const auto wait_start_ns = now_ns();
+    const auto timeout_ns = static_cast<std::uint64_t>(instance_->benchmark_config_.timeout_sec) * 1'000'000'000ULL;
     while (true) {
         if (instance_->is_receive_completed()) {
             break;
         }
         auto now = now_ns();
         if (instance_->benchmark_config_.timeout_sec > 0 &&
-            now > instance_->benchmark_config_.timeout_sec * 1'000'000'000ULL) {
+            now - wait_start_ns > timeout_ns) {
             std::cout << "INFO: Timeout reached in on_manual_timing_control, stopping conductor." << std::endl;
             break;
         }
@@ -75,7 +77,7 @@ void SubShmRunner::prepare() {
 
     hako_conductor_start(benchmark_config_.delta_time_usec, benchmark_config_.max_delay_usec);
     std::string asset_name = "sub_runner_shm_asset";
-    std::string pdudef_path = benchmark_config_.benchmark_config_path + "/pdu/pdudef.json";
+    std::string pdudef_path = generated_shm_pdudef_path().string();
     int ret = hako_asset_register(asset_name.c_str(), pdudef_path.c_str(), &my_callback, benchmark_config_.delta_time_usec, HAKO_ASSET_MODEL_PLANT);
     if (ret != 0) {
         throw std::runtime_error("Failed to register asset: " + asset_name);
@@ -91,7 +93,7 @@ void SubShmRunner::prepare() {
     }
     prepare_pdudefs(benchmark_config_.try_num);
     for (int i = 0; i < benchmark_config_.try_num; ++i) {
-        hakoniwa::pdu::PduKey key = {"Drone-" + std::to_string(i + 1), "pos"};
+        hakoniwa::pdu::PduKey key = {"Drone-" + std::to_string(i + 1), benchmark_config_.pdu_name};
         const auto channel_id = endpoint_->get_pdu_channel_id(key);
         if (channel_id < 0) {
             endpoint_->close();

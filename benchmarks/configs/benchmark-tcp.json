@@ -1,7 +1,8 @@
 {
     "protocol": "tcp",
     "try_num": 1024,
-    "timeout_sec": 30,
+    "timeout_sec": 300,
+    "pdu_name": "hako_camera_data",
     "config_path": "benchmarks/configs",
     "log_path": "benchmarks/logs/benchmark-tcp.log"
 }
