@@ -156,6 +156,11 @@ protected:
     std::vector<std::byte> buf_;
     int send_size_ = 0;
     BenchmarkConfig benchmark_config_;
+
+
+    std::atomic<int> expected_count_{0};
+    std::atomic<int> received_count_{0};
+
 };
 
 }

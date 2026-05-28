@@ -1,6 +1,6 @@
 {
     "protocol": "tcp",
-    "try_num": 16,
+    "try_num": 1024,
     "timeout_sec": 30,
     "config_path": "benchmarks/configs"
 }
