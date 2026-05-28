@@ -42,7 +42,7 @@ class Runner {
 public:
     virtual ~Runner() = default;
 
-    void load_benchmark_config(const std::string& config_path)
+    void load_benchmark_config(const std::string& config_path, const std::string& pdu_name_override = "")
     {
         std::ifstream ifs(config_path);
         if (!ifs.is_open()) {
@@ -87,6 +87,9 @@ public:
             benchmark_config_.delta_time_usec = config.value("delta_time_usec", 1000);
             benchmark_config_.max_delay_usec = config.value("max_delay_usec", 1000);
             benchmark_config_.pdu_name = config.value("pdu_name", "pos");
+            if (!pdu_name_override.empty()) {
+                benchmark_config_.pdu_name = pdu_name_override;
+            }
             benchmark_config_.log_path = config.value(
                 "log_path",
                 benchmark_config_.benchmark_config_path + "/benchmark-" + benchmark_config_.protocol + ".log");
@@ -122,7 +125,11 @@ protected:
         } else {
             filename = std::string("benchmark-") + benchmark_config_.protocol + "_" + role + ".log";
         }
-        return parent.empty() ? std::filesystem::path(filename) : parent / filename;
+        const auto pdu_dir = sanitize_path_component(benchmark_config_.pdu_name);
+        if (parent.empty()) {
+            return std::filesystem::path(pdu_dir) / filename;
+        }
+        return parent / pdu_dir / filename;
     }
 
     void open_benchmark_log(const char* role)
@@ -344,6 +351,23 @@ protected:
     std::filesystem::path benchmark_log_path_;
     std::vector<std::string> benchmark_log_lines_;
     std::mutex log_mutex_;
+
+    static std::string sanitize_path_component(const std::string& value)
+    {
+        std::string sanitized;
+        sanitized.reserve(value.size());
+        for (char ch : value) {
+            if ((ch >= 'a' && ch <= 'z') ||
+                (ch >= 'A' && ch <= 'Z') ||
+                (ch >= '0' && ch <= '9') ||
+                ch == '_' || ch == '-' || ch == '.') {
+                sanitized.push_back(ch);
+            } else {
+                sanitized.push_back('_');
+            }
+        }
+        return sanitized.empty() ? "pdu" : sanitized;
+    }
 };
 
 }

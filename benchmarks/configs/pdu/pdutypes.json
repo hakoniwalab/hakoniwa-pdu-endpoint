@@ -1,3 +1,5 @@
 [
-  { "channel_id": 12, "pdu_size": 1002992, "name": "hako_camera_data"         , "type": "hako_msgs/HakoCameraData" }
+  { "channel_id": 3 , "pdu_size": 256    , "name": "disturb"                  , "type": "hako_msgs/Disturbance" },
+  { "channel_id": 12, "pdu_size": 1002992, "name": "hako_camera_data"         , "type": "hako_msgs/HakoCameraData" },
+  { "channel_id": 16, "pdu_size": 177424 , "name": "lidar_points"             , "type": "sensor_msgs/PointCloud2" }
 ]
