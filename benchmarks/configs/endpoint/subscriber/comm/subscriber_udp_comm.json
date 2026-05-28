@@ -8,7 +8,7 @@
   },
   "options": {
     "buffer_size": 8192,
-    "timeout_ms": 1000,
+    "timeout_ms": 10000,
     "blocking": false
   }
 }

@@ -22,7 +22,7 @@ void SubUdpRunner::prepare()
         endpoint_.reset();
         throw std::runtime_error("Failed to open UDP subscriber endpoint: " + endpoint_config_path);
     }
-
+    prepare_pdudefs(benchmark_config_.try_num);
     for (int i = 0; i < benchmark_config_.try_num; ++i) {
         hakoniwa::pdu::PduKey key = {"Drone-" + std::to_string(i + 1), "pos"};
         const auto channel_id = endpoint_->get_pdu_channel_id(key);
@@ -61,9 +61,9 @@ void SubUdpRunner::run()
         throw std::runtime_error("Endpoint not initialized");
     }
 
-    constexpr int max_wait_ms = 3000;
+    int max_wait_ms = benchmark_config_.timeout_sec * 1000;
     constexpr int sleep_ms = 10;
-
+    std::cout << "Waiting for UDP PDUs: expected=" << expected_count_.load() << " timeout=" << benchmark_config_.timeout_sec << " seconds" << std::endl;
     for (int elapsed_ms = 0; elapsed_ms < max_wait_ms; elapsed_ms += sleep_ms) {
         if (received_count_.load() >= expected_count_.load()) {
             return;

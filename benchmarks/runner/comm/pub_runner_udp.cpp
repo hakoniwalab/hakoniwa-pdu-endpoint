@@ -23,7 +23,7 @@ void PubUdpRunner::prepare()
         endpoint_.reset();
         throw std::runtime_error("Failed to start UDP publisher endpoint: " + endpoint_config_path);
     }
-
+    prepare_pdudefs(benchmark_config_.try_num);
     create_send_buffer_for_key(benchmark_config_.try_num);
 }
 
@@ -37,6 +37,11 @@ void PubUdpRunner::run() {
             std::cerr << "Failed to send PDU for key: " << pdu_keys_[i].robot << "/" << pdu_keys_[i].pdu << std::endl;
             throw std::runtime_error("Failed to send PDU for key: " + pdu_keys_[i].robot + "/" + pdu_keys_[i].pdu);
         }
+        std::cout << "Sent UDP PDU: robot=" << pdu_keys_[i].robot
+                  << " channel=" << pdu_keys_[i].pdu
+                  << " size=" << send_size_
+                  << " count=" << (i + 1)
+                  << std::endl;
     }
 }
 
