@@ -1,10 +1,16 @@
 #pragma once
 
+#include <atomic>
+#include <chrono>
+#include <condition_variable>
+#include <cstdint>
+#include <fstream>
+#include <iostream>
+#include <memory>
+#include <mutex>
+#include <stdexcept>
 #include <string>
 #include <vector>
-#include <memory>
-#include <stdexcept>
-#include <iostream>
 
 #include "nlohmann/json.hpp"
 #include "hakoniwa/pdu/endpoint.hpp"
@@ -17,6 +23,7 @@ enum class CommType {
     TCP,
     UDP
 };
+
 struct BenchmarkConfig {
     std::string benchmark_config_path;
     CommType comm_type;
@@ -27,6 +34,7 @@ struct BenchmarkConfig {
 class Runner {
 public:
     virtual ~Runner() = default;
+
     void load_benchmark_config(const std::string& config_path)
     {
         std::ifstream ifs(config_path);
@@ -67,18 +75,24 @@ public:
             } else {
                 throw std::runtime_error("Benchmark config missing 'config_path': " + config_path);
             }
-            if (config.contains("timeout_sec")) {
-                benchmark_config_.timeout_sec = config["timeout_sec"].get<int>();
-            }
+            benchmark_config_.timeout_sec = config.value("timeout_sec", 30);
         } catch (const nlohmann::json::exception& e) {
             throw std::runtime_error("JSON access failed for benchmark config: " + config_path + ". Details: " + e.what());
         }
     }
+
     virtual void prepare() = 0;
     virtual void run() = 0;
     virtual void cleanup() = 0;
 
 protected:
+    static std::uint64_t now_ns()
+    {
+        return static_cast<std::uint64_t>(
+            std::chrono::duration_cast<std::chrono::nanoseconds>(
+                std::chrono::steady_clock::now().time_since_epoch()).count());
+    }
+
     void prepare_pdudefs(int num)
     {
         auto pdu_def = endpoint_->get_pdu_definition();
@@ -101,13 +115,14 @@ protected:
             });
         }
     }
+
     void create_send_buffer_for_key(int num)
     {
         pdu_keys_.clear();
         pdu_sizes_.clear();
         buf_.clear();
         send_size_ = 0;
-        for (int i = 0; i < benchmark_config_.try_num; ++i) {
+        for (int i = 0; i < num; ++i) {
             hakoniwa::pdu::PduKey key = {"Drone-" + std::to_string(i + 1), "pos"};
 
             size_t pdu_size = endpoint_->get_pdu_size(key);
@@ -150,6 +165,76 @@ protected:
         }
     }
 
+    void reset_receive_benchmark(int expected_count)
+    {
+        std::lock_guard<std::mutex> lock(recv_mutex_);
+        expected_count_.store(expected_count);
+        received_count_.store(0);
+        first_recv_ns_ = 0;
+        last_recv_ns_ = 0;
+    }
+
+    void record_receive_event(const char* protocol,
+                              const hakoniwa::pdu::PduResolvedKey& received_key,
+                              std::span<const std::byte> data)
+    {
+        const auto ts = now_ns();
+        const int count = received_count_.fetch_add(1) + 1;
+        {
+            std::lock_guard<std::mutex> lock(recv_mutex_);
+            if (first_recv_ns_ == 0) {
+                first_recv_ns_ = ts;
+            }
+            last_recv_ns_ = ts;
+        }
+        std::cout
+            << "BENCH_SUB_EVENT protocol=" << protocol
+            << " robot=" << received_key.robot
+            << " channel=" << received_key.channel_id
+            << " size=" << data.size()
+            << " count=" << count
+            << " recv_ns=" << ts
+            << std::endl;
+
+        if (count >= expected_count_.load()) {
+            recv_cv_.notify_all();
+        }
+    }
+
+    void wait_receive_benchmark(const char* protocol)
+    {
+        std::unique_lock<std::mutex> lock(recv_mutex_);
+        const auto timeout = std::chrono::seconds(benchmark_config_.timeout_sec);
+        const bool completed = recv_cv_.wait_for(lock, timeout, [this]() {
+            return received_count_.load() >= expected_count_.load();
+        });
+
+        const int received = received_count_.load();
+        const int expected = expected_count_.load();
+        const auto first = first_recv_ns_;
+        const auto last = last_recv_ns_;
+        const double recv_span_ms = (first != 0 && last >= first)
+            ? static_cast<double>(last - first) / 1000000.0
+            : 0.0;
+
+        std::cout
+            << "BENCH_SUB_SUMMARY protocol=" << protocol
+            << " expected=" << expected
+            << " received=" << received
+            << " first_recv_ns=" << first
+            << " last_recv_ns=" << last
+            << " recv_span_ms=" << recv_span_ms
+            << " completed=" << (completed ? 1 : 0)
+            << std::endl;
+
+        if (!completed) {
+            throw std::runtime_error(
+                std::string("Timed out waiting for ") + protocol +
+                " PDUs: received=" + std::to_string(received) +
+                " expected=" + std::to_string(expected));
+        }
+    }
+
     std::unique_ptr<hakoniwa::pdu::Endpoint> endpoint_;
     std::vector<hakoniwa::pdu::PduKey> pdu_keys_;
     std::vector<size_t> pdu_sizes_;
@@ -157,10 +242,12 @@ protected:
     int send_size_ = 0;
     BenchmarkConfig benchmark_config_;
 
-
     std::atomic<int> expected_count_{0};
     std::atomic<int> received_count_{0};
-
+    std::uint64_t first_recv_ns_ = 0;
+    std::uint64_t last_recv_ns_ = 0;
+    std::mutex recv_mutex_;
+    std::condition_variable recv_cv_;
 };
 
 }
