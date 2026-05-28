@@ -2,5 +2,6 @@
     "protocol": "udp",
     "try_num": 16,
     "timeout_sec": 30,
-    "config_path": "benchmarks/configs"
+    "config_path": "benchmarks/configs",
+    "log_path": "benchmarks/logs/benchmark-udp.log"
 }
