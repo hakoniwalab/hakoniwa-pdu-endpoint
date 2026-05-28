@@ -6,6 +6,8 @@
 
 namespace benchmarks::runner {
 
+SubShmRunner* SubShmRunner::instance_ = nullptr;
+
 void SubShmRunner::on_recv(int recv_event_id)
 {
     printf("INFO: on_recv: %d\n", recv_event_id);
