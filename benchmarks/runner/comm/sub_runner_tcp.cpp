@@ -1,16 +1,14 @@
 #include "sub_runner.hpp"
 #include "hakoniwa/pdu/endpoint.hpp"
+
 #include <iostream>
-#include <vector>
-#include <thread>
-#include <chrono>
 #include <stdexcept>
 
 namespace benchmarks::runner {
 
-void SubTcpRunner::prepare() {
-    expected_count_.store(benchmark_config_.try_num);
-    received_count_.store(0);
+void SubTcpRunner::prepare()
+{
+    reset_receive_benchmark(benchmark_config_.try_num);
 
     endpoint_ = std::make_unique<hakoniwa::pdu::Endpoint>(
         "sub_runner_tcp",
@@ -37,13 +35,7 @@ void SubTcpRunner::prepare() {
             resolved_key,
             [this](const hakoniwa::pdu::PduResolvedKey& received_key,
                    std::span<const std::byte> data) {
-                const int count = received_count_.fetch_add(1) + 1;
-                std::cout
-                    << "Received TCP PDU: robot=" << received_key.robot
-                    << " channel=" << received_key.channel_id
-                    << " size=" << data.size()
-                    << " count=" << count
-                    << std::endl;
+                record_receive_event("tcp", received_key, data);
             });
     }
 
@@ -54,29 +46,21 @@ void SubTcpRunner::prepare() {
     }
 }
 
-void SubTcpRunner::run() {
+void SubTcpRunner::run()
+{
     if (!endpoint_) {
         throw std::runtime_error("Endpoint not initialized");
     }
 
-    int max_wait_ms = benchmark_config_.timeout_sec * 1000;
-    constexpr int sleep_ms = 10;
-    std::cout << "Waiting for TCP PDUs: expected=" << expected_count_.load() << " timeout=" << benchmark_config_.timeout_sec << " seconds" << std::endl;
-    for (int elapsed_ms = 0; elapsed_ms < max_wait_ms; elapsed_ms += sleep_ms) {
-        if (received_count_.load() >= expected_count_.load()) {
-            return;
-        }
-        endpoint_->process_recv_events();
-        std::this_thread::sleep_for(std::chrono::milliseconds(sleep_ms));
-    }
-
-    std::cerr
-        << "Timed out waiting for TCP PDUs: received=" << received_count_.load()
-        << " expected=" << expected_count_.load()
+    std::cout
+        << "BENCH_SUB_WAIT protocol=tcp expected=" << expected_count_.load()
+        << " timeout_sec=" << benchmark_config_.timeout_sec
         << std::endl;
+    wait_receive_benchmark("tcp");
 }
 
-void SubTcpRunner::cleanup() {
+void SubTcpRunner::cleanup()
+{
     if (endpoint_) {
         endpoint_->stop();
         endpoint_->close();
