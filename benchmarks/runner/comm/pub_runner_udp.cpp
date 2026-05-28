@@ -2,12 +2,15 @@
 #include "hakoniwa/pdu/endpoint.hpp"
 
 #include <iostream>
+#include <sstream>
 #include <stdexcept>
 
 namespace benchmarks::runner {
 
 void PubUdpRunner::prepare()
 {
+    open_benchmark_log("pub");
+
     endpoint_ = std::make_unique<hakoniwa::pdu::Endpoint>(
         "pub_runner_udp",
         HAKO_PDU_ENDPOINT_DIRECTION_OUT);
@@ -41,23 +44,25 @@ void PubUdpRunner::run()
             throw std::runtime_error("Failed to send PDU for key: " + pdu_keys_[i].robot + "/" + pdu_keys_[i].pdu);
         }
         ++sent_count;
-        std::cout << "BENCH_PUB_EVENT protocol=udp"
-                  << " robot=" << pdu_keys_[i].robot
-                  << " pdu=" << pdu_keys_[i].pdu
-                  << " size=" << send_size_
-                  << " count=" << sent_count
-                  << " send_ns=" << now_ns()
-                  << std::endl;
+        std::ostringstream oss;
+        oss << "BENCH_PUB_EVENT protocol=udp"
+            << " robot=" << pdu_keys_[i].robot
+            << " pdu=" << pdu_keys_[i].pdu
+            << " size=" << send_size_
+            << " count=" << sent_count
+            << " send_ns=" << now_ns();
+        write_benchmark_log(oss.str());
     }
     const auto send_end_ns = now_ns();
     const double send_duration_ms = static_cast<double>(send_end_ns - send_start_ns) / 1000000.0;
-    std::cout << "BENCH_PUB_SUMMARY protocol=udp"
-              << " expected=" << benchmark_config_.try_num
-              << " sent=" << sent_count
-              << " send_start_ns=" << send_start_ns
-              << " send_end_ns=" << send_end_ns
-              << " send_duration_ms=" << send_duration_ms
-              << std::endl;
+    std::ostringstream oss;
+    oss << "BENCH_PUB_SUMMARY protocol=udp"
+        << " expected=" << benchmark_config_.try_num
+        << " sent=" << sent_count
+        << " send_start_ns=" << send_start_ns
+        << " send_end_ns=" << send_end_ns
+        << " send_duration_ms=" << send_duration_ms;
+    write_benchmark_log(oss.str());
 }
 
 void PubUdpRunner::cleanup()
@@ -67,6 +72,7 @@ void PubUdpRunner::cleanup()
         endpoint_->close();
         endpoint_.reset();
     }
+    close_benchmark_log();
 }
 
 }
