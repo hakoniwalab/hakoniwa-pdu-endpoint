@@ -42,7 +42,7 @@ void SubShmRunner::prepare() {
 
     hako_conductor_start(benchmark_config_.delta_time_usec, benchmark_config_.max_delay_usec);
     std::string asset_name = "sub_runner_shm_asset";
-    std::string pdudef_path = benchmark_config_.benchmark_config_path + "/pdu/pdudefs.json";
+    std::string pdudef_path = benchmark_config_.benchmark_config_path + "/pdu/pdudef.json";
     int ret = hako_asset_register(asset_name.c_str(), pdudef_path.c_str(), &my_callback, benchmark_config_.delta_time_usec, HAKO_ASSET_MODEL_PLANT);
     if (ret != 0) {
         throw std::runtime_error("Failed to register asset: " + asset_name);
@@ -85,12 +85,12 @@ void SubShmRunner::prepare() {
 }
 
 void SubShmRunner::run() {
-    // TODO: Implementation
     int ret = hako_asset_start();
     printf("INFO: hako_asset_start() returns %d\n", ret);
 }
 
 void SubShmRunner::cleanup() {
+    close_benchmark_log();
     if (endpoint_) {
         endpoint_->close();
         endpoint_.reset();
