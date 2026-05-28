@@ -1,6 +1,9 @@
 #include "sub_runner.hpp"
 #include "hako_conductor.h"
 
+#include <iostream>
+#include <stdexcept>
+
 namespace benchmarks::runner {
 
 void SubShmRunner::on_recv(int recv_event_id)
@@ -28,17 +31,27 @@ int SubShmRunner::my_on_manual_timing_control(hako_asset_context_t* context)
     return 0;
 }
 
-static hako_asset_callbacks_t my_callback = {
-    .on_initialize = SubShmRunner::my_on_initialize,
-    .on_manual_timing_control = SubShmRunner::my_on_manual_timing_control,
-    .on_simulation_step = NULL,
-    .on_reset = SubShmRunner::my_on_reset
-};
+static hako_asset_callbacks_t create_shm_callbacks()
+{
+    hako_asset_callbacks_t callbacks{};
+    callbacks.on_initialize = SubShmRunner::my_on_initialize;
+    callbacks.on_manual_timing_control = SubShmRunner::my_on_manual_timing_control;
+    callbacks.on_reset = SubShmRunner::my_on_reset;
+    return callbacks;
+}
+
+static hako_asset_callbacks_t my_callback = create_shm_callbacks();
 
 void SubShmRunner::prepare() {
     set_instance(this);
     open_benchmark_log("sub");
     reset_receive_benchmark(benchmark_config_.try_num);
+
+    const auto endpoint_config_path = generate_shm_endpoint_config(
+        "subscriber",
+        "ep_shm_subscriber",
+        "shm_subscriber",
+        true);
 
     hako_conductor_start(benchmark_config_.delta_time_usec, benchmark_config_.max_delay_usec);
     std::string asset_name = "sub_runner_shm_asset";
@@ -52,10 +65,9 @@ void SubShmRunner::prepare() {
         "sub_runner_shm",
         HAKO_PDU_ENDPOINT_DIRECTION_IN);
 
-    std::string endpoint_config_path = benchmark_config_.benchmark_config_path + "/endpoint/subscriber/subscriber_shm.json";
-    if (endpoint_->open(endpoint_config_path) != HAKO_PDU_ERR_OK) {
+    if (endpoint_->open(endpoint_config_path.string()) != HAKO_PDU_ERR_OK) {
         endpoint_.reset();
-        throw std::runtime_error("Failed to open SHM subscriber endpoint: " + endpoint_config_path);
+        throw std::runtime_error("Failed to open SHM subscriber endpoint: " + endpoint_config_path.string());
     }
     prepare_pdudefs(benchmark_config_.try_num);
     for (int i = 0; i < benchmark_config_.try_num; ++i) {

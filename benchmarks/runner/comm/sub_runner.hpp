@@ -1,13 +1,14 @@
 #pragma once
 
 #include "runner.hpp"
+#include "shm_runner.hpp"
 #include "hako_asset.h"
 
 #include <atomic>
 
 namespace benchmarks::runner {
 
-class SubShmRunner : public Runner {
+class SubShmRunner : public ShmRunnerBase {
 public:
     void prepare() override;
     void run() override;
