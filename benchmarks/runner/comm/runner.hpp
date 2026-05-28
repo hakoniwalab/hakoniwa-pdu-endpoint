@@ -121,36 +121,47 @@ protected:
 
     void open_benchmark_log(const char* role)
     {
-        const auto path = log_path_for_role(role);
-        const auto parent = path.parent_path();
+        benchmark_log_path_ = log_path_for_role(role);
+        const auto parent = benchmark_log_path_.parent_path();
         if (!parent.empty()) {
             std::filesystem::create_directories(parent);
         }
 
-        benchmark_log_.open(path, std::ios::out | std::ios::trunc);
-        if (!benchmark_log_.is_open()) {
-            throw std::runtime_error("Failed to open benchmark log file: " + path.string());
+        {
+            std::lock_guard<std::mutex> lock(log_mutex_);
+            benchmark_log_lines_.clear();
         }
-        std::cout << "Benchmark log: " << path.string() << std::endl;
+        std::cout << "Benchmark log: " << benchmark_log_path_.string() << std::endl;
     }
 
     void close_benchmark_log()
     {
-        std::lock_guard<std::mutex> lock(log_mutex_);
-        if (benchmark_log_.is_open()) {
-            benchmark_log_.flush();
-            benchmark_log_.close();
+        std::vector<std::string> lines;
+        {
+            std::lock_guard<std::mutex> lock(log_mutex_);
+            lines.swap(benchmark_log_lines_);
+        }
+
+        if (benchmark_log_path_.empty()) {
+            for (const auto& line : lines) {
+                std::cout << line << std::endl;
+            }
+            return;
+        }
+
+        std::ofstream ofs(benchmark_log_path_, std::ios::out | std::ios::trunc);
+        if (!ofs.is_open()) {
+            throw std::runtime_error("Failed to open benchmark log file: " + benchmark_log_path_.string());
+        }
+        for (const auto& line : lines) {
+            ofs << line << '\n';
         }
     }
 
     void write_benchmark_log(const std::string& line)
     {
         std::lock_guard<std::mutex> lock(log_mutex_);
-        if (benchmark_log_.is_open()) {
-            benchmark_log_ << line << std::endl;
-        } else {
-            std::cout << line << std::endl;
-        }
+        benchmark_log_lines_.push_back(line);
     }
 
     void prepare_pdudefs(int num)
@@ -309,7 +320,8 @@ protected:
     std::uint64_t last_recv_ns_ = 0;
     std::mutex recv_mutex_;
     std::condition_variable recv_cv_;
-    std::ofstream benchmark_log_;
+    std::filesystem::path benchmark_log_path_;
+    std::vector<std::string> benchmark_log_lines_;
     std::mutex log_mutex_;
 };
 
