@@ -2,12 +2,14 @@
 #include "hakoniwa/pdu/endpoint.hpp"
 
 #include <iostream>
+#include <sstream>
 #include <stdexcept>
 
 namespace benchmarks::runner {
 
 void SubUdpRunner::prepare()
 {
+    open_benchmark_log("sub");
     reset_receive_benchmark(benchmark_config_.try_num);
 
     endpoint_ = std::make_unique<hakoniwa::pdu::Endpoint>(
@@ -52,10 +54,10 @@ void SubUdpRunner::run()
         throw std::runtime_error("Endpoint not initialized");
     }
 
-    std::cout
-        << "BENCH_SUB_WAIT protocol=udp expected=" << expected_count_.load()
-        << " timeout_sec=" << benchmark_config_.timeout_sec
-        << std::endl;
+    std::ostringstream oss;
+    oss << "BENCH_SUB_WAIT protocol=udp expected=" << expected_count_.load()
+        << " timeout_sec=" << benchmark_config_.timeout_sec;
+    write_benchmark_log(oss.str());
     wait_receive_benchmark("udp");
 }
 
@@ -66,6 +68,7 @@ void SubUdpRunner::cleanup()
         endpoint_->close();
         endpoint_.reset();
     }
+    close_benchmark_log();
 }
 
 }
