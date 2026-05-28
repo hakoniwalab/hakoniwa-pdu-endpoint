@@ -14,6 +14,7 @@
 #include <optional>
 #include <span>
 #include <string>
+#include <unordered_map>
 #include <vector>
 #include <functional>
 #include <mutex>
@@ -129,6 +130,8 @@ public:
             return err;
         }
         try {
+            recv_cache_write_enabled_ = config.value("recv_cache_write", true);
+
             err = load_pdu_definition_if_needed_(config, base_dir, false);
             if (err != HAKO_PDU_ERR_OK) {
                 return err;
@@ -421,7 +424,7 @@ public:
     void subscribe_on_recv_callback(const PduResolvedKey& pdu_key, OnRecvCallback cb) noexcept
     {
         std::lock_guard<std::mutex> lock(cb_mtx_);
-        per_pdu_callbacks_.emplace_back(pdu_key, std::move(cb));
+        per_pdu_callbacks_[pdu_key].emplace_back(std::move(cb));
     }
     const std::string& get_name() const { return name_; }
     HakoPduEndpointDirectionType get_type() const { return type_; }
@@ -437,8 +440,9 @@ protected:
 private:
     mutable std::mutex cb_mtx_;
     mutable std::mutex disconnect_cb_mtx_;
-    std::vector<std::pair<PduResolvedKey, OnRecvCallback>> per_pdu_callbacks_;
+    std::unordered_map<PduResolvedKey, std::vector<OnRecvCallback>, PduResolvedKeyHash> per_pdu_callbacks_;
     OnDisconnectedCallback on_disconnected_callback_;
+    bool recv_cache_write_enabled_ = true;
 
     void notify_disconnected_(const CommDisconnectEvent& ev) noexcept
     {
@@ -460,14 +464,10 @@ private:
         std::vector<OnRecvCallback> targets;
         {
             std::lock_guard<std::mutex> lock(cb_mtx_);
-            for (const auto& [sub_key, cb] : per_pdu_callbacks_) {
-                //std::cout << "DEBUG: Checking subscriber for Robot: " << sub_key.robot << " Channel ID: " << sub_key.channel_id << std::endl;
-                if (sub_key.robot == pdu_key.robot &&
-                    sub_key.channel_id == pdu_key.channel_id) {
-                    //std::cout << "DEBUG: Found matching subscriber for Robot: " << pdu_key.robot << " Channel ID: " << pdu_key.channel_id << std::endl;
-                    targets.push_back(cb); // copy
-                    is_found = true;
-                }
+            const auto it = per_pdu_callbacks_.find(pdu_key);
+            if (it != per_pdu_callbacks_.end()) {
+                targets = it->second; // copy callbacks, then run without holding cb_mtx_
+                is_found = !targets.empty();
             }
         }
         if (!is_found) {
@@ -486,11 +486,13 @@ private:
     void recv_callback_(const PduResolvedKey& pdu_key, std::span<const std::byte> data) noexcept
     {
         //std::cout << "DEBUG: Endpoint recv_callback_ called for Robot: " << pdu_key.robot << " Channel ID: " << pdu_key.channel_id << std::endl;
-        if (!cache_) { 
-            std::cerr << "PDU Cache module is not initialized in recv_callback_. Ignoring received data." << std::endl;
-            return; 
+        if (recv_cache_write_enabled_) {
+            if (!cache_) {
+                std::cerr << "PDU Cache module is not initialized in recv_callback_. Ignoring received data." << std::endl;
+                return;
+            }
+            (void)cache_->write(pdu_key, data);
         }
-        (void)cache_->write(pdu_key, data);
 
         notify_subscribers_(pdu_key, data);
     }

@@ -1735,6 +1735,95 @@ TEST_F(EndpointTest, TcpCommunicationV1Test) {
     ASSERT_EQ(client.close(), HAKO_PDU_ERR_OK);
 }
 
+TEST_F(EndpointTest, TcpRecvCacheWriteDisabledStillDeliversCallbacks) {
+    namespace fs = std::filesystem;
+    const auto temp_base = fs::temp_directory_path() / "hako_pdu_tcp_recv_cache_write_disabled_test";
+    const auto port = find_available_port(SOCK_STREAM);
+    ASSERT_GT(port, 0);
+
+    fs::remove_all(temp_base);
+    fs::create_directories(temp_base);
+
+    const auto server_comm_path = temp_base / "tcp_server_comm.json";
+    const auto client_comm_path = temp_base / "tcp_client_comm.json";
+    const auto server_endpoint_path = temp_base / "endpoint_server.json";
+    const auto client_endpoint_path = temp_base / "endpoint_client.json";
+    const auto cache_path = (fs::current_path() / "config/sample/cache/queue.json").string();
+
+    ASSERT_TRUE(create_dynamic_config(
+        server_comm_path.string(),
+        "config/sample/comm/tcp_server_inout_comm.json",
+        port));
+    ASSERT_TRUE(create_dynamic_config(
+        client_comm_path.string(),
+        "config/sample/comm/tcp_client_inout_comm.json",
+        port,
+        port));
+
+    {
+        std::ofstream ofs(server_endpoint_path);
+        ASSERT_TRUE(ofs.is_open());
+        ofs << nlohmann::json{
+            {"name", "tcp_server_no_recv_cache_write"},
+            {"cache", cache_path},
+            {"comm", server_comm_path.string()},
+            {"recv_cache_write", false}
+        }.dump(2);
+    }
+    {
+        std::ofstream ofs(client_endpoint_path);
+        ASSERT_TRUE(ofs.is_open());
+        ofs << nlohmann::json{
+            {"name", "tcp_client_no_recv_cache_write"},
+            {"cache", cache_path},
+            {"comm", client_comm_path.string()}
+        }.dump(2);
+    }
+
+    hakoniwa::pdu::Endpoint server("tcp_server_no_recv_cache_write", HAKO_PDU_ENDPOINT_DIRECTION_INOUT);
+    hakoniwa::pdu::Endpoint client("tcp_client_no_recv_cache_write", HAKO_PDU_ENDPOINT_DIRECTION_INOUT);
+
+    const auto server_open_err = server.open(server_endpoint_path.string());
+    if (server_open_err != HAKO_PDU_ERR_OK) {
+        GTEST_SKIP() << "TCP server setup unavailable in this environment. err=" << static_cast<int>(server_open_err);
+    }
+    ASSERT_EQ(client.open(client_endpoint_path.string()), HAKO_PDU_ERR_OK);
+
+    auto key = create_key("robot_tcp_no_cache", 43);
+    std::vector<std::vector<std::byte>> callbacks;
+    server.subscribe_on_recv_callback(
+        key,
+        [&callbacks](const hakoniwa::pdu::PduResolvedKey&, std::span<const std::byte> data) {
+            callbacks.emplace_back(data.begin(), data.end());
+        });
+
+    ASSERT_EQ(server.start(), HAKO_PDU_ERR_OK);
+    ASSERT_EQ(client.start(), HAKO_PDU_ERR_OK);
+    std::this_thread::sleep_for(std::chrono::milliseconds(100));
+
+    const std::vector<std::byte> payload = {std::byte{'x'}, std::byte{'y'}};
+    ASSERT_EQ(client.send(key, payload), HAKO_PDU_ERR_OK);
+
+    for (int i = 0; i < 20 && callbacks.empty(); ++i) {
+        std::this_thread::sleep_for(std::chrono::milliseconds(50));
+    }
+    ASSERT_EQ(callbacks.size(), 1U);
+    ASSERT_EQ(callbacks[0].size(), payload.size());
+    EXPECT_EQ(callbacks[0][0], payload[0]);
+    EXPECT_EQ(callbacks[0][1], payload[1]);
+
+    std::vector<std::byte> recv_buffer(8);
+    size_t received_size = 0;
+    EXPECT_EQ(server.recv(key, recv_buffer, received_size), HAKO_PDU_ERR_UNSUPPORTED);
+
+    ASSERT_EQ(server.stop(), HAKO_PDU_ERR_OK);
+    ASSERT_EQ(client.stop(), HAKO_PDU_ERR_OK);
+    ASSERT_EQ(server.close(), HAKO_PDU_ERR_OK);
+    ASSERT_EQ(client.close(), HAKO_PDU_ERR_OK);
+
+    fs::remove_all(temp_base);
+}
+
 TEST_F(EndpointTest, TcpDisconnectedCallbackTest) {
     hakoniwa::pdu::Endpoint server("tcp_server_disconnect", HAKO_PDU_ENDPOINT_DIRECTION_INOUT);
     hakoniwa::pdu::Endpoint client("tcp_client_disconnect", HAKO_PDU_ENDPOINT_DIRECTION_INOUT);

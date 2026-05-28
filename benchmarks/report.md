@@ -11,6 +11,10 @@
   - Use Hakoniwa PDU endpoint benchmark runners.
   - Switch the endpoint backend by JSON configuration.
   - Use the same runner logic, PDU definition, send pattern, and benchmark analyzer for both backends.
+- Callback benchmark setting:
+  - `recv_cache_write=false`
+  - The subscriber receives data through callbacks and skips Endpoint cache writes.
+  - This setting is applied to both TCP and SHM(callback).
 - Result files:
   - `benchmarks/results/summary.csv`
   - `benchmarks/results/summary.json`
@@ -46,12 +50,12 @@ All benchmark runs completed without loss.
 
 | PDU name | Protocol | send_duration_ms | recv_span_ms | end_to_end_ms | tail_after_send_ms |
 | --- | --- | ---: | ---: | ---: | ---: |
-| `disturb` | TCP | 13.884 | 13.780 | 13.919 | 0.035 |
-| `disturb` | SHM(callback) | 6.155 | 10.023 | 10.723 | 4.567 |
-| `lidar_points` | TCP | 332.172 | 330.300 | 332.212 | 0.040 |
-| `lidar_points` | SHM(callback) | 20.551 | 46.706 | 52.150 | 31.599 |
-| `hako_camera_data` | TCP | 1723.870 | 1713.780 | 1724.045 | 0.173 |
-| `hako_camera_data` | SHM(callback) | 73.046 | 212.053 | 221.201 | 148.155 |
+| `disturb` | TCP | 10.031 | 9.919 | 10.083 | 0.051 |
+| `disturb` | SHM(callback) | 5.231 | 2.211 | 6.145 | 0.914 |
+| `lidar_points` | TCP | 302.128 | 300.498 | 302.152 | 0.023 |
+| `lidar_points` | SHM(callback) | 21.476 | 23.373 | 29.456 | 7.980 |
+| `hako_camera_data` | TCP | 1576.270 | 1566.730 | 1576.351 | 0.078 |
+| `hako_camera_data` | SHM(callback) | 94.678 | 130.965 | 132.303 | 37.625 |
 
 ## Throughput Results
 
@@ -59,20 +63,20 @@ Throughput uses decimal MB/s.
 
 | PDU name | Protocol | Publisher send throughput | End-to-end throughput |
 | --- | --- | ---: | ---: |
-| `disturb` | TCP | 18.9 MB/s | 18.8 MB/s |
-| `disturb` | SHM(callback) | 42.6 MB/s | 24.4 MB/s |
-| `lidar_points` | TCP | 547.0 MB/s | 546.9 MB/s |
-| `lidar_points` | SHM(callback) | 8.84 GB/s | 3.48 GB/s |
-| `hako_camera_data` | TCP | 595.8 MB/s | 595.7 MB/s |
-| `hako_camera_data` | SHM(callback) | 14.1 GB/s | 4.64 GB/s |
+| `disturb` | TCP | 26.1 MB/s | 26.0 MB/s |
+| `disturb` | SHM(callback) | 50.1 MB/s | 42.7 MB/s |
+| `lidar_points` | TCP | 601.3 MB/s | 601.3 MB/s |
+| `lidar_points` | SHM(callback) | 8.46 GB/s | 6.17 GB/s |
+| `hako_camera_data` | TCP | 651.6 MB/s | 651.5 MB/s |
+| `hako_camera_data` | SHM(callback) | 10.85 GB/s | 7.76 GB/s |
 
 ## Relative Performance
 
 | PDU name | End-to-end speedup | Publisher send speedup |
 | --- | ---: | ---: |
-| `disturb` | SHM is 1.30x faster | SHM is 2.26x faster |
-| `lidar_points` | SHM is 6.37x faster | SHM is 16.16x faster |
-| `hako_camera_data` | SHM is 7.79x faster | SHM is 23.60x faster |
+| `disturb` | SHM is 1.64x faster | SHM is 1.92x faster |
+| `lidar_points` | SHM is 10.26x faster | SHM is 14.07x faster |
+| `hako_camera_data` | SHM is 11.91x faster | SHM is 16.65x faster |
 
 ## Metric Notes
 
@@ -89,17 +93,21 @@ TCP shows a consistent pattern across all PDU sizes: `send_duration_ms` and `rec
 
 This indicates that TCP backpressure keeps the publisher and subscriber moving almost synchronously. The publisher is naturally pulled by the subscriber's receive progress, so little receive backlog remains after the publisher finishes sending.
 
-SHM(callback) shows a different pattern. The publisher send path is much faster, especially for large PDU payloads. For `hako_camera_data`, SHM(callback) sends about 1.027 GB in 73.046 ms, while TCP takes 1723.870 ms.
+SHM(callback) shows a different pattern. The publisher send path is much faster, especially for large PDU payloads. For `hako_camera_data`, SHM(callback) sends about 1.027 GB in 94.678 ms, while TCP takes 1576.270 ms.
 
-However, SHM(callback) also shows a larger `tail_after_send_ms`. For `hako_camera_data`, the publisher finishes quickly, but subscriber-side callback dispatch and receive processing continue for another 148.155 ms.
+The subscriber-side tail is now much smaller than the previous cache-writing SHM(callback) result. With `recv_cache_write=false`, the subscriber avoids writing each received PDU into the Endpoint cache and delivers the data directly through the callback path. For `hako_camera_data`, SHM(callback) `tail_after_send_ms` is 37.625 ms and end-to-end completion is 132.303 ms.
 
-This means SHM(callback) has a very strong write/send path, but large batches can leave subscriber callback processing visible as tail latency.
+The same callback-only setting also improves TCP. For `hako_camera_data`, TCP end-to-end completion is 1576.351 ms in this final result. TCP remains dominated by socket streaming and backpressure, so the improvement is smaller than the SHM receive-cache-write reduction.
+
+This confirms that the Endpoint receive-cache write path was a major cost for large callback-style SHM batches. SHM(callback) still allows the publisher to run ahead of the subscriber, but the remaining tail is now mostly callback dispatch and receive processing rather than an additional cache copy/write path.
 
 ## Summary
 
 - TCP and SHM(callback) both delivered all tested PDUs without loss.
 - SHM(callback) outperformed TCP end-to-end for all tested PDU sizes.
 - The SHM(callback) advantage becomes much larger as PDU size grows.
+- For `hako_camera_data`, end-to-end throughput improved to about 7.76 GB/s.
+- For `hako_camera_data`, SHM(callback) is about 11.91x faster than TCP end-to-end.
+- For `hako_camera_data`, the publisher send/write path is about 16.65x faster than TCP.
 - TCP behaves as a synchronized streaming pipeline due to backpressure.
-- SHM(callback) lets the publisher run far ahead, so subscriber callback processing appears as `tail_after_send_ms`.
-- For large local IPC payloads, SHM(callback) provides much higher throughput, while TCP provides a smaller tail and more synchronized pub/sub progress.
+- SHM(callback) gives much higher local IPC throughput under the callback-only receive condition.

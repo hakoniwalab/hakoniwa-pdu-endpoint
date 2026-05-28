@@ -4,6 +4,7 @@
     "timeout_sec": 30,
     "delta_time_usec": 1000,
     "max_delay_usec": 1000,
+    "recv_cache_write": false,
     "pdu_name": "hako_camera_data",
     "config_path": "benchmarks/configs",
     "log_path": "benchmarks/logs/benchmark-shm.log"

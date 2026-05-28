@@ -36,6 +36,7 @@ struct BenchmarkConfig {
     CommType comm_type;
     int try_num;
     int timeout_sec;
+    bool recv_cache_write;
 };
 
 class Runner {
@@ -86,6 +87,7 @@ public:
             benchmark_config_.timeout_sec = config.value("timeout_sec", 30);
             benchmark_config_.delta_time_usec = config.value("delta_time_usec", 1000);
             benchmark_config_.max_delay_usec = config.value("max_delay_usec", 1000);
+            benchmark_config_.recv_cache_write = config.value("recv_cache_write", true);
             benchmark_config_.pdu_name = config.value("pdu_name", "pos");
             if (!pdu_name_override.empty()) {
                 benchmark_config_.pdu_name = pdu_name_override;

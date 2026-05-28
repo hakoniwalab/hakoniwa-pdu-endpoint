@@ -25,6 +25,10 @@
       "type": ["string", "null"],
       "description": "Optional path to a PDU definition file for name-based resolution.",
       "pattern": ".*\\.json$"
+    },
+    "recv_cache_write": {
+      "type": "boolean",
+      "description": "When false, received PDU data is delivered to on-recv callbacks without writing it into the endpoint cache. Defaults to true."
     }
   }
 }

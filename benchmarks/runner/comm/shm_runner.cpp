@@ -90,6 +90,9 @@ std::filesystem::path ShmRunnerBase::generate_shm_endpoint_config(
     endpoint_config["cache"] = "../../../../endpoint/cache/buffer.json";
     endpoint_config["comm"] = "comm/" + role + std::string("_shm_comm.json");
     endpoint_config["pdu_def_path"] = "../../pdu/pdudef.json";
+    if (role == "subscriber") {
+        endpoint_config["recv_cache_write"] = benchmark_config_.recv_cache_write;
+    }
 
     const std::filesystem::path endpoint_config_path =
         endpoint_dir / (role + std::string("_shm.json"));

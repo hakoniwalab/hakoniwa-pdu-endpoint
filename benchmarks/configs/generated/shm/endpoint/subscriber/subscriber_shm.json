@@ -2,5 +2,6 @@
   "cache": "../../../../endpoint/cache/buffer.json",
   "comm": "comm/subscriber_shm_comm.json",
   "name": "ep_shm_subscriber",
-  "pdu_def_path": "../../pdu/pdudef.json"
+  "pdu_def_path": "../../pdu/pdudef.json",
+  "recv_cache_write": false
 }

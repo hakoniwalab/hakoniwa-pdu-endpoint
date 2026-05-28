@@ -2,5 +2,6 @@
   "name": "ep_tcp_subscriber",
   "cache": "../cache/buffer.json",
   "pdu_def_path": "../../pdu/pdudef.json",
-  "comm": "comm/subscriber_tcp_comm.json"
+  "comm": "comm/subscriber_tcp_comm.json",
+  "recv_cache_write": false
 }

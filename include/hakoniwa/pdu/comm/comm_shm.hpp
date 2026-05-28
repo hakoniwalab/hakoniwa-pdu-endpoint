@@ -55,6 +55,8 @@ private:
     static std::map<int, PduCommShm*> event_id_to_instance_map_;
     static std::mutex event_map_mutex_;
     std::mutex io_mutex_;
+    std::mutex recv_buffer_mutex_;
+    std::vector<std::byte> recv_buffer_;
 
     std::map<int, PduResolvedKey> event_id_to_key_map_;
     std::vector<int> registered_event_ids_;

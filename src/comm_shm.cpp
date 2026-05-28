@@ -344,11 +344,12 @@ void PduCommShm::handle_shm_recv(int recv_event_id) {
     }
     //std::cout << "PduCommShm: Received PDU event for Robot: " << key.robot << " Channel ID: " << key.channel_id << std::endl;
 
-    std::vector<std::byte> buffer(def.pdu_size);
+    std::lock_guard<std::mutex> buffer_lock(recv_buffer_mutex_);
+    recv_buffer_.resize(def.pdu_size);
     size_t received_size = 0;
-    if (native_recv(key, buffer, received_size) == 0) {
+    if (native_recv(key, recv_buffer_, received_size) == 0) {
         //std::cout << "PduCommShm: Successfully received PDU data. Size: " << received_size << " bytes" << std::endl;
-        on_recv_callback_(key, buffer);
+        on_recv_callback_(key, std::span<const std::byte>(recv_buffer_.data(), received_size));
     }
 }
 HakoPduErrorType PduCommShm::native_send(const PduResolvedKey& pdu_key, std::span<const std::byte> data) noexcept {
