@@ -16,7 +16,14 @@ void SubShmRunner::on_recv(int recv_event_id)
 int SubShmRunner::my_on_initialize(hako_asset_context_t* context)
 {
     (void)context;
-    //TODO
+    std::cout << "INFO: SubShmRunner::my_on_initialize called" << std::endl;
+    if (instance_ == nullptr) {
+        throw std::runtime_error("SubShmRunner instance is not set in on_initialize");
+    }
+    auto error = instance_->endpoint_->post_start();
+    if (error != HAKO_PDU_ERR_OK) {
+        throw std::runtime_error("Failed to post_start endpoint in on_initialize. Error code: " + std::to_string(static_cast<int>(error)));
+    }
     return 0;
 }
 
@@ -29,7 +36,7 @@ int SubShmRunner::my_on_reset(hako_asset_context_t* context)
 int SubShmRunner::my_on_manual_timing_control(hako_asset_context_t* context)
 {
     (void)context;
-    (void)hako_asset_usleep(1000);
+    (void)hako_asset_usleep(instance_->benchmark_config_.delta_time_usec);
     return 0;
 }
 
