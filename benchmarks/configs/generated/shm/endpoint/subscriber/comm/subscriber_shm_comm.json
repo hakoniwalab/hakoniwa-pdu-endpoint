@@ -1,0 +1,9226 @@
+{
+  "direction": "inout",
+  "impl_type": "callback",
+  "io": {
+    "robots": [
+      {
+        "name": "Drone-1",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-2",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-3",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-4",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-5",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-6",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-7",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-8",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-9",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-10",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-11",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-12",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-13",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-14",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-15",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-16",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-17",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-18",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-19",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-20",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-21",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-22",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-23",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-24",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-25",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-26",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-27",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-28",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-29",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-30",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-31",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-32",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-33",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-34",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-35",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-36",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-37",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-38",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-39",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-40",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-41",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-42",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-43",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-44",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-45",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-46",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-47",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-48",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-49",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-50",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-51",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-52",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-53",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-54",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-55",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-56",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-57",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-58",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-59",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-60",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-61",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-62",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-63",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-64",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-65",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-66",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-67",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-68",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-69",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-70",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-71",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-72",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-73",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-74",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-75",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-76",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-77",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-78",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-79",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-80",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-81",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-82",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-83",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-84",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-85",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-86",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-87",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-88",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-89",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-90",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-91",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-92",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-93",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-94",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-95",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-96",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-97",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-98",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-99",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-100",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-101",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-102",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-103",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-104",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-105",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-106",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-107",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-108",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-109",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-110",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-111",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-112",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-113",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-114",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-115",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-116",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-117",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-118",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-119",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-120",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-121",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-122",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-123",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-124",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-125",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-126",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-127",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-128",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-129",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-130",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-131",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-132",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-133",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-134",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-135",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-136",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-137",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-138",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-139",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-140",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-141",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-142",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-143",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-144",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-145",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-146",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-147",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-148",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-149",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-150",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-151",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-152",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-153",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-154",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-155",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-156",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-157",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-158",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-159",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-160",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-161",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-162",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-163",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-164",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-165",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-166",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-167",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-168",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-169",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-170",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-171",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-172",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-173",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-174",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-175",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-176",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-177",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-178",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-179",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-180",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-181",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-182",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-183",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-184",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-185",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-186",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-187",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-188",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-189",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-190",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-191",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-192",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-193",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-194",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-195",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-196",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-197",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-198",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-199",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-200",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-201",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-202",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-203",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-204",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-205",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-206",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-207",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-208",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-209",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-210",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-211",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-212",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-213",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-214",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-215",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-216",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-217",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-218",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-219",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-220",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-221",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-222",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-223",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-224",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-225",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-226",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-227",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-228",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-229",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-230",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-231",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-232",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-233",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-234",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-235",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-236",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-237",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-238",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-239",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-240",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-241",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-242",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-243",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-244",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-245",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-246",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-247",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-248",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-249",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-250",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-251",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-252",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-253",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-254",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-255",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-256",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-257",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-258",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-259",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-260",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-261",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-262",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-263",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-264",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-265",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-266",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-267",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-268",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-269",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-270",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-271",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-272",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-273",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-274",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-275",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-276",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-277",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-278",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-279",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-280",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-281",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-282",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-283",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-284",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-285",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-286",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-287",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-288",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-289",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-290",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-291",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-292",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-293",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-294",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-295",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-296",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-297",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-298",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-299",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-300",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-301",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-302",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-303",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-304",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-305",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-306",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-307",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-308",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-309",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-310",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-311",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-312",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-313",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-314",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-315",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-316",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-317",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-318",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-319",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-320",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-321",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-322",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-323",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-324",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-325",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-326",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-327",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-328",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-329",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-330",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-331",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-332",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-333",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-334",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-335",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-336",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-337",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-338",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-339",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-340",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-341",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-342",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-343",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-344",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-345",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-346",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-347",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-348",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-349",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-350",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-351",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-352",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-353",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-354",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-355",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-356",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-357",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-358",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-359",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-360",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-361",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-362",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-363",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-364",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-365",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-366",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-367",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-368",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-369",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-370",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-371",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-372",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-373",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-374",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-375",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-376",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-377",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-378",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-379",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-380",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-381",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-382",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-383",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-384",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-385",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-386",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-387",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-388",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-389",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-390",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-391",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-392",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-393",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-394",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-395",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-396",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-397",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-398",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-399",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-400",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-401",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-402",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-403",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-404",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-405",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-406",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-407",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-408",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-409",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-410",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-411",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-412",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-413",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-414",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-415",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-416",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-417",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-418",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-419",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-420",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-421",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-422",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-423",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-424",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-425",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-426",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-427",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-428",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-429",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-430",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-431",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-432",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-433",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-434",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-435",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-436",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-437",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-438",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-439",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-440",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-441",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-442",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-443",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-444",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-445",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-446",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-447",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-448",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-449",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-450",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-451",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-452",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-453",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-454",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-455",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-456",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-457",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-458",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-459",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-460",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-461",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-462",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-463",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-464",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-465",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-466",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-467",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-468",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-469",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-470",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-471",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-472",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-473",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-474",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-475",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-476",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-477",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-478",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-479",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-480",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-481",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-482",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-483",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-484",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-485",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-486",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-487",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-488",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-489",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-490",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-491",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-492",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-493",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-494",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-495",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-496",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-497",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-498",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-499",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-500",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-501",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-502",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-503",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-504",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-505",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-506",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-507",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-508",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-509",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-510",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-511",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-512",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-513",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-514",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-515",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-516",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-517",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-518",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-519",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-520",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-521",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-522",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-523",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-524",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-525",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-526",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-527",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-528",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-529",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-530",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-531",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-532",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-533",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-534",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-535",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-536",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-537",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-538",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-539",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-540",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-541",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-542",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-543",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-544",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-545",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-546",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-547",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-548",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-549",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-550",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-551",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-552",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-553",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-554",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-555",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-556",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-557",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-558",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-559",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-560",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-561",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-562",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-563",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-564",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-565",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-566",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-567",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-568",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-569",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-570",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-571",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-572",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-573",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-574",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-575",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-576",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-577",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-578",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-579",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-580",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-581",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-582",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-583",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-584",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-585",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-586",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-587",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-588",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-589",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-590",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-591",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-592",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-593",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-594",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-595",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-596",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-597",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-598",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-599",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-600",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-601",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-602",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-603",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-604",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-605",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-606",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-607",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-608",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-609",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-610",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-611",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-612",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-613",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-614",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-615",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-616",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-617",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-618",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-619",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-620",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-621",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-622",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-623",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-624",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-625",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-626",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-627",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-628",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-629",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-630",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-631",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-632",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-633",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-634",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-635",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-636",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-637",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-638",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-639",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-640",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-641",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-642",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-643",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-644",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-645",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-646",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-647",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-648",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-649",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-650",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-651",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-652",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-653",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-654",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-655",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-656",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-657",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-658",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-659",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-660",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-661",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-662",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-663",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-664",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-665",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-666",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-667",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-668",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-669",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-670",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-671",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-672",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-673",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-674",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-675",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-676",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-677",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-678",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-679",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-680",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-681",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-682",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-683",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-684",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-685",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-686",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-687",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-688",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-689",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-690",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-691",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-692",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-693",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-694",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-695",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-696",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-697",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-698",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-699",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-700",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-701",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-702",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-703",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-704",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-705",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-706",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-707",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-708",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-709",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-710",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-711",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-712",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-713",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-714",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-715",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-716",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-717",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-718",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-719",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-720",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-721",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-722",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-723",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-724",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-725",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-726",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-727",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-728",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-729",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-730",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-731",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-732",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-733",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-734",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-735",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-736",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-737",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-738",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-739",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-740",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-741",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-742",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-743",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-744",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-745",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-746",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-747",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-748",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-749",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-750",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-751",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-752",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-753",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-754",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-755",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-756",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-757",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-758",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-759",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-760",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-761",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-762",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-763",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-764",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-765",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-766",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-767",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-768",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-769",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-770",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-771",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-772",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-773",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-774",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-775",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-776",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-777",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-778",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-779",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-780",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-781",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-782",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-783",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-784",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-785",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-786",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-787",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-788",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-789",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-790",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-791",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-792",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-793",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-794",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-795",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-796",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-797",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-798",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-799",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-800",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-801",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-802",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-803",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-804",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-805",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-806",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-807",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-808",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-809",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-810",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-811",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-812",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-813",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-814",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-815",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-816",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-817",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-818",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-819",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-820",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-821",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-822",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-823",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-824",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-825",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-826",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-827",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-828",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-829",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-830",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-831",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-832",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-833",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-834",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-835",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-836",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-837",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-838",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-839",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-840",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-841",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-842",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-843",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-844",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-845",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-846",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-847",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-848",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-849",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-850",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-851",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-852",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-853",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-854",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-855",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-856",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-857",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-858",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-859",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-860",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-861",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-862",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-863",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-864",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-865",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-866",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-867",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-868",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-869",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-870",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-871",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-872",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-873",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-874",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-875",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-876",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-877",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-878",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-879",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-880",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-881",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-882",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-883",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-884",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-885",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-886",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-887",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-888",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-889",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-890",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-891",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-892",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-893",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-894",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-895",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-896",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-897",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-898",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-899",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-900",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-901",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-902",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-903",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-904",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-905",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-906",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-907",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-908",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-909",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-910",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-911",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-912",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-913",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-914",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-915",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-916",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-917",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-918",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-919",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-920",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-921",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-922",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-923",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-924",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-925",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-926",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-927",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-928",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-929",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-930",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-931",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-932",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-933",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-934",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-935",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-936",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-937",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-938",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-939",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-940",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-941",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-942",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-943",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-944",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-945",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-946",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-947",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-948",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-949",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-950",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-951",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-952",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-953",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-954",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-955",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-956",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-957",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-958",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-959",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-960",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-961",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-962",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-963",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-964",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-965",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-966",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-967",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-968",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-969",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-970",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-971",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-972",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-973",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-974",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-975",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-976",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-977",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-978",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-979",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-980",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-981",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-982",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-983",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-984",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-985",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-986",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-987",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-988",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-989",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-990",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-991",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-992",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-993",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-994",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-995",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-996",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-997",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-998",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-999",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-1000",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-1001",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-1002",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-1003",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-1004",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-1005",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-1006",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-1007",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-1008",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-1009",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-1010",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-1011",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-1012",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-1013",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-1014",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-1015",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-1016",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-1017",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-1018",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-1019",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-1020",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-1021",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-1022",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-1023",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      },
+      {
+        "name": "Drone-1024",
+        "pdu": [
+          {
+            "name": "hako_camera_data",
+            "notify_on_recv": true
+          }
+        ]
+      }
+    ]
+  },
+  "name": "shm_subscriber",
+  "protocol": "shm"
+}

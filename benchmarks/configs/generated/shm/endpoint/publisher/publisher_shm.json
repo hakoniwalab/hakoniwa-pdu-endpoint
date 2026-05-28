@@ -1,0 +1,6 @@
+{
+  "cache": "../../../../endpoint/cache/buffer.json",
+  "comm": "comm/publisher_shm_comm.json",
+  "name": "ep_shm_publisher",
+  "pdu_def_path": "../../pdu/pdudef.json"
+}
