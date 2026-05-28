@@ -1,5 +1,6 @@
 {
   "name": "ep_tcp_publisher",
   "cache": "../cache/buffer.json",
+  "pdu_def_path": "../../pdu/pdudef.json",
   "comm": "comm/publisher_tcp_comm.json"
 }
