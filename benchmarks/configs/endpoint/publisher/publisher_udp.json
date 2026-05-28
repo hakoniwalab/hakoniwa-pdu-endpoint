@@ -1,5 +1,6 @@
 {
   "name": "ep_udp_publisher",
   "cache": "../cache/buffer.json",
+  "pdu_def_path": "../../pdu/pdudef.json",
   "comm": "comm/publisher_udp_comm.json"
 }
