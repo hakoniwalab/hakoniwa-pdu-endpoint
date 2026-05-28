@@ -30,6 +30,8 @@ struct BenchmarkConfig {
     std::string benchmark_config_path;
     std::string protocol;
     std::string log_path;
+    uint64_t delta_time_usec;
+    uint64_t max_delay_usec;
     CommType comm_type;
     int try_num;
     int timeout_sec;
@@ -81,6 +83,8 @@ public:
                 throw std::runtime_error("Benchmark config missing 'config_path': " + config_path);
             }
             benchmark_config_.timeout_sec = config.value("timeout_sec", 30);
+            benchmark_config_.delta_time_usec = config.value("delta_time_usec", 1000);
+            benchmark_config_.max_delay_usec = config.value("max_delay_usec", 1000);
             benchmark_config_.log_path = config.value(
                 "log_path",
                 benchmark_config_.benchmark_config_path + "/benchmark-" + benchmark_config_.protocol + ".log");

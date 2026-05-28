@@ -1,0 +1,9 @@
+{
+    "protocol": "shm",
+    "try_num": 1,
+    "timeout_sec": 30,
+    "delta_time_usec": 1000,
+    "max_delay_usec": 1000,
+    "config_path": "benchmarks/configs",
+    "log_path": "benchmarks/logs/benchmark-shm.log"
+}

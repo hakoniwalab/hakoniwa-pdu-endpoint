@@ -36,6 +36,8 @@ int main(int argc, char* argv[]) {
             runner = std::make_unique<benchmarks::runner::PubUdpRunner>();
         } else if (comm_type == benchmarks::runner::CommType::TCP) {
             runner = std::make_unique<benchmarks::runner::PubTcpRunner>();
+        } else if (comm_type == benchmarks::runner::CommType::SHM) {
+            runner = std::make_unique<benchmarks::runner::PubShmRunner>();
         } else {
             throw std::runtime_error("Unsupported protocol for pub runner");
         }
