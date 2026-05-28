@@ -33,7 +33,11 @@ endif()
 
 option(HAKO_PDU_ENDPOINT_BUILD_BENCHMARKS "Build benchmark programs" ON)
 if(HAKO_PDU_ENDPOINT_BUILD_BENCHMARKS)
-  add_subdirectory(benchmarks)
+  if(WIN32)
+    message(STATUS "Benchmarks are disabled on Windows")
+  else()
+    add_subdirectory(benchmarks)
+  endif()
 endif()
 
 
