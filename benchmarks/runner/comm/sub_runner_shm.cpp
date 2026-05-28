@@ -42,9 +42,10 @@ static hako_asset_callbacks_t create_shm_callbacks()
     return callbacks;
 }
 
-static hako_asset_callbacks_t my_callback = create_shm_callbacks();
+static hako_asset_callbacks_t my_callback = {};
 
 void SubShmRunner::prepare() {
+    my_callback = create_shm_callbacks();
     set_instance(this);
     open_benchmark_log("sub");
     reset_receive_benchmark(benchmark_config_.try_num);
