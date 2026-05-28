@@ -5,15 +5,72 @@
 #include <memory>
 #include <stdexcept>
 #include <iostream>
+
+#include "nlohmann/json.hpp"
 #include "hakoniwa/pdu/endpoint.hpp"
 #include "geometry_msgs/pdu_cpptype_conv_Twist.hpp"
 
 namespace benchmarks::runner {
 
+enum class CommType {
+    SHM,
+    TCP,
+    UDP
+};
+struct BenchmarkConfig {
+    std::string benchmark_config_path;
+    CommType comm_type;
+    int try_num;
+};
+
 class Runner {
 public:
     virtual ~Runner() = default;
-    virtual void prepare(int num, std::string endpoint_config_path) = 0;
+    void load_benchmark_config(const std::string& config_path)
+    {
+        std::ifstream ifs(config_path);
+        if (!ifs.is_open()) {
+            throw std::runtime_error("Failed to open benchmark config file: " + config_path);
+        }
+
+        nlohmann::json config;
+        try {
+            ifs >> config;
+        } catch (const nlohmann::json::exception& e) {
+            throw std::runtime_error("JSON parsing failed for benchmark config: " + config_path + ". Details: " + e.what());
+        }
+
+        try {
+            if (config.contains("protocol")) {
+                std::string protocol = config["protocol"].get<std::string>();
+                if (protocol == "shm") {
+                    benchmark_config_.comm_type = CommType::SHM;
+                } else if (protocol == "tcp") {
+                    benchmark_config_.comm_type = CommType::TCP;
+                } else if (protocol == "udp") {
+                    benchmark_config_.comm_type = CommType::UDP;
+                } else {
+                    throw std::runtime_error("Unknown protocol in benchmark config: " + protocol);
+                }
+            } else {
+                throw std::runtime_error("Benchmark config missing 'protocol': " + config_path);
+            }
+
+            if (config.contains("try_num")) {
+                benchmark_config_.try_num = config["try_num"].get<int>();
+            } else {
+                throw std::runtime_error("Benchmark config missing 'try_num': " + config_path);
+            }
+            if (config.contains("config_path")) {
+                benchmark_config_.benchmark_config_path = config["config_path"].get<std::string>();
+            } else {
+                throw std::runtime_error("Benchmark config missing 'config_path': " + config_path);
+            }
+        } catch (const nlohmann::json::exception& e) {
+            throw std::runtime_error("JSON access failed for benchmark config: " + config_path + ". Details: " + e.what());
+        }
+    }
+    virtual void prepare() = 0;
     virtual void run() = 0;
     virtual void cleanup() = 0;
 
@@ -25,7 +82,7 @@ protected:
         buf_.clear();
         send_size_ = 0;
 
-        for (int i = 0; i < num; ++i) {
+        for (int i = 0; i < benchmark_config_.try_num; ++i) {
             hakoniwa::pdu::PduKey key = {"Drone-" + std::to_string(i + 1), "pos"};
 
             size_t pdu_size = endpoint_->get_pdu_size(key);
@@ -73,6 +130,7 @@ protected:
     std::vector<size_t> pdu_sizes_;
     std::vector<std::byte> buf_;
     int send_size_ = 0;
+    BenchmarkConfig benchmark_config_;
 };
 
 }

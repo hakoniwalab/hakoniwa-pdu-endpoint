@@ -8,21 +8,22 @@
 
 namespace benchmarks::runner {
 
-void SubUdpRunner::prepare(int num, std::string endpoint_config_path)
+void SubUdpRunner::prepare()
 {
-    expected_count_.store(num);
+    expected_count_.store(benchmark_config_.try_num);
     received_count_.store(0);
 
     endpoint_ = std::make_unique<hakoniwa::pdu::Endpoint>(
         "sub_runner_udp",
         HAKO_PDU_ENDPOINT_DIRECTION_IN);
 
+    std::string endpoint_config_path = benchmark_config_.benchmark_config_path + "/endpoint/subscriber/subscriber_udp.json";
     if (endpoint_->open(endpoint_config_path) != HAKO_PDU_ERR_OK) {
         endpoint_.reset();
-        throw std::runtime_error("Failed to open UDP subscriber endpoint");
+        throw std::runtime_error("Failed to open UDP subscriber endpoint: " + endpoint_config_path);
     }
 
-    for (int i = 0; i < num; ++i) {
+    for (int i = 0; i < benchmark_config_.try_num; ++i) {
         hakoniwa::pdu::PduKey key = {"Drone-" + std::to_string(i + 1), "pos"};
         const auto channel_id = endpoint_->get_pdu_channel_id(key);
         if (channel_id < 0) {

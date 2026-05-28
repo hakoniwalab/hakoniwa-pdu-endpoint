@@ -2,7 +2,7 @@
 
 namespace benchmarks::runner {
 
-void SubTcpRunner::prepare(int num, std::string endpoint_config_path) {
+void SubTcpRunner::prepare() {
     // TODO: Implementation
 }
 

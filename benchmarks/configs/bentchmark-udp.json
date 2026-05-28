@@ -1,0 +1,5 @@
+{
+    "protocol": "udp",
+    "try_num": 2,
+    "config_path": "benchmarks/configs"
+}
