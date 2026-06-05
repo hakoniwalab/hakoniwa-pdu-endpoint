@@ -111,3 +111,65 @@ This confirms that the Endpoint receive-cache write path was a major cost for la
 - For `hako_camera_data`, the publisher send/write path is about 16.65x faster than TCP.
 - TCP behaves as a synchronized streaming pipeline due to backpressure.
 - SHM(callback) gives much higher local IPC throughput under the callback-only receive condition.
+
+## Ubuntu Measurement Addendum
+
+Additional measurements were collected on Ubuntu on June 5, 2026 for the same `hako_camera_data` workload with 1024 sends.
+
+### Environment
+
+- OS: Ubuntu Core 24
+- Kernel: Linux 5.15.167.4-microsoft-standard-WSL2
+- Runtime: WSL2 on Microsoft Hyper-V
+- CPU: Intel(R) Core(TM) Ultra 7 155H
+- CPU topology: 1 socket, 11 cores, 22 threads
+- Cache:
+  - L1d: 528 KiB
+  - L1i: 704 KiB
+  - L2: 22 MiB
+  - L3: 24 MiB
+- Memory: 31 GiB RAM
+- Swap: 8.0 GiB
+- PDU name: `hako_camera_data`
+- PDU size: 1,002,992 bytes
+- Total payload: 1,027,063,808 bytes
+- Protocols:
+  - TCP
+  - SHM(callback)
+
+### Correctness
+
+Both Ubuntu runs completed without loss.
+
+| PDU name | Protocol | sent | received | completed | loss_count |
+| --- | --- | ---: | ---: | ---: | ---: |
+| `hako_camera_data` | TCP | 1024 | 1024 | 1 | 0 |
+| `hako_camera_data` | SHM(callback) | 1024 | 1024 | 1 | 0 |
+
+### Timing Results
+
+| PDU name | Protocol | send_duration_ms | recv_span_ms | end_to_end_ms | tail_after_send_ms |
+| --- | --- | ---: | ---: | ---: | ---: |
+| `hako_camera_data` | TCP | 3937.750 | 3933.420 | 3938.326 | 0.574 |
+| `hako_camera_data` | SHM(callback) | 344.898 | 344.104 | 344.973 | 0.075 |
+
+### Throughput Results
+
+Throughput uses decimal MB/s.
+
+| PDU name | Protocol | Publisher send throughput | End-to-end throughput |
+| --- | --- | ---: | ---: |
+| `hako_camera_data` | TCP | 260.8 MB/s | 260.8 MB/s |
+| `hako_camera_data` | SHM(callback) | 2.98 GB/s | 2.98 GB/s |
+
+### Relative Performance
+
+| PDU name | End-to-end speedup | Publisher send speedup |
+| --- | ---: | ---: |
+| `hako_camera_data` | SHM is 11.42x faster | SHM is 11.42x faster |
+
+### Ubuntu Notes
+
+The Ubuntu result preserves the same qualitative behavior as the macOS measurement: TCP send and receive progress stay tightly coupled, while SHM(callback) completes the same batch much faster.
+
+The absolute performance in this Ubuntu run is lower than the macOS M2 result for both protocols. For `hako_camera_data`, TCP end-to-end completion increased from 1576.351 ms on macOS to 3938.326 ms on Ubuntu, and SHM(callback) increased from 132.303 ms to 344.973 ms.
