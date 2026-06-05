@@ -1,3 +1,5 @@
+[![Ask DeepWiki](https://deepwiki.com/badge.svg)](https://deepwiki.com/hakoniwalab/hakoniwa-pdu-endpoint)
+
 # hakoniwa-pdu-endpoint
 
 [English](README.md) | [日本語](README.ja.md)
