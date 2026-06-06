@@ -55,16 +55,16 @@ function Resolve-VcpkgToolchainFile {
     )
 
     $Candidates = @()
-    if (-not [string]::IsNullOrWhiteSpace($env:VCPKG_ROOT)) {
-        $Candidates += (Join-Path $env:VCPKG_ROOT "scripts/buildsystems/vcpkg.cmake")
-    }
-
     $ParentDir = Split-Path -Parent $ProjectRoot
     if (-not [string]::IsNullOrWhiteSpace($ParentDir)) {
         $Candidates += (Join-Path $ParentDir "vcpkg/scripts/buildsystems/vcpkg.cmake")
     }
 
     $Candidates += "C:\project\vcpkg\scripts\buildsystems\vcpkg.cmake"
+
+    if (-not [string]::IsNullOrWhiteSpace($env:VCPKG_ROOT)) {
+        $Candidates += (Join-Path $env:VCPKG_ROOT "scripts/buildsystems/vcpkg.cmake")
+    }
 
     foreach ($Candidate in $Candidates) {
         if (-not [string]::IsNullOrWhiteSpace($Candidate) -and (Test-Path $Candidate)) {

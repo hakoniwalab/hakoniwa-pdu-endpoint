@@ -96,10 +96,29 @@ if(TARGET Boost::headers)
 elseif(TARGET Boost::boost)
   set(HAKO_PDU_ENDPOINT_BOOST_TARGET Boost::boost)
 else()
-  find_path(HAKO_BOOST_INCLUDE_DIR boost/asio.hpp)
+  set(HAKO_BOOST_INCLUDE_CANDIDATES "")
+  if(DEFINED VCPKG_INSTALLED_DIR AND DEFINED VCPKG_TARGET_TRIPLET)
+    list(APPEND HAKO_BOOST_INCLUDE_CANDIDATES
+      "${VCPKG_INSTALLED_DIR}/${VCPKG_TARGET_TRIPLET}/include"
+    )
+  endif()
+  if(DEFINED CMAKE_TOOLCHAIN_FILE)
+    get_filename_component(HAKO_VCPKG_TOOLCHAIN_DIR "${CMAKE_TOOLCHAIN_FILE}" DIRECTORY)
+    get_filename_component(HAKO_VCPKG_SCRIPTS_DIR "${HAKO_VCPKG_TOOLCHAIN_DIR}" DIRECTORY)
+    get_filename_component(HAKO_VCPKG_ROOT "${HAKO_VCPKG_SCRIPTS_DIR}" DIRECTORY)
+    if(DEFINED VCPKG_TARGET_TRIPLET)
+      list(APPEND HAKO_BOOST_INCLUDE_CANDIDATES
+        "${HAKO_VCPKG_ROOT}/installed/${VCPKG_TARGET_TRIPLET}/include"
+      )
+    endif()
+  endif()
+
+  find_path(HAKO_BOOST_INCLUDE_DIR boost/asio.hpp
+    HINTS ${HAKO_BOOST_INCLUDE_CANDIDATES}
+  )
   if(NOT HAKO_BOOST_INCLUDE_DIR)
     message(FATAL_ERROR
-      "Boost headers were not found. Install Boost or set CMAKE_PREFIX_PATH/Boost_DIR so boost/asio.hpp is available.")
+      "Boost headers were not found. Install Boost or set CMAKE_PREFIX_PATH/Boost_DIR so boost/asio.hpp is available. Checked hints: ${HAKO_BOOST_INCLUDE_CANDIDATES}")
   endif()
   add_library(hako_pdu_endpoint_boost_headers INTERFACE)
   target_include_directories(hako_pdu_endpoint_boost_headers INTERFACE "${HAKO_BOOST_INCLUDE_DIR}")
