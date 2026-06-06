@@ -86,6 +86,8 @@ benchmarks/runner/benchmark_sub_runner.cpp
 
 These programs load a benchmark config file, select the endpoint backend, and run the corresponding publisher or subscriber runner.
 
+On builds without Hakoniwa core support, only the `tcp` and `udp` runners are available. In particular, the native Windows default build excludes the `shm` benchmark runner unless Hakoniwa core support is enabled for that build.
+
 ### Common runner logic
 
 Common benchmark logic is in:

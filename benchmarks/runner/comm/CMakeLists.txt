@@ -5,6 +5,10 @@ project(runner_comm)
 # Find all C++ source files in this directory
 file(GLOB_RECURSE SOURCES "*.cpp")
 
+if(NOT HAKO_PDU_ENDPOINT_ENABLE_HAKONIWA_CORE)
+    list(FILTER SOURCES EXCLUDE REGEX ".*/(pub_runner_shm|sub_runner_shm|shm_runner)\\.cpp$")
+endif()
+
 # Create a static library from these sources
 add_library(runner_comm STATIC ${SOURCES})
 

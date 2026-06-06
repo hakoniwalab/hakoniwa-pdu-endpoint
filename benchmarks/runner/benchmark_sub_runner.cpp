@@ -44,7 +44,12 @@ benchmarks::runner::CommType get_comm_type(const std::string& config_path) {
     std::string protocol = config.value("protocol", "udp");
     if (protocol == "udp") return benchmarks::runner::CommType::UDP;
     if (protocol == "tcp") return benchmarks::runner::CommType::TCP;
+#if defined(HAKO_PDU_ENDPOINT_HAS_HAKONIWA_CORE)
     if (protocol == "shm") return benchmarks::runner::CommType::SHM;
+#endif
+    if (protocol == "shm") {
+        throw std::runtime_error("SHM benchmark is not available in this build");
+    }
     throw std::runtime_error("Unknown or unsupported protocol: " + protocol);
 }
 
@@ -59,8 +64,10 @@ int main(int argc, char* argv[]) {
             runner = std::make_unique<benchmarks::runner::SubUdpRunner>();
         } else if (comm_type == benchmarks::runner::CommType::TCP) {
             runner = std::make_unique<benchmarks::runner::SubTcpRunner>();
+#if defined(HAKO_PDU_ENDPOINT_HAS_HAKONIWA_CORE)
         } else if (comm_type == benchmarks::runner::CommType::SHM) {
             runner = std::make_unique<benchmarks::runner::SubShmRunner>();
+#endif
         } else {
             throw std::runtime_error("Unsupported protocol for sub runner");
         }

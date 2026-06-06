@@ -2,22 +2,47 @@ cmake_minimum_required(VERSION 3.10)
 
 project(benchmark_runners)
 
-find_library(HAKONIWA_ASSETS_LIBRARY
-    NAMES assets assets.1.0.0
-    HINTS /usr/local/hakoniwa/lib
-    REQUIRED
-)
+set(BENCHMARK_RUNNER_EXTRA_LIBS "")
+set(BENCHMARK_RUNNER_EXTRA_INCLUDES "")
 
-find_library(HAKONIWA_CONDUCTOR_LIBRARY
-    NAMES conductor conductor.1.0.0
-    HINTS /usr/local/hakoniwa/lib
-    REQUIRED
-)
+if(HAKO_PDU_ENDPOINT_ENABLE_HAKONIWA_CORE)
+    set(HAKO_BENCHMARK_HAKONIWA_CORE_ROOT "${HAKO_PDU_ENDPOINT_HAKONIWA_CORE_ROOT}")
+    if(HAKO_BENCHMARK_HAKONIWA_CORE_ROOT STREQUAL "")
+        if(DEFINED ENV{HAKONIWA_CORE_ROOT} AND NOT "$ENV{HAKONIWA_CORE_ROOT}" STREQUAL "")
+            set(HAKO_BENCHMARK_HAKONIWA_CORE_ROOT "$ENV{HAKONIWA_CORE_ROOT}")
+        elseif(WIN32)
+            set(HAKO_BENCHMARK_HAKONIWA_CORE_ROOT "${CMAKE_SOURCE_DIR}/../hakoniwa-core-pro/install")
+        else()
+            set(HAKO_BENCHMARK_HAKONIWA_CORE_ROOT "/usr/local/hakoniwa")
+        endif()
+    endif()
+
+    find_library(HAKONIWA_ASSETS_LIBRARY
+        NAMES assets assets.1.0.0
+        PATHS "${HAKO_BENCHMARK_HAKONIWA_CORE_ROOT}/lib"
+        REQUIRED
+    )
+
+    find_library(HAKONIWA_CONDUCTOR_LIBRARY
+        NAMES conductor conductor.1.0.0
+        PATHS "${HAKO_BENCHMARK_HAKONIWA_CORE_ROOT}/lib"
+        REQUIRED
+    )
+
+    list(APPEND BENCHMARK_RUNNER_EXTRA_LIBS
+        ${HAKONIWA_ASSETS_LIBRARY}
+        ${HAKONIWA_CONDUCTOR_LIBRARY}
+    )
+    list(APPEND BENCHMARK_RUNNER_EXTRA_INCLUDES
+        "${HAKO_BENCHMARK_HAKONIWA_CORE_ROOT}/include"
+        "${HAKO_BENCHMARK_HAKONIWA_CORE_ROOT}/include/hakoniwa"
+    )
+endif()
 
 include_directories(
     "${CMAKE_SOURCE_DIR}/include"
     "${CMAKE_SOURCE_DIR}/benchmarks"
-    "/usr/local/hakoniwa/include/hakoniwa/pdu"
+    ${BENCHMARK_RUNNER_EXTRA_INCLUDES}
 )
 
 add_subdirectory(comm)
@@ -36,13 +61,12 @@ target_link_libraries(benchmark_pub_runner
     PRIVATE
         runner_comm
         hakoniwa_pdu_endpoint
-        ${HAKONIWA_ASSETS_LIBRARY}
+        ${BENCHMARK_RUNNER_EXTRA_LIBS}
 )
 
 target_link_libraries(benchmark_sub_runner
     PRIVATE
         runner_comm
         hakoniwa_pdu_endpoint
-        ${HAKONIWA_ASSETS_LIBRARY}
-        ${HAKONIWA_CONDUCTOR_LIBRARY}
+        ${BENCHMARK_RUNNER_EXTRA_LIBS}
 )

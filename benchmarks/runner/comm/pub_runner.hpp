@@ -1,11 +1,15 @@
 #pragma once
 
 #include "runner.hpp"
+
+#if defined(HAKO_PDU_ENDPOINT_HAS_HAKONIWA_CORE)
 #include "shm_runner.hpp"
 #include "hako_asset.h"
+#endif
 
 namespace benchmarks::runner {
 
+#if defined(HAKO_PDU_ENDPOINT_HAS_HAKONIWA_CORE)
 class PubShmRunner : public ShmRunnerBase {
 public:
     void prepare() override;
@@ -21,6 +25,7 @@ private:
     void send_benchmark_batch();
     bool sent_{false};
 };
+#endif
 
 class PubTcpRunner : public Runner {
 public:

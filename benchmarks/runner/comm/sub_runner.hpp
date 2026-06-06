@@ -1,13 +1,17 @@
 #pragma once
 
 #include "runner.hpp"
-#include "shm_runner.hpp"
-#include "hako_asset.h"
 
 #include <atomic>
 
+#if defined(HAKO_PDU_ENDPOINT_HAS_HAKONIWA_CORE)
+#include "shm_runner.hpp"
+#include "hako_asset.h"
+#endif
+
 namespace benchmarks::runner {
 
+#if defined(HAKO_PDU_ENDPOINT_HAS_HAKONIWA_CORE)
 class SubShmRunner : public ShmRunnerBase {
 public:
     void prepare() override;
@@ -20,6 +24,7 @@ public:
     static int my_on_reset(hako_asset_context_t* context);
     static int my_on_manual_timing_control(hako_asset_context_t* context);
 };
+#endif
 
 class SubTcpRunner : public Runner {
 public:
