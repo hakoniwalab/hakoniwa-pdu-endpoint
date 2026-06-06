@@ -87,8 +87,25 @@ if(NOT TARGET nlohmann_json::nlohmann_json)
   endif()
 endif()
 
-# システムのBoostを使用（ヘッダーオンリー）
-find_package(Boost 1.70 REQUIRED)
+# Boost is used header-only. CMake 4 removed FindBoost, and some toolchains
+# provide only include paths without a BoostConfig package, so fall back to a
+# plain header search when no package target is available.
+find_package(Boost 1.70 CONFIG QUIET)
+if(TARGET Boost::headers)
+  set(HAKO_PDU_ENDPOINT_BOOST_TARGET Boost::headers)
+elseif(TARGET Boost::boost)
+  set(HAKO_PDU_ENDPOINT_BOOST_TARGET Boost::boost)
+else()
+  find_path(HAKO_BOOST_INCLUDE_DIR boost/asio.hpp)
+  if(NOT HAKO_BOOST_INCLUDE_DIR)
+    message(FATAL_ERROR
+      "Boost headers were not found. Install Boost or set CMAKE_PREFIX_PATH/Boost_DIR so boost/asio.hpp is available.")
+  endif()
+  add_library(hako_pdu_endpoint_boost_headers INTERFACE)
+  target_include_directories(hako_pdu_endpoint_boost_headers INTERFACE "${HAKO_BOOST_INCLUDE_DIR}")
+  add_library(Boost::headers ALIAS hako_pdu_endpoint_boost_headers)
+  set(HAKO_PDU_ENDPOINT_BOOST_TARGET Boost::headers)
+endif()
 
 set(SOCKET_PORTABILITY_SRC "")
 if(WIN32)
@@ -138,7 +155,7 @@ target_include_directories(hakoniwa_pdu_endpoint
 target_link_libraries(hakoniwa_pdu_endpoint
   PUBLIC
     nlohmann_json::nlohmann_json
-    Boost::headers
+    ${HAKO_PDU_ENDPOINT_BOOST_TARGET}
 )
 
 if(WIN32)
