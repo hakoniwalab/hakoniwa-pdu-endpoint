@@ -70,3 +70,8 @@ target_link_libraries(benchmark_sub_runner
         hakoniwa_pdu_endpoint
         ${BENCHMARK_RUNNER_EXTRA_LIBS}
 )
+
+if(MSVC)
+    target_compile_options(benchmark_pub_runner PRIVATE /utf-8)
+    target_compile_options(benchmark_sub_runner PRIVATE /utf-8)
+endif()

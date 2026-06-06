@@ -8,5 +8,6 @@ target_link_libraries(hako_pdu_storage_debug
 )
 
 if(MSVC)
+  target_compile_options(hako_pdu_storage_debug PRIVATE /utf-8)
   target_compile_definitions(hako_pdu_storage_debug PRIVATE _WIN32_WINNT=0x0A00 _CRT_SECURE_NO_WARNINGS)
 endif()

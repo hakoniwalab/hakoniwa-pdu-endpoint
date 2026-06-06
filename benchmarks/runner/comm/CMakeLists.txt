@@ -19,3 +19,7 @@ target_include_directories(runner_comm PUBLIC
     "${CMAKE_SOURCE_DIR}/benchmarks" # for common (benchmark_config.hpp)
 )
 target_link_libraries(runner_comm PRIVATE hakoniwa_pdu_endpoint)
+
+if(MSVC)
+    target_compile_options(runner_comm PRIVATE /utf-8)
+endif()
