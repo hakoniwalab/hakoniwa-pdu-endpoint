@@ -166,6 +166,8 @@ C#:
 
 If `.\build-win.ps1` fails with `Could not find ... BoostConfig.cmake`, install Boost via `vcpkg` and pass the toolchain file.
 
+Recent `build-win.ps1` versions also auto-detect `vcpkg` from `VCPKG_ROOT` or a sibling `..\vcpkg` checkout and default to `x64-windows`, so explicit `-ToolchainFile` / `-VcpkgTriplet` arguments are only needed when your setup is elsewhere.
+
 1.  **Install vcpkg and Boost headers**:
     ```powershell
     cd C:\project

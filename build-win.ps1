@@ -49,6 +49,32 @@ function Get-OnOffValue {
     return "OFF"
 }
 
+function Resolve-VcpkgToolchainFile {
+    param(
+        [string]$ProjectRoot
+    )
+
+    $Candidates = @()
+    if (-not [string]::IsNullOrWhiteSpace($env:VCPKG_ROOT)) {
+        $Candidates += (Join-Path $env:VCPKG_ROOT "scripts/buildsystems/vcpkg.cmake")
+    }
+
+    $ParentDir = Split-Path -Parent $ProjectRoot
+    if (-not [string]::IsNullOrWhiteSpace($ParentDir)) {
+        $Candidates += (Join-Path $ParentDir "vcpkg/scripts/buildsystems/vcpkg.cmake")
+    }
+
+    $Candidates += "C:\project\vcpkg\scripts\buildsystems\vcpkg.cmake"
+
+    foreach ($Candidate in $Candidates) {
+        if (-not [string]::IsNullOrWhiteSpace($Candidate) -and (Test-Path $Candidate)) {
+            return $Candidate
+        }
+    }
+
+    return ""
+}
+
 if ($Clean -and (Test-Path $BuildDir)) {
     Say "Removing existing $BuildDirName directory..."
     Remove-Item -Recurse -Force $BuildDir
@@ -57,6 +83,21 @@ if ($Clean -and (Test-Path $BuildDir)) {
 $ResolvedGenerator = $Generator
 if ([string]::IsNullOrWhiteSpace($ResolvedGenerator) -and $env:CMAKE_GENERATOR) {
     $ResolvedGenerator = $env:CMAKE_GENERATOR
+}
+
+$ResolvedToolchainFile = $ToolchainFile
+if ([string]::IsNullOrWhiteSpace($ResolvedToolchainFile)) {
+    $ResolvedToolchainFile = Resolve-VcpkgToolchainFile -ProjectRoot $ProjectRoot
+}
+
+$ResolvedVcpkgTriplet = $VcpkgTriplet
+if ([string]::IsNullOrWhiteSpace($ResolvedVcpkgTriplet) -and -not [string]::IsNullOrWhiteSpace($ResolvedToolchainFile)) {
+    $ResolvedVcpkgTriplet = "x64-windows"
+}
+
+$ResolvedPlatform = $Platform
+if ([string]::IsNullOrWhiteSpace($ResolvedPlatform) -and -not [string]::IsNullOrWhiteSpace($ResolvedToolchainFile)) {
+    $ResolvedPlatform = "x64"
 }
 
 $ConfigureArgs = @(
@@ -75,16 +116,16 @@ if (-not [string]::IsNullOrWhiteSpace($ResolvedGenerator)) {
     $ConfigureArgs += @("-G", $ResolvedGenerator)
 }
 
-if (-not [string]::IsNullOrWhiteSpace($Platform)) {
-    $ConfigureArgs += @("-A", $Platform)
+if (-not [string]::IsNullOrWhiteSpace($ResolvedPlatform)) {
+    $ConfigureArgs += @("-A", $ResolvedPlatform)
 }
 
-if (-not [string]::IsNullOrWhiteSpace($ToolchainFile)) {
-    $ConfigureArgs += "-DCMAKE_TOOLCHAIN_FILE=$ToolchainFile"
+if (-not [string]::IsNullOrWhiteSpace($ResolvedToolchainFile)) {
+    $ConfigureArgs += "-DCMAKE_TOOLCHAIN_FILE=$ResolvedToolchainFile"
 }
 
-if (-not [string]::IsNullOrWhiteSpace($VcpkgTriplet)) {
-    $ConfigureArgs += "-DVCPKG_TARGET_TRIPLET=$VcpkgTriplet"
+if (-not [string]::IsNullOrWhiteSpace($ResolvedVcpkgTriplet)) {
+    $ConfigureArgs += "-DVCPKG_TARGET_TRIPLET=$ResolvedVcpkgTriplet"
 }
 
 if (-not [string]::IsNullOrWhiteSpace($HakoniwaCoreRoot)) {
@@ -93,6 +134,13 @@ if (-not [string]::IsNullOrWhiteSpace($HakoniwaCoreRoot)) {
 
 if (Is-SingleConfigGenerator $ResolvedGenerator) {
     $ConfigureArgs += "-DCMAKE_BUILD_TYPE=$Configuration"
+}
+
+if (-not [string]::IsNullOrWhiteSpace($ResolvedToolchainFile)) {
+    Say "Using vcpkg toolchain: $ResolvedToolchainFile"
+    if (-not [string]::IsNullOrWhiteSpace($ResolvedVcpkgTriplet)) {
+        Say "Using vcpkg triplet: $ResolvedVcpkgTriplet"
+    }
 }
 
 Say "Configuring Windows build in $BuildDirName ($Configuration)..."
