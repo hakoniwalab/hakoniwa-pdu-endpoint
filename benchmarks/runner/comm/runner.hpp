@@ -128,10 +128,11 @@ protected:
             filename = std::string("benchmark-") + benchmark_config_.protocol + "_" + role + ".log";
         }
         const auto pdu_dir = sanitize_path_component(benchmark_config_.pdu_name);
+        const auto os_dir = current_os_log_dir();
         if (parent.empty()) {
-            return std::filesystem::path(pdu_dir) / filename;
+            return std::filesystem::path(os_dir) / pdu_dir / filename;
         }
-        return parent / pdu_dir / filename;
+        return parent / os_dir / pdu_dir / filename;
     }
 
     void open_benchmark_log(const char* role)
@@ -369,6 +370,17 @@ protected:
             }
         }
         return sanitized.empty() ? "pdu" : sanitized;
+    }
+
+    static const char* current_os_log_dir() noexcept
+    {
+#if defined(_WIN32)
+        return "win";
+#elif defined(__APPLE__)
+        return "mac";
+#else
+        return "lnx";
+#endif
     }
 };
 
