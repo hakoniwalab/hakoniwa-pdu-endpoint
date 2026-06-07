@@ -1,11 +1,14 @@
 # Hakoniwa PDU Endpoint: Performance Characteristics and Design Rationale
 
+[English](PERFORMANCE.md) | [日本語](PERFORMANCE.ja.md)
+
 ---
 
 ## What is Hakoniwa
 
-Hakoniwa is an open-source simulation hub for cyber-physical systems.
-Its role is to connect heterogeneous simulation models — flight
+Hakoniwa is an open-source simulation platform and hub for
+cyber-physical systems. Its role is to connect heterogeneous
+simulation models — flight
 controllers, sensor models, visualization tools, and external
 applications — through a shared virtual environment. Communication
 between models passes through the Hakoniwa PDU endpoint layer, which
@@ -58,7 +61,8 @@ All runs completed without loss across all platforms.
 
 - For large payloads, SHM(callback) substantially outperforms TCP on
   all tested platforms, reaching up to 11.91x end-to-end speedup and
-  16.65x publisher-send speedup on macOS.
+  16.65x publisher-send speedup on macOS under the tested 1:1
+  benchmark condition.
 - The macOS result benefits from Apple Silicon's Unified Memory
   architecture, where CPU processes share the same physical memory
   pool with low-coherency overhead. Ubuntu (WSL2) and Windows reflect
@@ -85,8 +89,9 @@ independent of payload size:
 - **Shared-memory readback copy**: the callback path reads the PDU
   back from the shared-memory slot into a receive buffer before
   invoking the user callback. This is not a zero-copy delivery.
-- **Synchronization overhead**: each receive involves atomic flag
-  checks, mutex acquisition, and PDU definition resolution.
+- **Synchronization overhead**: in the current implementation, each
+  receive involves atomic flag checks, mutex acquisition, and PDU
+  definition resolution.
 - **Benchmark accounting**: per-message timestamp capture and log
   buffering add a small but non-negligible fixed cost shared by both
   backends.
@@ -95,6 +100,10 @@ For large payloads these costs are amortized over the payload
 transfer time. For 256-byte payloads, they dominate. This is a
 structural characteristic of the current implementation, not a
 performance bug.
+
+The benchmark accounting costs apply to both backends, but the
+SHM(callback)-specific dispatch and shared-memory readback costs
+become visible when the payload is only 256 bytes.
 
 ---
 

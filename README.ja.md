@@ -6,6 +6,18 @@
 
 この日本語版は、英語版 README と対応づく章構成で要点を整理したものです。詳細な例や補足は必要に応じて英語版も参照してください。
 
+## Performance and Benchmarks
+
+TCP と SHM(callback) の使い分けを知りたい場合は、まず性能概要を参照してください。
+
+- [性能特性と設計意図](benchmarks/PERFORMANCE.ja.md)
+- [詳細 benchmark report](benchmarks/report.md)
+- [benchmark runner documentation](benchmarks/README.md)
+
+benchmark 結果は、macOS、Ubuntu/WSL2、native Windows における endpoint-level の
+TCP / SHM(callback) 挙動を比較しています。これは raw transport bandwidth ではなく、
+Hakoniwa PDU endpoint path 全体の測定です。
+
 ## What This Is Good At
 
 このプロジェクトが特に向いているのは、次を同時に満たしたい場合です。
@@ -44,6 +56,7 @@
 - JSON ベースの設定
 - `latest` / `queue` の cache 戦略
 - TCP / UDP / SHM / WebSocket / Storage / Zenoh / MQTT
+  - TCP / SHM(callback) の性能上の使い分けは [benchmarks/PERFORMANCE.ja.md](benchmarks/PERFORMANCE.ja.md) を参照してください。
 - C facade を介した Python / C# バインディング
 
 ## Requirements
