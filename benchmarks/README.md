@@ -228,6 +228,15 @@ For UDP:
 ./build/benchmarks/runner/benchmark_pub_runner benchmarks/configs/benchmark-udp.json
 ```
 
+For SHM:
+
+```bash
+./build/benchmarks/runner/benchmark_sub_runner benchmarks/configs/benchmark-shm.json
+./build/benchmarks/runner/benchmark_pub_runner benchmarks/configs/benchmark-shm.json
+```
+
+The SHM benchmark requires a build with Hakoniwa core support enabled. On native Windows, this also means the Hakoniwa Core DLLs must be available on `PATH` at runtime.
+
 The runners write benchmark logs to the files derived from `log_path`.
 
 For example, TCP writes:

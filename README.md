@@ -198,6 +198,12 @@ Recent `build-win.ps1` versions also auto-detect `vcpkg` from `VCPKG_ROOT` or a 
       -HakoniwaCoreRoot C:\project\hakoniwa-core-pro\install
     ```
 
+### Windows SHM Benchmark
+
+To use the SHM benchmark on native Windows, build with `-EnableHakoniwaCore` and point `-HakoniwaCoreRoot` to a Hakoniwa Core prefix that contains `include` and `lib`.
+
+Detailed benchmark build and run steps are documented in [benchmarks/README.md](benchmarks/README.md).
+
 Notes:
 - `build-win.ps1` defaults to `Release`. Use `-Configuration Debug` when needed.
 - Default build directory is `build-win`. Override with `-BuildDirName <name>` (for example `build-win2`).

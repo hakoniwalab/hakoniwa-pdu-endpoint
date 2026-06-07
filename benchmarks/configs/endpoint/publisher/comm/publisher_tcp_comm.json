@@ -6,5 +6,12 @@
   "remote": {
     "address": "127.0.0.1",
     "port": 54001
+  },
+  "options": {
+    "connect_timeout_ms": 5000,
+    "read_timeout_ms": 30000,
+    "write_timeout_ms": 30000,
+    "recv_buffer_size": 1048576,
+    "send_buffer_size": 1048576
   }
 }
