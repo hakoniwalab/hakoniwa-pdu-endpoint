@@ -57,7 +57,7 @@ def load_pdu_types(path: Path) -> Dict[str, Dict[str, Any]]:
     return {item["name"]: item for item in items}
 
 
-def summarize_pair(pdu_name: str, pdu_types: Dict[str, Dict[str, Any]], pub_log: Path, sub_log: Path) -> Dict[str, Any]:
+def summarize_pair(environment: str, pdu_name: str, pdu_types: Dict[str, Dict[str, Any]], pub_log: Path, sub_log: Path) -> Dict[str, Any]:
     pub = read_summary(pub_log, "BENCH_PUB_SUMMARY")
     sub = read_summary(sub_log, "BENCH_SUB_SUMMARY")
     if pub["protocol"] != sub["protocol"]:
@@ -84,6 +84,7 @@ def summarize_pair(pdu_name: str, pdu_types: Dict[str, Dict[str, Any]], pub_log:
     end_to_end_throughput_mbps = (total_bytes / 1_000_000.0) / (end_to_end_ms / 1000.0) if end_to_end_ms > 0 else 0.0
 
     return {
+        "environment": environment,
         "pdu_name": pdu_name,
         "protocol": pub["protocol"],
         "pdu_size": pdu_size,
@@ -108,20 +109,36 @@ def summarize_pair(pdu_name: str, pdu_types: Dict[str, Dict[str, Any]], pub_log:
 
 def discover_results(logs_dir: Path, pdu_types: Dict[str, Dict[str, Any]]) -> list[Dict[str, Any]]:
     rows: list[Dict[str, Any]] = []
-    for pdu_dir in sorted(path for path in logs_dir.iterdir() if path.is_dir()):
-        pdu_name = pdu_dir.name
-        for pub_log in sorted(pdu_dir.glob("benchmark-*_pub.log")):
-            protocol = pub_log.name.removeprefix("benchmark-").removesuffix("_pub.log")
-            sub_log = pdu_dir / f"benchmark-{protocol}_sub.log"
-            if not sub_log.exists():
-                continue
-            rows.append(summarize_pair(pdu_name, pdu_types, pub_log, sub_log))
+    child_dirs = sorted(path for path in logs_dir.iterdir() if path.is_dir())
+    nested_layout = any((path / "disturb").is_dir() or (path / "hako_camera_data").is_dir() or (path / "lidar_points").is_dir() for path in child_dirs)
+
+    if nested_layout:
+        for env_dir in child_dirs:
+            environment = env_dir.name
+            for pdu_dir in sorted(path for path in env_dir.iterdir() if path.is_dir()):
+                pdu_name = pdu_dir.name
+                for pub_log in sorted(pdu_dir.glob("benchmark-*_pub.log")):
+                    protocol = pub_log.name.removeprefix("benchmark-").removesuffix("_pub.log")
+                    sub_log = pdu_dir / f"benchmark-{protocol}_sub.log"
+                    if not sub_log.exists():
+                        continue
+                    rows.append(summarize_pair(environment, pdu_name, pdu_types, pub_log, sub_log))
+    else:
+        for pdu_dir in child_dirs:
+            pdu_name = pdu_dir.name
+            for pub_log in sorted(pdu_dir.glob("benchmark-*_pub.log")):
+                protocol = pub_log.name.removeprefix("benchmark-").removesuffix("_pub.log")
+                sub_log = pdu_dir / f"benchmark-{protocol}_sub.log"
+                if not sub_log.exists():
+                    continue
+                rows.append(summarize_pair("default", pdu_name, pdu_types, pub_log, sub_log))
     return rows
 
 
 def write_csv(path: Path, rows: list[Dict[str, Any]]) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     fieldnames = [
+        "environment",
         "pdu_name",
         "protocol",
         "pdu_size",

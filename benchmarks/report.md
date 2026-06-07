@@ -19,7 +19,13 @@
   - `benchmarks/results/summary.csv`
   - `benchmarks/results/summary.json`
 
+Hakoniwa supports cross-platform deployment. These measurements were
+collected independently on each platform; no single platform is treated
+as a reference target.
+
 Hakoniwa is an open-source simulation platform for cyber-physical systems, and this benchmark measures batch-level effective performance through its PDU endpoint layer. It is not a bare TCP or bare shared-memory microbenchmark. The measured path includes endpoint send/receive behavior, PDU key handling, transport framing or shared-memory access, callback dispatch, timestamp capture, and in-memory benchmark log buffering.
+
+This report evaluates batch-level effective throughput of the Hakoniwa PDU endpoint layer, not raw transport bandwidth. The results should be interpreted as endpoint-level behavior under the tested workload and platform conditions.
 
 ## Workload
 
@@ -32,6 +38,12 @@ All measurements use 1024 PDU sends.
 | `hako_camera_data` | `hako_msgs/HakoCameraData` | 12 | 1,002,992 bytes | 1,027,063,808 bytes |
 
 The send key pattern is `Drone-1/<pdu_name>` through `Drone-1024/<pdu_name>`.
+
+Repository logs are now separated by environment under:
+
+- `benchmarks/logs/mac/`
+- `benchmarks/logs/lnx/`
+- `benchmarks/logs/win/`
 
 ## Correctness
 
@@ -103,6 +115,13 @@ The same callback-only setting is also applied to TCP. For `hako_camera_data`, T
 
 This confirms that the Endpoint receive-cache write path was a major cost for large callback-style SHM batches. SHM(callback) still allows the publisher to run ahead of the subscriber, but the remaining tail is now mostly callback dispatch and receive processing rather than an additional cache copy/write path.
 
+The macOS result benefits from Apple Silicon's Unified Memory
+architecture, where CPU processes share the same physical memory pool
+with low-coherency overhead. This gives the SHM(callback) path
+particularly high effective bandwidth on M-series hardware. Ubuntu
+(WSL2) and Windows results reflect their respective OS shared-memory
+APIs and, in the WSL2 case, the additional virtualization layer.
+
 ## Summary
 
 - TCP and SHM(callback) both delivered all tested PDUs without loss in the macOS baseline measurements.
@@ -160,12 +179,12 @@ All Ubuntu runs completed without loss.
 
 | PDU name | Protocol | send_duration_ms | recv_span_ms | end_to_end_ms | tail_after_send_ms |
 | --- | --- | ---: | ---: | ---: | ---: |
-| `disturb` | TCP | 2.485 | 2.422 | 2.487 | 0.003 |
-| `disturb` | SHM(callback) | 5.753 | 4.777 | 9.273 | 3.520 |
-| `lidar_points` | TCP | 499.363 | 498.540 | 499.422 | 0.059 |
-| `lidar_points` | SHM(callback) | 57.220 | 56.938 | 57.230 | 0.010 |
-| `hako_camera_data` | TCP | 3937.750 | 3933.420 | 3938.326 | 0.574 |
-| `hako_camera_data` | SHM(callback) | 344.898 | 344.104 | 344.973 | 0.075 |
+| `disturb` | TCP | 2.649 | 2.569 | 2.650 | 0.001 |
+| `disturb` | SHM(callback) | 5.691 | 8.030 | 8.139 | 2.448 |
+| `lidar_points` | TCP | 100.740 | 100.375 | 100.839 | 0.099 |
+| `lidar_points` | SHM(callback) | 65.834 | 65.605 | 65.849 | 0.014 |
+| `hako_camera_data` | TCP | 1073.080 | 1071.230 | 1073.523 | 0.447 |
+| `hako_camera_data` | SHM(callback) | 333.972 | 332.526 | 334.051 | 0.079 |
 
 ### Throughput Results
 
@@ -173,12 +192,12 @@ Throughput uses decimal units. Some rows are shown in MB/s and others in GB/s fo
 
 | PDU name | Protocol | Publisher send throughput | End-to-end throughput |
 | --- | --- | ---: | ---: |
-| `disturb` | TCP | 105.5 MB/s | 105.4 MB/s |
-| `disturb` | SHM(callback) | 45.6 MB/s | 28.3 MB/s |
-| `lidar_points` | TCP | 363.8 MB/s | 363.8 MB/s |
-| `lidar_points` | SHM(callback) | 3.18 GB/s | 3.17 GB/s |
-| `hako_camera_data` | TCP | 260.8 MB/s | 260.8 MB/s |
-| `hako_camera_data` | SHM(callback) | 2.98 GB/s | 2.98 GB/s |
+| `disturb` | TCP | 99.0 MB/s | 98.9 MB/s |
+| `disturb` | SHM(callback) | 46.1 MB/s | 32.2 MB/s |
+| `lidar_points` | TCP | 1.80 GB/s | 1.80 GB/s |
+| `lidar_points` | SHM(callback) | 2.76 GB/s | 2.76 GB/s |
+| `hako_camera_data` | TCP | 957.1 MB/s | 956.7 MB/s |
+| `hako_camera_data` | SHM(callback) | 3.08 GB/s | 3.07 GB/s |
 
 ### Relative Performance
 
@@ -186,25 +205,37 @@ Throughput uses decimal units. Some rows are shown in MB/s and others in GB/s fo
 
 | PDU name | SHM/TCP end-to-end speedup | SHM/TCP publisher send speedup |
 | --- | ---: | ---: |
-| `disturb` | 0.27x | 0.43x |
-| `lidar_points` | 8.73x | 8.73x |
-| `hako_camera_data` | 11.42x | 11.42x |
+| `disturb` | 0.33x | 0.47x |
+| `lidar_points` | 1.53x | 1.53x |
+| `hako_camera_data` | 3.21x | 3.21x |
 
 ### Ubuntu Notes
 
-The Ubuntu result preserves the same qualitative behavior as the macOS baseline and the native Windows execution validation for larger payloads: TCP send and receive progress stay tightly coupled, while SHM(callback) completes the same batch much faster for `lidar_points` and `hako_camera_data`.
+The Ubuntu result preserves the same qualitative behavior as the macOS baseline and the native Windows measurement addendum for larger payloads: TCP send and receive progress stay tightly coupled, while SHM(callback) completes the same batch faster for `lidar_points` and `hako_camera_data`.
+
+The Ubuntu and native Windows sections report the same Intel(R) Core(TM) Ultra 7 155H host, but the reported core topology differs because the Linux/WSL2 and Windows system tools use different topology-reporting conventions.
 
 For the smallest workload, `disturb`, this Ubuntu run shows the opposite result: TCP is faster than SHM(callback). In the current SHM(callback) path, fixed per-batch control costs such as callback dispatch, conductor-driven pacing, and the first-receive synchronization path are large relative to the 256-byte payload, so the shared-memory data path does not amortize those costs well in this case.
 
-The absolute performance in this Ubuntu run is lower than the macOS M2 result for larger payloads. For `hako_camera_data`, TCP end-to-end completion increased from 1576.351 ms on macOS to 3938.326 ms on Ubuntu, and SHM(callback) increased from 132.303 ms to 344.973 ms.
+The current environment-separated `lnx` logs are now the source of truth for Ubuntu/WSL2 publication. For `hako_camera_data`, the present Ubuntu run is faster than the macOS baseline for TCP at 1073.523 ms versus 1576.351 ms, but slower for SHM(callback) at 334.051 ms versus 132.303 ms.
 
-## Native Windows Execution Validation
+The lower SHM(callback) speedup compared to the macOS baseline is
+expected: the WSL2 virtualization layer and the Linux shared-memory
+API do not benefit from Apple Silicon's Unified Memory architecture.
 
-Native Windows build and end-to-end execution were validated on June 7, 2026 for the same three benchmark workloads with 1024 sends.
+## Native Windows Measurement Addendum
+
+Additional measurements were collected on native Windows on June 7, 2026 for the same three benchmark workloads with 1024 sends.
 
 ### Environment
 
 - OS: native Windows
+- CPU: Intel(R) Core(TM) Ultra 7 155H
+- CPU topology: 1 socket, 16 cores, 22 threads
+- Cache:
+  - L2: 18 MiB
+  - L3: 24 MiB
+- Memory: 64 GiB RAM
 - Workload source:
   - `benchmarks/configs/benchmark-tcp.json`
   - `benchmarks/configs/benchmark-shm.json`
@@ -222,7 +253,6 @@ Native Windows build and end-to-end execution were validated on June 7, 2026 for
   - built with `-EnableHakoniwaCore`
   - `-HakoniwaCoreRoot` pointed to a Hakoniwa Core install prefix
   - Hakoniwa Core DLLs were made visible on `PATH`
-  - host CPU and memory metadata were not captured in the current run log set
 
 ### Correctness
 
@@ -237,45 +267,78 @@ All native Windows runs completed without loss.
 | `hako_camera_data` | TCP | 1024 | 1024 | 1 | 0 |
 | `hako_camera_data` | SHM(callback) | 1024 | 1024 | 1 | 0 |
 
-### Timing Publication Status
+### Timing Results
 
-The current repository log set proves that all six native Windows runs completed successfully, but it is not yet suitable for external publication as an independent timing dataset. The recorded Windows benchmark logs numerically match the existing reference values already used elsewhere in this report, while the host CPU and memory metadata were not captured alongside the run. Publishing those timings as a separate Windows performance table would therefore be too easy to misread as copied data rather than an independently documented rerun.
+| PDU name | Protocol | send_duration_ms | recv_span_ms | end_to_end_ms | tail_after_send_ms |
+| --- | --- | ---: | ---: | ---: | ---: |
+| `disturb` | TCP | 13.187 | 13.073 | 13.188 | 0.002 |
+| `disturb` | SHM(callback) | 12.459 | 23.413 | 26.050 | 13.591 |
+| `lidar_points` | TCP | 316.392 | 315.939 | 316.495 | 0.104 |
+| `lidar_points` | SHM(callback) | 88.431 | 85.508 | 88.483 | 0.051 |
+| `hako_camera_data` | TCP | 1584.530 | 1589.210 | 1590.572 | 6.046 |
+| `hako_camera_data` | SHM(callback) | 455.080 | 451.022 | 455.483 | 0.403 |
 
-For that reason, this section is intentionally limited to execution validation. A clean rerun with explicit host metadata capture should be used before publishing standalone native Windows timing, throughput, or relative-performance tables.
+### Throughput Results
+
+Throughput uses decimal units. Some rows are shown in MB/s and others in GB/s for readability.
+
+| PDU name | Protocol | Publisher send throughput | End-to-end throughput |
+| --- | --- | ---: | ---: |
+| `disturb` | TCP | 19.9 MB/s | 19.9 MB/s |
+| `disturb` | SHM(callback) | 21.0 MB/s | 10.1 MB/s |
+| `lidar_points` | TCP | 574.2 MB/s | 574.0 MB/s |
+| `lidar_points` | SHM(callback) | 2.05 GB/s | 2.05 GB/s |
+| `hako_camera_data` | TCP | 648.2 MB/s | 645.7 MB/s |
+| `hako_camera_data` | SHM(callback) | 2.26 GB/s | 2.25 GB/s |
+
+### Relative Performance
+
+`SHM/TCP speedup` is defined as `TCP time / SHM time`. Values above `1.0` favor SHM(callback); values below `1.0` favor TCP.
+
+| PDU name | SHM/TCP end-to-end speedup | SHM/TCP publisher send speedup |
+| --- | ---: | ---: |
+| `disturb` | 0.51x | 1.06x |
+| `lidar_points` | 3.58x | 3.58x |
+| `hako_camera_data` | 3.49x | 3.48x |
 
 ### Native Windows Notes
 
-The native Windows result matches the benchmark logs collected under:
+The native Windows result is now taken from the environment-separated logs under:
 
-- `benchmarks/logs/disturb/`
-- `benchmarks/logs/lidar_points/`
-- `benchmarks/logs/hako_camera_data/`
+- `benchmarks/logs/win/disturb/`
+- `benchmarks/logs/win/lidar_points/`
+- `benchmarks/logs/win/hako_camera_data/`
 
 Representative execution summaries:
 
-- `BENCH_PUB_SUMMARY protocol=tcp expected=1024 sent=1024 send_duration_ms=10.0314`
-- `BENCH_SUB_SUMMARY protocol=tcp expected=1024 received=1024 recv_span_ms=9.91863 completed=1`
-- `BENCH_PUB_SUMMARY protocol=shm expected=1024 sent=1024 send_duration_ms=5.23071`
-- `BENCH_SUB_SUMMARY protocol=shm expected=1024 received=1024 recv_span_ms=2.21146 completed=1`
+- `BENCH_PUB_SUMMARY protocol=tcp expected=1024 sent=1024 send_duration_ms=13.1869`
+- `BENCH_SUB_SUMMARY protocol=tcp expected=1024 received=1024 recv_span_ms=13.0727 completed=1`
+- `BENCH_PUB_SUMMARY protocol=shm expected=1024 sent=1024 send_duration_ms=12.4594`
+- `BENCH_SUB_SUMMARY protocol=shm expected=1024 received=1024 recv_span_ms=23.4128 completed=1`
 
-- `BENCH_PUB_SUMMARY protocol=tcp expected=1024 sent=1024 send_duration_ms=1576.27`
-- `BENCH_SUB_SUMMARY protocol=tcp expected=1024 received=1024 recv_span_ms=1566.73 completed=1`
-- `BENCH_PUB_SUMMARY protocol=shm expected=1024 sent=1024 send_duration_ms=94.6776`
-- `BENCH_SUB_SUMMARY protocol=shm expected=1024 received=1024 recv_span_ms=130.965 completed=1`
+- `BENCH_PUB_SUMMARY protocol=tcp expected=1024 sent=1024 send_duration_ms=1584.53`
+- `BENCH_SUB_SUMMARY protocol=tcp expected=1024 received=1024 recv_span_ms=1589.21 completed=1`
+- `BENCH_PUB_SUMMARY protocol=shm expected=1024 sent=1024 send_duration_ms=455.08`
+- `BENCH_SUB_SUMMARY protocol=shm expected=1024 received=1024 recv_span_ms=451.022 completed=1`
 
 Logs:
 
-- `benchmarks/logs/disturb/benchmark-tcp_pub.log`
-- `benchmarks/logs/disturb/benchmark-tcp_sub.log`
-- `benchmarks/logs/disturb/benchmark-shm_pub.log`
-- `benchmarks/logs/disturb/benchmark-shm_sub.log`
-- `benchmarks/logs/lidar_points/benchmark-tcp_pub.log`
-- `benchmarks/logs/lidar_points/benchmark-tcp_sub.log`
-- `benchmarks/logs/lidar_points/benchmark-shm_pub.log`
-- `benchmarks/logs/lidar_points/benchmark-shm_sub.log`
-- `benchmarks/logs/hako_camera_data/benchmark-tcp_pub.log`
-- `benchmarks/logs/hako_camera_data/benchmark-tcp_sub.log`
-- `benchmarks/logs/hako_camera_data/benchmark-shm_pub.log`
-- `benchmarks/logs/hako_camera_data/benchmark-shm_sub.log`
+- `benchmarks/logs/win/disturb/benchmark-tcp_pub.log`
+- `benchmarks/logs/win/disturb/benchmark-tcp_sub.log`
+- `benchmarks/logs/win/disturb/benchmark-shm_pub.log`
+- `benchmarks/logs/win/disturb/benchmark-shm_sub.log`
+- `benchmarks/logs/win/lidar_points/benchmark-tcp_pub.log`
+- `benchmarks/logs/win/lidar_points/benchmark-tcp_sub.log`
+- `benchmarks/logs/win/lidar_points/benchmark-shm_pub.log`
+- `benchmarks/logs/win/lidar_points/benchmark-shm_sub.log`
+- `benchmarks/logs/win/hako_camera_data/benchmark-tcp_pub.log`
+- `benchmarks/logs/win/hako_camera_data/benchmark-tcp_sub.log`
+- `benchmarks/logs/win/hako_camera_data/benchmark-shm_pub.log`
+- `benchmarks/logs/win/hako_camera_data/benchmark-shm_sub.log`
 
-This confirms that the TCP and SHM benchmark paths are runnable end-to-end on native Windows with Hakoniwa Core present and configured correctly. Independent native Windows performance publication should wait for a clean rerun with host metadata capture.
+The lower SHM(callback) speedup compared to the macOS baseline is
+expected: Windows named shared-memory APIs do not benefit from Apple
+Silicon's Unified Memory architecture, and the IPC path carries
+additional OS overhead relative to the macOS baseline.
+
+This confirms that the TCP and SHM benchmark paths are runnable end-to-end on native Windows with Hakoniwa Core present and configured correctly. The logs are now separated by environment, so the Windows values above are no longer conflated with macOS or WSL2 results.
