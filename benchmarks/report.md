@@ -2,8 +2,18 @@
 
 ## Measurement Environment
 
-- OS: macOS on Apple Silicon M2
-- Memory: 32 GB
+- OS: macOS 26.5.1, build 25F80, as reported by `sw_vers`
+- Machine: MacBook Pro, Mac14,9
+- Chip: Apple M2 Pro
+- CPU topology: 1 SoC, 12 cores, 12 threads
+  - 8 performance cores
+  - 4 efficiency cores
+- Cache, as reported by macOS `sysctl` on this host:
+  - L1i: 128 KiB
+  - L1d: 64 KiB
+  - L2: 4 MiB
+  - L3: not reported by macOS `sysctl`
+- Memory: 32 GB unified memory
 - Benchmark target:
   - TCP
   - SHM(callback)

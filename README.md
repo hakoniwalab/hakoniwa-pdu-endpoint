@@ -9,6 +9,19 @@ For visual summaries, see `docs/diagrams/README.md`.
 This component targets teams building multi-asset simulations that require explicit semantics and auditability; it is intentionally heavier than a minimal messaging library. If you want a simple API with implicit defaults, this is not the right tool.
 For a consolidated statement of intent, see `docs/design_philosophy.md`.
 
+## Performance and Benchmarks
+
+If you are choosing between TCP and SHM(callback), start with the performance
+overview:
+
+- [Performance characteristics and design rationale](benchmarks/PERFORMANCE.md)
+- [Detailed benchmark report](benchmarks/report.md)
+- [Benchmark runner documentation](benchmarks/README.md)
+
+The benchmark results compare endpoint-level TCP and SHM(callback) behavior
+across macOS, Ubuntu/WSL2, and native Windows. They measure the full Hakoniwa
+PDU endpoint path, not raw transport bandwidth.
+
 ## What This Is Good At
 
 This project is strongest when you need all of the following at once:
@@ -69,7 +82,7 @@ This design is intentionally biased toward large, multi-asset simulations: it fa
 -   **Multiple Communication Protocols**:
     -   **TCP**: Client and Server roles for reliable, stream-based communication.
     -   **UDP**: Unicast, Broadcast, and Multicast for connectionless communication.
-    -   **Shared Memory (SHM)**: Event-driven communication for high-performance, local IPC with Hakoniwa assets.
+    -   **Shared Memory (SHM)**: Event-driven communication for high-performance, local IPC with Hakoniwa assets. See [benchmarks/PERFORMANCE.md](benchmarks/PERFORMANCE.md) for TCP/SHM(callback) trade-offs.
     -   **WebSocket**: Client and Server roles for stream-based communication over WebSocket.
     -   **Storage (File)**: Persistent communication backend for audit/replay use cases.
         - `mode: queue` stores every send as an append-only framed log and is consumed primarily with `recv_next(...)`.

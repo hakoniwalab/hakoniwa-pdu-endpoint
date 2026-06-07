@@ -1,0 +1,69 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="960" height="430" viewBox="0 0 960 430" role="img" aria-labelledby="title desc">
+  <title id="title">SHM(callback) end-to-end speedup over TCP</title>
+  <desc id="desc">Grouped horizontal bar chart comparing SHM over TCP end-to-end speedup for disturb, lidar_points, and hako_camera_data on macOS, Ubuntu WSL2, and Windows.</desc>
+  <style>
+    text { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; fill: #20242a; }
+    .title { font-size: 22px; font-weight: 700; }
+    .subtitle { font-size: 13px; fill: #56606b; }
+    .axis { stroke: #9aa4ad; stroke-width: 1; }
+    .grid { stroke: #d7dde3; stroke-width: 1; }
+    .baseline { stroke: #20242a; stroke-width: 2; stroke-dasharray: 5 4; }
+    .label { font-size: 13px; }
+    .small { font-size: 12px; fill: #56606b; }
+    .value { font-size: 12px; font-weight: 600; }
+  </style>
+
+  <rect width="960" height="430" fill="#ffffff"/>
+  <text x="36" y="38" class="title">SHM(callback) end-to-end speedup over TCP</text>
+  <text x="36" y="60" class="subtitle">Values above 1.0x favor SHM(callback). The benchmark is a 1:1 publisher/subscriber measurement.</text>
+
+  <g transform="translate(190,92)">
+    <line x1="0" y1="270" x2="600" y2="270" class="axis"/>
+    <line x1="0" y1="0" x2="0" y2="270" class="grid"/>
+    <line x1="50" y1="0" x2="50" y2="270" class="baseline"/>
+    <line x1="150" y1="0" x2="150" y2="270" class="grid"/>
+    <line x1="300" y1="0" x2="300" y2="270" class="grid"/>
+    <line x1="450" y1="0" x2="450" y2="270" class="grid"/>
+    <line x1="600" y1="0" x2="600" y2="270" class="grid"/>
+
+    <text x="0" y="292" class="small" text-anchor="middle">0x</text>
+    <text x="50" y="292" class="small" text-anchor="middle">1x</text>
+    <text x="150" y="292" class="small" text-anchor="middle">3x</text>
+    <text x="300" y="292" class="small" text-anchor="middle">6x</text>
+    <text x="450" y="292" class="small" text-anchor="middle">9x</text>
+    <text x="600" y="292" class="small" text-anchor="middle">12x</text>
+
+    <text x="-172" y="31" class="label" font-weight="700">disturb</text>
+    <rect x="0" y="9" width="82" height="16" rx="3" fill="#2878b5"/>
+    <rect x="0" y="31" width="16.5" height="16" rx="3" fill="#d68128"/>
+    <rect x="0" y="53" width="25.5" height="16" rx="3" fill="#4b9b5f"/>
+    <text x="90" y="22" class="value">1.64x</text>
+    <text x="24.5" y="44" class="value">0.33x</text>
+    <text x="33.5" y="66" class="value">0.51x</text>
+
+    <text x="-172" y="121" class="label" font-weight="700">lidar_points</text>
+    <rect x="0" y="99" width="513" height="16" rx="3" fill="#2878b5"/>
+    <rect x="0" y="121" width="76.5" height="16" rx="3" fill="#d68128"/>
+    <rect x="0" y="143" width="179" height="16" rx="3" fill="#4b9b5f"/>
+    <text x="521" y="112" class="value">10.26x</text>
+    <text x="84.5" y="134" class="value">1.53x</text>
+    <text x="187" y="156" class="value">3.58x</text>
+
+    <text x="-172" y="211" class="label" font-weight="700">hako_camera_data</text>
+    <rect x="0" y="189" width="595.5" height="16" rx="3" fill="#2878b5"/>
+    <rect x="0" y="211" width="160.5" height="16" rx="3" fill="#d68128"/>
+    <rect x="0" y="233" width="174.5" height="16" rx="3" fill="#4b9b5f"/>
+    <text x="603.5" y="202" class="value">11.91x</text>
+    <text x="168.5" y="224" class="value">3.21x</text>
+    <text x="182.5" y="246" class="value">3.49x</text>
+  </g>
+
+  <g transform="translate(36,386)">
+    <rect x="0" y="-10" width="14" height="14" rx="2" fill="#2878b5"/>
+    <text x="22" y="2" class="small">macOS (M2 Pro)</text>
+    <rect x="152" y="-10" width="14" height="14" rx="2" fill="#d68128"/>
+    <text x="174" y="2" class="small">Ubuntu (WSL2)</text>
+    <rect x="292" y="-10" width="14" height="14" rx="2" fill="#4b9b5f"/>
+    <text x="314" y="2" class="small">Windows</text>
+  </g>
+</svg>
