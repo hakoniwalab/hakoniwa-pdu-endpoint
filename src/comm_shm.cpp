@@ -238,12 +238,13 @@ HakoPduErrorType PduCommShm::post_start() noexcept {
                 running_.store(false);
                 return HAKO_PDU_ERR_INVALID_CONFIG;
             }
-            event_id_to_key_map_[event_id] = key;
+            {
+                std::lock_guard<std::mutex> lock(event_map_mutex_);
+                event_id_to_key_map_[event_id] = key;
+                event_id_to_instance_map_[event_id] = this;
+            }
             registered_event_ids_.push_back(event_id);
             newly_registered_ids.push_back(event_id);
-
-            std::lock_guard<std::mutex> lock(event_map_mutex_);
-            event_id_to_instance_map_[event_id] = this;
         }
     }
     return HAKO_PDU_ERR_OK;
