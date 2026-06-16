@@ -31,10 +31,19 @@ public sealed class Endpoint : IDisposable
         }
     }
 
-    public void Open(string configPath)
+    public void Open(string configPath, string? assetName = null)
     {
         ThrowIfDisposed();
-        Check(NativeMethods.hako_pdu_endpoint_open(_handle, configPath), "open");
+        if (assetName is null)
+        {
+            Check(NativeMethods.hako_pdu_endpoint_open(_handle, configPath), "open");
+            return;
+        }
+        if (assetName.Length == 0)
+        {
+            throw new ArgumentException("assetName must not be empty.", nameof(assetName));
+        }
+        Check(NativeMethods.hako_pdu_endpoint_open_with_asset(_handle, configPath, assetName), "open_with_asset");
     }
 
     public void CreatePduLchannels(string configPath)

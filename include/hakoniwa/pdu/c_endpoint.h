@@ -55,6 +55,11 @@ HakoPduErrorType hako_pdu_endpoint_open(
     hako_pdu_endpoint_handle_t* endpoint,
     const char* config_path);
 
+HakoPduErrorType hako_pdu_endpoint_open_with_asset(
+    hako_pdu_endpoint_handle_t* endpoint,
+    const char* config_path,
+    const char* asset_name);
+
 HakoPduErrorType hako_pdu_endpoint_create_pdu_lchannels(
     hako_pdu_endpoint_handle_t* endpoint,
     const char* config_path);

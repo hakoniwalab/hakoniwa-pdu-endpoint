@@ -11,7 +11,9 @@ namespace comm {
 namespace {
 HakoPduErrorType init_impl_from_config(const nlohmann::json& shm_config,
     const std::shared_ptr<PduDefinition>& pdu_def,
-    std::unique_ptr<PduCommShmImp>& impl)
+    std::unique_ptr<PduCommShmImp>& impl,
+    const std::optional<std::string>& io_asset_name,
+    const std::optional<std::string>& pdu_config_path)
 {
     if (impl) {
         return HAKO_PDU_ERR_OK;
@@ -30,7 +32,7 @@ HakoPduErrorType init_impl_from_config(const nlohmann::json& shm_config,
     std::cout << "DEBUG: PduCommShm impl_type=" << impl_type << std::endl;
     #endif
     if (impl_type == "callback") {
-        impl = std::make_unique<PduCommShmCallbackImpl>(pdu_def);
+        impl = std::make_unique<PduCommShmCallbackImpl>(pdu_def, io_asset_name, pdu_config_path);
         return HAKO_PDU_ERR_OK;
     }
     if (impl_type == "poll") {
@@ -111,7 +113,7 @@ HakoPduErrorType PduCommShm::create_pdu_lchannels(const std::string& config_path
             std::cerr << "PduCommShm Error: protocol is not 'shm'." << std::endl;
             return HAKO_PDU_ERR_INVALID_CONFIG;
         }
-        HakoPduErrorType init_err = init_impl_from_config(shm_config, pdu_def_, impl_);
+        HakoPduErrorType init_err = init_impl_from_config(shm_config, pdu_def_, impl_, io_asset_name_, pdu_config_path_);
         if (init_err != HAKO_PDU_ERR_OK) {
             return init_err;
         }
@@ -162,7 +164,7 @@ HakoPduErrorType PduCommShm::open(const std::string& config_path) {
             std::cerr << "PduCommShm Error: protocol is not 'shm'." << std::endl;
             return HAKO_PDU_ERR_INVALID_CONFIG;
         }
-        HakoPduErrorType init_err = init_impl_from_config(shm_config, pdu_def_, impl_);
+        HakoPduErrorType init_err = init_impl_from_config(shm_config, pdu_def_, impl_, io_asset_name_, pdu_config_path_);
         if (init_err != HAKO_PDU_ERR_OK) {
             return init_err;
         }
@@ -243,6 +245,25 @@ HakoPduErrorType PduCommShm::post_start() noexcept {
             std::lock_guard<std::mutex> lock(event_map_mutex_);
             event_id_to_instance_map_[event_id] = this;
         }
+    }
+    return HAKO_PDU_ERR_OK;
+}
+
+HakoPduErrorType PduCommShm::attach_asset_context(const char* asset_name, const char* pdu_config_path) noexcept
+{
+    if (asset_name != nullptr && asset_name[0] != '\0') {
+        io_asset_name_ = std::string(asset_name);
+        if (pdu_config_path == nullptr || pdu_config_path[0] == '\0') {
+            std::cerr << "PduCommShm Error: pdu_config_path is required for asset-context SHM callback access." << std::endl;
+            return HAKO_PDU_ERR_INVALID_CONFIG;
+        }
+        pdu_config_path_ = std::string(pdu_config_path);
+    } else {
+        io_asset_name_.reset();
+        pdu_config_path_.reset();
+    }
+    if (impl_) {
+        return impl_->attach_asset_context(io_asset_name_, pdu_config_path_);
     }
     return HAKO_PDU_ERR_OK;
 }

@@ -3,6 +3,8 @@
 #include "hakoniwa/pdu/endpoint_types.hpp"
 #include <atomic>
 #include <mutex>
+#include <optional>
+#include <string>
 #include <vector>
 
 namespace hakoniwa {
@@ -17,6 +19,14 @@ public:
     virtual HakoPduErrorType send(const PduResolvedKey& pdu_key, std::span<const std::byte> data) noexcept = 0;
     virtual HakoPduErrorType recv(const PduResolvedKey& pdu_key, std::span<std::byte> data, size_t& received_size) noexcept = 0;
     virtual HakoPduErrorType register_rcv_event(const PduResolvedKey& pdu_key, void (*on_recv)(int), int& out_event_id) noexcept = 0;
+    virtual HakoPduErrorType attach_asset_context(
+        const std::optional<std::string>& io_asset_name,
+        const std::optional<std::string>& pdu_config_path) noexcept
+    {
+        (void)io_asset_name;
+        (void)pdu_config_path;
+        return HAKO_PDU_ERR_OK;
+    }
     virtual void process_recv_events() noexcept = 0;
 };
 
@@ -46,16 +56,26 @@ private:
 
 class PduCommShmCallbackImpl : public PduCommShmImp {
 public:
-    PduCommShmCallbackImpl(std::shared_ptr<PduDefinition> pdu_def);
+    PduCommShmCallbackImpl(std::shared_ptr<PduDefinition> pdu_def,
+        std::optional<std::string> io_asset_name,
+        std::optional<std::string> pdu_config_path);
     virtual ~PduCommShmCallbackImpl();
 
     virtual HakoPduErrorType create_pdu_lchannel(const std::string& robot_name, HakoPduChannelIdType channel_id, size_t pdu_size) noexcept override;
     virtual HakoPduErrorType send(const PduResolvedKey& pdu_key, std::span<const std::byte> data) noexcept override;
     virtual HakoPduErrorType recv(const PduResolvedKey& pdu_key, std::span<std::byte> data, size_t& received_size) noexcept override;
     virtual HakoPduErrorType register_rcv_event(const PduResolvedKey& pdu_key, void (*on_recv)(int), int& out_event_id) noexcept override;
+    virtual HakoPduErrorType attach_asset_context(
+        const std::optional<std::string>& io_asset_name,
+        const std::optional<std::string>& pdu_config_path) noexcept override;
     virtual void process_recv_events() noexcept override;
 private:
+    HakoPduErrorType ensure_attached() noexcept;
+
     std::shared_ptr<PduDefinition> pdu_def_;
+    std::optional<std::string> io_asset_name_;
+    std::optional<std::string> pdu_config_path_;
+    bool attached_ = false;
 };
 
 } // namespace comm

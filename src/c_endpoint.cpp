@@ -194,6 +194,19 @@ HakoPduErrorType hako_pdu_endpoint_open(
     return impl->open(config_path);
 }
 
+HakoPduErrorType hako_pdu_endpoint_open_with_asset(
+    hako_pdu_endpoint_handle_t* endpoint,
+    const char* config_path,
+    const char* asset_name)
+{
+    auto* impl = unwrap(endpoint);
+    if (impl == nullptr || config_path == nullptr || config_path[0] == '\0'
+        || asset_name == nullptr || asset_name[0] == '\0') {
+        return HAKO_PDU_ERR_INVALID_ARGUMENT;
+    }
+    return impl->open(config_path, asset_name);
+}
+
 HakoPduErrorType hako_pdu_endpoint_create_pdu_lchannels(
     hako_pdu_endpoint_handle_t* endpoint,
     const char* config_path)

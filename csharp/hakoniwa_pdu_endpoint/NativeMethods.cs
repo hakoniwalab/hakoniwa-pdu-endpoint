@@ -58,6 +58,12 @@ internal static class NativeMethods
     internal static extern HakoPduError hako_pdu_endpoint_open(SafeEndpointHandle endpoint, string configPath);
 
     [DllImport(NativeLibraryName, CallingConvention = CallingConvention.Cdecl, CharSet = CharSet.Ansi)]
+    internal static extern HakoPduError hako_pdu_endpoint_open_with_asset(
+        SafeEndpointHandle endpoint,
+        string configPath,
+        string assetName);
+
+    [DllImport(NativeLibraryName, CallingConvention = CallingConvention.Cdecl, CharSet = CharSet.Ansi)]
     internal static extern HakoPduError hako_pdu_endpoint_create_pdu_lchannels(SafeEndpointHandle endpoint, string configPath);
 
     [DllImport(NativeLibraryName, CallingConvention = CallingConvention.Cdecl)]

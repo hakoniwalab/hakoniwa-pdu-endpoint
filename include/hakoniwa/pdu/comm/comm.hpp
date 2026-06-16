@@ -85,6 +85,14 @@ public:
     
     // Set PDU definition and store it in the protected member
     virtual void set_pdu_definition(std::shared_ptr<PduDefinition> pdu_def) { pdu_def_ = pdu_def; }
+    // Optional asset-context binding for comms that need Hakoniwa asset-side PDU I/O.
+    // asset_name == nullptr means external PDU access.
+    virtual HakoPduErrorType attach_asset_context(const char* asset_name, const char* pdu_config_path) noexcept
+    {
+        (void)asset_name;
+        (void)pdu_config_path;
+        return HAKO_PDU_ERR_OK;
+    }
 
 protected:
     std::shared_ptr<PduDefinition>  pdu_def_; // Moved to base class

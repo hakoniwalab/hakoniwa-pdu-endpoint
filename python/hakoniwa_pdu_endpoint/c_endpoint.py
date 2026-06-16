@@ -264,8 +264,17 @@ class Endpoint:
             lib.hako_pdu_endpoint_destroy(self._handle)
             self._handle = ffi.NULL
 
-    def open(self, config_path: str) -> None:
-        _check(lib.hako_pdu_endpoint_open(self._handle, str(Path(config_path)).encode("utf-8")), "open")
+    def open(self, config_path: str, asset_name: Optional[str] = None) -> None:
+        config = str(Path(config_path)).encode("utf-8")
+        if asset_name is None:
+            _check(lib.hako_pdu_endpoint_open(self._handle, config), "open")
+            return
+        if asset_name == "":
+            raise ValueError("asset_name must not be empty")
+        _check(
+            lib.hako_pdu_endpoint_open_with_asset(self._handle, config, asset_name.encode("utf-8")),
+            "open_with_asset",
+        )
 
     def create_pdu_lchannels(self, config_path: str) -> None:
         _check(

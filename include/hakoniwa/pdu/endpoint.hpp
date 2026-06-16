@@ -121,8 +121,14 @@ public:
     }
     
     // Load cache/comm (and optional PDU definition) from endpoint config.
-    virtual HakoPduErrorType open(const std::string& endpoint_config_path) 
+    virtual HakoPduErrorType open(const std::string& endpoint_config_path)
     {
+        return open(endpoint_config_path, nullptr);
+    }
+
+    virtual HakoPduErrorType open(const std::string& endpoint_config_path, const char* asset_name) 
+    {
+        const bool has_asset_context = (asset_name != nullptr && asset_name[0] != '\0');
         nlohmann::json config;
         fs::path base_dir;
         HakoPduErrorType err = load_endpoint_config_(endpoint_config_path, config, base_dir);
@@ -132,7 +138,8 @@ public:
         try {
             recv_cache_write_enabled_ = config.value("recv_cache_write", true);
 
-            err = load_pdu_definition_if_needed_(config, base_dir, false);
+            fs::path resolved_pdu_def_path;
+            err = load_pdu_definition_if_needed_(config, base_dir, has_asset_context, &resolved_pdu_def_path);
             if (err != HAKO_PDU_ERR_OK) {
                 return err;
             }
@@ -170,6 +177,15 @@ public:
                 // Pass PDU definition to comm module
                 if (pdu_def_) {
                     comm_->set_pdu_definition(pdu_def_);
+                }
+                const std::string resolved_pdu_def_string = resolved_pdu_def_path.empty()
+                    ? std::string()
+                    : resolved_pdu_def_path.string();
+                err = comm_->attach_asset_context(
+                    has_asset_context ? asset_name : nullptr,
+                    resolved_pdu_def_string.empty() ? nullptr : resolved_pdu_def_string.c_str());
+                if (err != HAKO_PDU_ERR_OK) {
+                    return err;
                 }
                 err = comm_->open(resolved_comm_config_path.string());
                 if (err != HAKO_PDU_ERR_OK) {
@@ -523,18 +539,24 @@ private:
     }
     HakoPduErrorType load_pdu_definition_if_needed_(const nlohmann::json& config,
         const fs::path& base_dir,
-        bool required)
+        bool required,
+        fs::path* out_resolved_path = nullptr)
     {
         if (config.contains("pdu_def_path") && !config["pdu_def_path"].is_null()) {
             if (!pdu_def_) {
                 pdu_def_ = std::make_shared<PduDefinition>();
                 auto resolved_pdu_def_path = resolve_under_base(base_dir, config["pdu_def_path"].get<std::string>());
+                if (out_resolved_path) {
+                    *out_resolved_path = resolved_pdu_def_path;
+                }
                 std::cout << "PDU Definition: loading from " << resolved_pdu_def_path << std::endl;
                 if (!pdu_def_->load(resolved_pdu_def_path.string())) {
                     std::cerr << "PDU Definition: failed to load from " << resolved_pdu_def_path << std::endl;
                     return HAKO_PDU_ERR_INVALID_CONFIG;
                 }
                 std::cout << "PDU Definition: loaded successfully" << std::endl;
+            } else if (out_resolved_path) {
+                *out_resolved_path = resolve_under_base(base_dir, config["pdu_def_path"].get<std::string>());
             }
             return HAKO_PDU_ERR_OK;
         }

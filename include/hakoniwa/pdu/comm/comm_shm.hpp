@@ -12,6 +12,7 @@
 #include <mutex>
 #include <condition_variable>
 #include <map>
+#include <optional>
 
 namespace hakoniwa {
 namespace pdu {
@@ -30,6 +31,7 @@ public:
     virtual HakoPduErrorType close() noexcept override;
     virtual HakoPduErrorType start() noexcept override;
     virtual HakoPduErrorType post_start() noexcept override;
+    virtual HakoPduErrorType attach_asset_context(const char* asset_name, const char* pdu_config_path) noexcept override;
     virtual HakoPduErrorType stop() noexcept override;
     virtual HakoPduErrorType is_running(bool& running) noexcept override;
     // Only meaningful for SHM poll implementation; other SHM modes are no-op.
@@ -62,6 +64,8 @@ private:
     std::vector<int> registered_event_ids_;
     std::vector<PduResolvedKey> recv_notify_keys_;
     std::unique_ptr<PduCommShmImp> impl_;
+    std::optional<std::string> io_asset_name_;
+    std::optional<std::string> pdu_config_path_;
 };
 
 } // namespace comm
