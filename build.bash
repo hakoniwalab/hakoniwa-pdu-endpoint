@@ -2,18 +2,23 @@
 set -euo pipefail
 
 PROJECT_ROOT=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
-BUILD_DIR=${BUILD_DIR:-"${PROJECT_ROOT}/build"}
-BUILD_TYPE=${BUILD_TYPE:-Release}
-BUILD_SHARED=${BUILD_SHARED:-OFF}
+BUILD_DIR="${PROJECT_ROOT}/build"
+BUILD_TYPE="Release"
 
 say() {
-  printf "%s\n" "$*"
+  printf "%s
+" "$*"
 }
 
-say "Configuring (${BUILD_TYPE})..."
-cmake -S "${PROJECT_ROOT}" -B "${BUILD_DIR}" -DCMAKE_BUILD_TYPE="${BUILD_TYPE}" -DBUILD_SHARED_LIBS="${BUILD_SHARED}"
+say "--- Configuring C++ Project (${BUILD_TYPE}) ---"
+# BUILD_SHARED_LIBS is now ON by default in CMakeLists.txt
+cmake -S "${PROJECT_ROOT}" -B "${BUILD_DIR}" -DCMAKE_BUILD_TYPE="${BUILD_TYPE}"
 
-say "Building..."
-cmake --build "${BUILD_DIR}"
+say "--- Building C++ Core Library ---"
+# Use parallel build to speed up
+cmake --build "${BUILD_DIR}" -- -j$(nproc 2>/dev/null || sysctl -n hw.ncpu)
 
-say "Done."
+say "--- Building Python FFI Module ---"
+python3 "${PROJECT_ROOT}/python/hakoniwa_pdu_endpoint/build_c_endpoint_ffi.py"
+
+say "Build complete."

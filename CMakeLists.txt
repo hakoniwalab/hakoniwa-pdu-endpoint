@@ -8,7 +8,7 @@ if(POLICY CMP0167)
 endif()
 
 set(HAKONIWA_PDU_ENDPOINT_VERSION 1.0.0)
-option(BUILD_SHARED_LIBS "Build shared libraries instead of static libraries" OFF)
+option(BUILD_SHARED_LIBS "Build shared libraries instead of static libraries" ON)
 
 option(HAKO_PDU_ENDPOINT_ENABLE_ZENOH "Enable Zenoh transport support via zenoh-c" OFF)
 option(HAKO_PDU_ENDPOINT_ENABLE_MQTT "Enable MQTT transport support via Eclipse Paho MQTT C++" OFF)
