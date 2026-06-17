@@ -20,6 +20,21 @@ die() {
   exit 1
 }
 
+case "$(uname -s)" in
+  Darwin)
+    CORE_LIB_PATTERN="libhakoniwa_pdu_endpoint.dylib"
+    ;;
+  Linux)
+    CORE_LIB_PATTERN="libhakoniwa_pdu_endpoint.so"
+    ;;
+  MINGW*|MSYS*|CYGWIN*)
+    CORE_LIB_PATTERN="hakoniwa_pdu_endpoint.dll"
+    ;;
+  *)
+    die "Unsupported OS: $(uname -s)"
+    ;;
+esac
+
 # --- 1. Build Step ---
 say "--- Ensuring project is built ---"
 if [[ ! -d "${BUILD_DIR}" ]]; then
@@ -58,14 +73,14 @@ fi
 cp "$SO_FILE" "${PY_PKG_INSTALL_DIR}/"
 say "  Copied $SO_FILE"
 
-# 3.4. Copy core dependency library (.dylib) into the package
+# 3.4. Copy core dependency library into the package
 say "Copying core C++ library for Python package..."
-CORE_DYLIB=$(find "${BUILD_DIR}" -name "libhakoniwa_pdu_endpoint.dylib" | head -n 1)
-if [[ -z "$CORE_DYLIB" || ! -f "$CORE_DYLIB" ]]; then
-  die "Core library (libhakoniwa_pdu_endpoint.dylib) not found in build directory."
+CORE_LIB=$(find "${BUILD_DIR}" -name "${CORE_LIB_PATTERN}" | head -n 1)
+if [[ -z "$CORE_LIB" || ! -f "$CORE_LIB" ]]; then
+  die "Core library (${CORE_LIB_PATTERN}) not found in build directory."
 fi
-cp "$CORE_DYLIB" "${PY_PKG_INSTALL_DIR}/"
-say "  Copied $CORE_DYLIB"
+cp "$CORE_LIB" "${PY_PKG_INSTALL_DIR}/"
+say "  Copied $CORE_LIB"
 
 # 3.5. Copy schema files
 if [[ -d "${PROJECT_ROOT}/config/schema" ]]; then
