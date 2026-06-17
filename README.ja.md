@@ -209,158 +209,159 @@ MQTT は broker ベースの pub/sub を `Endpoint` モデルのまま使いた�
 
 詳細な build/run 手順は英語版 README を参照してください。
 
-## Quick Start For Python
+## Pythonからの利用
 
-Python は `cffi` ベースの `Endpoint` binding と、その上の pure-Python container で構成されています。
-`pyproject.toml` は Python 依存関係の定義に使いますが、native の
-`hakoniwa_pdu_endpoint` 共有ライブラリは別途必要です。
+Pythonバインディングを利用する推奨方法は、このドキュメントの冒頭にある「クイックスタート」に従って、必要なネイティブコンポーネントをビルド・インストールすることです。Pythonパッケージは、デフォルトで `/usr/local/hakoniwa/share/hakoniwa-pdu-endpoint/python` にインストールされます。
 
-リポジトリから prefix 配下へまとめて配置したい場合は、次を使えます。
-
+自分のプロジェクトで利用するには、このパスを `PYTHONPATH` に追加してください。
 ```bash
-bash install-python.bash
-bash install-python-runtime.bash
+export PYTHONPATH=/usr/local/hakoniwa/share/hakoniwa-pdu-endpoint/python:$PYTHONPATH
 ```
 
-この 2 段構成では、
+主なエントリーポイント:
+- `hakoniwa_pdu_endpoint.c_endpoint`: CFFIベースの薄いラッパー。
+- `hakoniwa_pdu_endpoint.endpoint_container`: 複数のエンドポイントを管理するpure-Pythonコンテナ。
 
-- `install-python.bash`
-  - `pip install`
-  - runtime bundle download / extract
-- `install-python-runtime.bash`
-  - pip で入った `hakoniwa_pdu_endpoint` package directory へ runtime を補完配置
+実行可能なサンプルは `python/examples/` ディレクトリにあります。
 
-を分けます。
+## Quick Start For C#
 
-overlay step は必要なら `sudo` で実行できます。この installer は、pip で入った `hakoniwa_pdu_endpoint` package directory に対して、
-
-- bundle 内の pure-Python runtime files
-- `_c_endpoint_ffi`
-- native shared library
-- schema files
-
-を補完配置します。
-
-install 後の確認は次の順で行えます。
-
-1. まず import できることを確認する:
-
-```bash
-python3 -c "from hakoniwa_pdu_endpoint import c_endpoint; print('import ok')"
-```
-
-2. smoke test を流す:
-
-```bash
-PYTHON_CMD=python3 BUILD_FIRST=OFF bash test-python.bash
-```
-
-最小確認だけでよければ、次の 2 本でも十分です。
-
-```bash
-python3 python/test/test_c_endpoint_smoke.py
-python3 python/test/test_endpoint_container_smoke.py
-```
+C# は C facade の上に薄い managed binding を載せています。
 
 代表コマンド:
 
 ```bash
-python3 -m pip install -e .
-bash build-python.bash
+bash build.bash
+bash build-csharp.bash
+bash test-csharp.bash
+```
+
+詳細は英語版READMEを参照してください。
+
+## インストールとアンインストール
+
+「クイックスタート」で説明した `install.bash` スクリプトは、プロジェクトのコンポーネントを指定されたプレフィックス（デフォルト: `/usr/local/hakoniwa`）にインストールします。
+
+**インストールされるコンポーネント:**
+- **ヘッダファイル**: C++ヘッダ (`<prefix>/include`)
+- **共有ライブラリ**: コアC++ライブラリ (`libhakoniwa_pdu_endpoint.dylib` or `.so`) (`<prefix>/lib`)
+- **CMake設定ファイル**: CMakeパッケージファイル (`<prefix>/lib/cmake`)
+- **Pythonパッケージ**: CFFI拡張とそれに必要なネイティブライブラリを含む完全なPythonパッケージ (`<prefix>/share/hakoniwa-pdu-endpoint/python`)
+
+**アンインストール:**
+`uninstall.bash`スクリプトで、インストールされたファイルを削除できます。
+```bash
+sudo bash uninstall.bash
+```
+
+## C Facade
+
+C facade は foreign-language binding の ABI 境界です。
+
+主な API:
+
+- `create/destroy`
+- `open/start/post_start/stop/close`
+- `process_recv_events`
+- `send`
+- `recv`
+- `recv_next`
+- callback 登録
+- PDU 名 / channel 取得
+
+設計関連:
+
+- [docs/python_binding.md](docs/python_binding.md)
+- [docs/csharp_binding.md](docs/csharp_binding.md)
+- [docs/receive_semantics.md](docs/receive_semantics.md)
+
+## How to Run Tests
+
+代表コマンド:
+
+```bash
+bash test.bash
 bash test-python.bash
+bash test-csharp.bash
 ```
 
-Windows helper:
+## Configuration
 
-- `.\build-python-win.ps1`
-- `.\test-python-win.ps1`
+設定は主に次の分割です。
 
-Python ローダーは native 共有ライブラリを次の順で探索します。
+- Endpoint config
+- Cache config
+- Comm config
+- PDU Definition config
 
-- `HAKO_PDU_ENDPOINT_SHARED_LIB`
-- `HAKO_PDU_ENDPOINT_LIB_DIR`
-- リポジトリ配下の `build*/src`
-- OS 標準の探索パス
+設計意図は「設定を小さな semantic decision ごとに分ける」ことです。
 
-Windows では PowerShell helper を使う想定です。
+関連:
 
-```powershell
-python -m pip install --upgrade pip setuptools wheel cffi
-.\build-python-win.ps1 `
-  -BuildNative `
-  -BuildFfi `
-  -BuildDirName build-win `
-  -Configuration Release `
-  -PythonCommand python `
-  -ToolchainFile C:\project\vcpkg\scripts\buildsystems\vcpkg.cmake `
-  -VcpkgTriplet x64-windows `
-  -Platform x64
-python .\python\test\test_c_endpoint_smoke.py
-python .\python\test\test_endpoint_container_smoke.py
+- `config/schema/`
+- `docs/tutorials/endpoint.md`
+- `docs/design_tradeoffs.md`
+
+## Basic Usage
+
+API は大きく 2 系統です。
+
+- name-based API
+  - `pdu_def_path` がある場合
+- resolved-key API
+  - 常に利用可能
+
+runtime の受信モデルは transport 非依存になるよう整理されています。
+
+- `latest`
+  - 最新値のみ保持
+  - `recv_next(...)` は pending key を到着順で返す
+- `queue`
+  - 複数イベント保持
+  - `recv_next(...)` はグローバル到着順で返す
+
+詳細:
+
+- [docs/receive_semantics.md](docs/receive_semantics.md)
+
+## Examples
+
+例の入口:
+
+- [examples/README.md](examples/README.md)
+- [csharp/examples/README.md](csharp/examples/README.md)
+
+## Config Generator
+
+設定生成は次で行えます。
+
+```bash
+python -m hakoniwa_pdu_endpoint.gen_endpoint_config --protocol tcp --direction inout --role server --name demo --out-dir config/generated
 ```
 
-prefix 配下へまとめて配置したい場合:
+generator は boilerplate を減らしますが、意味論を隠すことは目的にしていません。
 
-```powershell
-.\install-python-win.ps1 `
-  -BuildFirst `
-  -BuildDirName build-win `
-  -Configuration Release `
-  -PythonCommand python `
-  -Prefix C:\hakoniwa `
-  -ToolchainFile C:\project\vcpkg\scripts\buildsystems\vcpkg.cmake `
-  -VcpkgTriplet x64-windows `
-  -Platform x64
-$env:PYTHONPATH="C:\hakoniwa\share\hakoniwa-pdu-endpoint\python;$env:PYTHONPATH"
-```
+## Endpoint Comm Multiplexer (TCP Mux)
 
-Windows install 後の確認は次の順です。
+TCP Mux は複数 client を 1 server endpoint 群として扱うための仕組みです。
 
-1. import できることを確認する:
+詳細は英語版 README と `examples/endpoint_tcp_mux.cpp` を参照してください。
 
-```powershell
-python -c "from hakoniwa_pdu_endpoint import c_endpoint; print('import ok')"
-```
+## Architectural Design
 
-2. 最小 smoke test を流す:
+関連設計文書:
 
-```powershell
-python .\python\test\test_c_endpoint_smoke.py
-python .\python\test\test_endpoint_container_smoke.py
-```
+- [docs/design_philosophy.md](docs/design_philosophy.md)
+- [docs/design_notes.md](docs/design_notes.md)
+- [docs/design_tradeoffs.md](docs/design_tradeoffs.md)
+- [docs/receive_semantics.md](docs/receive_semantics.md)
 
-Linux/macOS で詰まりやすい点:
+---
 
-- `cffi` と `_cffi_backend` の `Version mismatch`:
-  virtualenv の Python を使っているのに、`PYTHONPATH` が system の `dist-packages` を指していて混在しています。build 時は `PYTHONPATH` を空にしてください。例:
-  `PYTHONPATH= PYTHON_CMD=python3 BUILD_SHARED_LIBS=ON bash build-python.bash`
-- `sudo bash install-python.bash` で `ModuleNotFoundError: No module named 'cffi'`:
-  `sudo` により virtualenv ではない Python に切り替わっています。virtualenv の Python を明示してください。例:
-  `sudo env "PYTHON_CMD=$VIRTUAL_ENV/bin/python" PYTHONPATH= bash install-python.bash`
-- install 後に import できない:
-  install 先を `PYTHONPATH` に追加してください。例:
-  `export PYTHONPATH="/usr/local/hakoniwa/share/hakoniwa-pdu-endpoint/python:$PYTHONPATH"`
-- install 後も virtualenv / site-packages 側の `hakoniwa-pdu-endpoint` を読んでしまう:
-  同名 package が既に入っていて prefix install を隠しています。`python -c "import hakoniwa_pdu_endpoint; print(hakoniwa_pdu_endpoint.__file__)"` で読み込み元を確認し、必要なら削除してください:
-  `python -m pip uninstall hakoniwa-pdu-endpoint`
+詳細な build オプション、各 transport の手順、長い背景説明は英語版 README を参照してください。
 
-または Windows 用の smoke-test helper を使います。
-
-```powershell
-.\test-python-win.ps1 `
-  -BuildFirst `
-  -BuildDirName build-win `
-  -Configuration Release `
-  -PythonCommand python `
-  -ToolchainFile C:\project\vcpkg\scripts\buildsystems\vcpkg.cmake `
-  -VcpkgTriplet x64-windows `
-  -Platform x64
-```
-
-当面の Windows Python 対応範囲:
-
-- 対象: internal cache を使う基本 smoke test
-- 非対象: SHM / Zenoh / MQTT
+[English](README.md) | [日本語](README.ja.md)
+ / Zenoh / MQTT
 
 Windows で詰まりやすい点:
 

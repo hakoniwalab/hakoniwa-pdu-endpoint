@@ -391,103 +391,20 @@ received sample_state=3
 For runnable examples, see `examples/README.md`.
 For schema details, see `config/schema/comm_schema.json`.
 
-## Quick Start For Python
+## Using from Python
 
-If you want to drive `Endpoint` from Python without embedding Python into the
-core C++ runtime, start here.
+The recommended way to use the Python bindings is to follow the `Quick Start` guide, which builds and installs the necessary native components. The Python package is installed to `/usr/local/hakoniwa/share/hakoniwa-pdu-endpoint/python` by default.
 
-This section is the shortest path to trying the Python runtime access. For the
-environment/setup flow, see `Python Installation` below.
-
-Why this matters in this project:
-
-- Python can act as a first-class runtime client, not just a config tool
-- the C facade keeps the portability boundary language-neutral
-- `cffi` is used instead of `Python.h` embedding so Python-version coupling
-  stays out of the core library
-- callback-oriented Python code can stay safe by dispatching from a
-  Python-owned thread
-
-1. Build the core library first.
-
+To use it in your project, ensure the path is added to your `PYTHONPATH`:
 ```bash
-cmake -S . -B build
-cmake --build build -j4
+export PYTHONPATH=/usr/local/hakoniwa/share/hakoniwa-pdu-endpoint/python:$PYTHONPATH
 ```
 
-2. Build the `cffi` module into `build/python`.
+The main entry points are:
+- `hakoniwa_pdu_endpoint.c_endpoint`: A thin, CFFI-based wrapper around the C facade.
+- `hakoniwa_pdu_endpoint.endpoint_container`: A pure-Python container for managing multiple endpoints.
 
-```bash
-python3 python/hakoniwa_pdu_endpoint/build_c_endpoint_ffi.py
-```
-
-The Python loader resolves the native library in this order:
-
-- `HAKO_PDU_ENDPOINT_SHARED_LIB`
-- `HAKO_PDU_ENDPOINT_LIB_DIR`
-- repository-local build outputs such as `build*/src`
-- OS default search paths
-
-This keeps the Python side independent from a hard-coded OS-specific install layout.
-
-3. Run the thin-wrapper smoke test.
-
-```bash
-python3 python/test/test_c_endpoint_smoke.py
-```
-
-4. Run the callback dispatch smoke test.
-
-```bash
-python3 python/test/test_c_endpoint_callback_smoke.py
-```
-
-5. Run the ROS-style callback smoke test.
-
-```bash
-python3 python/test/test_c_endpoint_ros_style_smoke.py
-```
-
-6. Run the runtime `recv_next` smoke test.
-
-```bash
-python3 python/test/test_c_endpoint_recv_next_smoke.py
-```
-
-7. Run the Python pending-count smoke test.
-
-```bash
-python3 python/test/test_c_endpoint_pending_smoke.py
-```
-
-8. Run the Python `EndpointContainer` smoke test.
-
-```bash
-python3 python/test/test_endpoint_container_smoke.py
-```
-
-Current Python layout:
-
-- thin C ABI wrapper:
-  - `python/hakoniwa_pdu_endpoint/c_endpoint.py`
-- pure-Python container:
-  - `python/hakoniwa_pdu_endpoint/endpoint_container.py`
-
-Runnable Python examples are also provided:
-
-- `python/examples/endpoint_internal_cache.py`
-- `python/examples/endpoint_callback.py`
-- `python/examples/endpoint_recv_next.py`
-- `python/examples/endpoint_container.py`
-
-For the C ABI details and ownership rules, see the `C Facade` section below.
-
-If you want the repository helper scripts instead of manual steps:
-
-```bash
-bash build-python.bash
-bash test-python.bash
-```
+Runnable examples are available in the `python/examples/` directory.
 
 ## Quick Start For C#
 
@@ -500,272 +417,45 @@ Why this matters in this project:
 - Unity/Godot-oriented integration is possible without adding engine-specific code to the native layer
 - runtime `recv_next(...)` is available for internal cache semantics as well as storage-backed use cases
 
-1. Build the shared native library.
+1. Build the shared native library and C# projects.
 
 ```bash
-cmake -S . -B build-shared -DBUILD_SHARED_LIBS=ON
-cmake --build build-shared --target hakoniwa_pdu_endpoint
-```
-
-2. Build the managed binding and examples.
-
-```bash
+bash build.bash
 bash build-csharp.bash
 ```
 
-3. Run the C# smoke tests.
+2. Run the C# smoke tests.
 
 ```bash
 bash test-csharp.bash
 ```
 
-4. Inspect the binding-level examples.
+3. Inspect the binding-level examples.
 
 - `csharp/examples/MinimalExample/`
 - `csharp/examples/ManualPumpExample/`
 - `csharp/examples/RecvNextExample/`
 
-5. For Unity/Godot-oriented setup and lifecycle guidance, see:
+4. For Unity/Godot-oriented setup and lifecycle guidance, see:
 
 - `docs/csharp_engine_integration.md`
 
-## Python Installation
-
-Current Python support is source-tree based. There is no packaged wheel yet.
-`pyproject.toml` is provided for Python dependency metadata, but the native
-`hakoniwa_pdu_endpoint` shared library is still a separate prerequisite.
-
-If you want a prefix-style local install from this repository, use:
-
-```bash
-bash install-python.bash
-bash install-python-runtime.bash
-```
-
-This workflow installs:
-
-- step 1: Python package metadata/dependencies and the runtime bundle
-- step 2: the bundle-provided pure-Python runtime files, `_c_endpoint_ffi`, shared library, and schema files into the installed package dir
-
-After a prefix install, verify the installation in this order:
-
-1. Confirm that Python can import the package:
-
-```bash
-python3 -c "from hakoniwa_pdu_endpoint import c_endpoint; print('import ok')"
-```
-
-2. Run the thin-wrapper smoke test:
-
-```bash
-PYTHON_CMD=python3 BUILD_FIRST=OFF bash test-python.bash
-```
-
-If you only want the minimum two runtime checks instead of the full smoke suite:
-
-```bash
-python3 python/test/test_c_endpoint_smoke.py
-python3 python/test/test_endpoint_container_smoke.py
-```
-
-Install/use flow:
-
-1. Install the Python package metadata and dependencies.
-
-```bash
-python3 -m pip install -e .
-```
-
-2. Build the core C++ library.
-
-```bash
-cmake -S . -B build
-cmake --build build -j4
-```
-
-3. Build the `cffi` extension module.
-
-```bash
-python3 python/hakoniwa_pdu_endpoint/build_c_endpoint_ffi.py
-```
-
-Or, if you want one helper that builds and installs the Python runtime files:
-
-```bash
-PREFIX=/usr/local/hakoniwa bash install-python.bash
-PREFIX=/usr/local/hakoniwa bash install-python-runtime.bash
-```
-
-Linux/macOS troubleshooting:
-
-- `Version mismatch` between `cffi` and `_cffi_backend`:
-  your shell is mixing different Python package roots, often because `PYTHONPATH` points at system `dist-packages` while the interpreter comes from a virtualenv. Clear `PYTHONPATH` for the build, for example:
-  `PYTHONPATH= PYTHON_CMD=python3 BUILD_SHARED_LIBS=ON bash build-python.bash`
-- `ModuleNotFoundError: No module named 'cffi'` while running `sudo bash install-python.bash`:
-  `sudo` may switch to a Python interpreter that does not have the virtualenv packages. Pass the virtualenv interpreter explicitly, for example:
-  `sudo env "PYTHON_CMD=$VIRTUAL_ENV/bin/python" PYTHONPATH= bash install-python.bash`
-- `sudo` is only needed to overlay files into a system-owned package directory:
-  run the bootstrap/download step as a normal user, then run only the overlay step with sudo if required:
-  `sudo env "PYTHON_CMD=$VIRTUAL_ENV/bin/python" PREFIX_DIR=$HOME/.local/lib/hakoniwa-pdu-endpoint bash install-python-runtime.bash`
-- import succeeds before install but fails after prefix install:
-  check which package directory Python resolves first:
-  `python -c "import hakoniwa_pdu_endpoint; print(hakoniwa_pdu_endpoint.__file__)"`
-- import still resolves to a virtualenv/site-packages copy after prefix install:
-  another `hakoniwa-pdu-endpoint` may already be installed in the active Python environment and shadow the prefix-installed files. Check `python -c "import hakoniwa_pdu_endpoint; print(hakoniwa_pdu_endpoint.__file__)"` and remove the conflicting package if needed:
-  `python -m pip uninstall hakoniwa-pdu-endpoint`
-
-If the native library is not in a default build location, point Python at it explicitly:
-
-```bash
-export HAKO_PDU_ENDPOINT_SHARED_LIB=/path/to/libhakoniwa_pdu_endpoint.so
-export HAKO_PDU_ENDPOINT_LIB_DIR=/path/to/native/libs
-python3 python/hakoniwa_pdu_endpoint/build_c_endpoint_ffi.py
-```
-
-On Windows, use the PowerShell helper and point the runtime loader at the built DLL:
-
-```powershell
-python -m pip install --upgrade pip setuptools wheel cffi
-.\build-python-win.ps1 `
-  -BuildNative `
-  -BuildFfi `
-  -BuildDirName build-win `
-  -Configuration Release `
-  -PythonCommand python `
-  -ToolchainFile C:\project\vcpkg\scripts\buildsystems\vcpkg.cmake `
-  -VcpkgTriplet x64-windows `
-  -Platform x64
-python .\python\test\test_c_endpoint_smoke.py
-python .\python\test\test_endpoint_container_smoke.py
-```
-
-If you want a prefix-style local install on Windows:
-
-```powershell
-.\install-python-win.ps1 `
-  -BuildFirst `
-  -BuildDirName build-win `
-  -Configuration Release `
-  -PythonCommand python `
-  -Prefix C:\hakoniwa `
-  -ToolchainFile C:\project\vcpkg\scripts\buildsystems\vcpkg.cmake `
-  -VcpkgTriplet x64-windows `
-  -Platform x64
-$env:PYTHONPATH="C:\hakoniwa\share\hakoniwa-pdu-endpoint\python;$env:PYTHONPATH"
-```
-
-After a Windows prefix install, verify the installation in this order:
-
-1. Confirm that Python can import the package:
-
-```powershell
-python -c "from hakoniwa_pdu_endpoint import c_endpoint; print('import ok')"
-```
-
-2. Run the minimum smoke tests:
-
-```powershell
-python .\python\test\test_c_endpoint_smoke.py
-python .\python\test\test_endpoint_container_smoke.py
-```
-
-Or run the Windows smoke-test helper:
-
-```powershell
-.\test-python-win.ps1 `
-  -BuildFirst `
-  -BuildDirName build-win `
-  -Configuration Release `
-  -PythonCommand python `
-  -ToolchainFile C:\project\vcpkg\scripts\buildsystems\vcpkg.cmake `
-  -VcpkgTriplet x64-windows `
-  -Platform x64
-```
-
-Current Windows Python scope is intentionally narrow:
-
-- supported first target: internal-cache-based smoke tests
-- not yet supported: SHM, Zenoh, MQTT
-
-Windows troubleshooting:
-
-- `py` command not found:
-  use `python` instead of `py -3`, or pass `-PythonCommand python` to `build-python-win.ps1`
-- `Could not find ... BoostConfig.cmake` during CMake configure:
-  install `boost-asio:x64-windows` and `boost-beast:x64-windows` with `vcpkg` and pass `-ToolchainFile`, `-VcpkgTriplet`, and `-Platform x64`
-- `generator platform: x64 does not match the platform used previously`:
-  remove the existing build directory or use `-Clean`
-- `This CFFI feature requires setuptools on Python >= 3.12`:
-  run `python -m pip install --upgrade setuptools wheel cffi`
-- `Version mismatch` between `cffi` and `_cffi_backend`:
-  avoid mixing multiple Python package roots. In particular, do not leave a foreign `PYTHONPATH` pointing at another Python installation while building the cffi module
-- `hakoniwa_pdu_endpoint.dll` is not found at runtime:
-  set `HAKO_PDU_ENDPOINT_SHARED_LIB` and `HAKO_PDU_ENDPOINT_LIB_DIR` to the built DLL and its directory
-
-4. Run Python with the repository `python/` directory on `PYTHONPATH`, or run
-from the repository root as shown in the examples.
-
-Example:
-
-```bash
-PYTHONPATH=python python3 python/examples/endpoint_internal_cache.py
-```
-
-Current Python modules:
-
-- `hakoniwa_pdu_endpoint.c_endpoint`
-- `hakoniwa_pdu_endpoint.endpoint_container`
-
-An initial C# binding scaffold is also available under:
-
-- `csharp/hakoniwa_pdu_endpoint/`
-- `csharp/examples/`
-- `csharp/tests/`
-
-Current Python tests/examples:
-
-- `python/test/test_c_endpoint_smoke.py`
-- `python/test/test_c_endpoint_callback_smoke.py`
-- `python/test/test_c_endpoint_ros_style_smoke.py`
-- `python/test/test_c_endpoint_recv_next_smoke.py`
-- `python/test/test_c_endpoint_pending_smoke.py`
-- `python/test/test_endpoint_container_smoke.py`
-- `python/examples/endpoint_internal_cache.py`
-- `python/examples/endpoint_callback.py`
-- `python/examples/endpoint_recv_next.py`
-- `python/examples/endpoint_container.py`
-
-Current C# tests/examples:
-
-- `csharp/tests/SmokeTests/`
-- `csharp/examples/MinimalExample/`
-- `csharp/examples/ManualPumpExample/`
-- `csharp/examples/RecvNextExample/`
-
 ## Install / Uninstall
 
-Install the headers and static library into `/usr/local/hakoniwa` (macOS / Ubuntu):
+The `install.bash` script, described in the Quick Start, installs the project components to a prefix (default: `/usr/local/hakoniwa`).
 
-```bash
-bash build.bash
-sudo bash install.bash
-```
+**Installed Components:**
+- **Headers**: C++ headers in `<prefix>/include`
+- **Shared Library**: The core C++ library (`libhakoniwa_pdu_endpoint.dylib` or `.so`) in `<prefix>/lib`
+- **CMake Config**: CMake package files in `<prefix>/lib/cmake`
+- **Python Package**: The complete Python package, including the CFFI extension and its required native library, in `<prefix>/share/hakoniwa-pdu-endpoint/python`
 
-Install destinations:
-
-- Headers: `/usr/local/hakoniwa/include`
-- Library: `/usr/local/hakoniwa/lib/libhakoniwa_pdu_endpoint.a`
-- Python package (validators): `/usr/local/hakoniwa/share/hakoniwa-pdu-endpoint/python`
-
-The public C facade header is also installed under:
-
-- `/usr/local/hakoniwa/include/hakoniwa/pdu/c_endpoint.h`
-
-Uninstall (removes only the files installed by this project, including the Python validators):
-
+**To Uninstall:**
+The repository provides a script to remove the installed files from the prefix.
 ```bash
 sudo bash uninstall.bash
 ```
+This will remove the files listed above from the default `/usr/local/hakoniwa` prefix.
 
 ### Build Example (CMake)
 
