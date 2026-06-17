@@ -71,52 +71,112 @@ Hakoniwa PDU endpoint path 全体の測定です。
 
 詳細は英語版 README の Requirements を参照してください。
 
-## How to Build
+## クイックスタート: ビルドとインストール
 
-標準ビルド:
+このガイドは、C++ライブラリとPythonバインディングをビルドし、お使いのシステムにインストールするための最短手順です。
+
+### 前提条件
+
+- C++20互換コンパイラ (例: GCC, Clang, MSVC)
+- CMake (3.16以上)
+- Python 3
+- Python FFI (C言語連携) に必要な `cffi` パッケージ。仮想環境の利用を推奨します。
+
+    ```bash
+    # 仮想環境の作成と有効化 (任意ですが推奨)
+    python3 -m venv .venv
+    source .venv/bin/activate
+
+    # 必要なPythonパッケージのインストール
+    python -m pip install --upgrade pip setuptools wheel cffi
+    ```
+
+### ビルドとインストール
+
+リポジトリに含まれるヘルパースクリプトが、ビルドとインストールのプロセスを自動化します。
+
+1.  **リポジトリをクローンし、ディレクトリに移動します:**
+    ```bash
+    git clone https://github.com/hakoniwalab/hakoniwa-pdu-endpoint.git
+    cd hakoniwa-pdu-endpoint
+    ```
+
+2.  **ビルドスクリプトを実行します:**
+    このスクリプトは、C++共有ライブラリ (`libhakoniwa_pdu_endpoint.dylib` on macOS) とPython FFI拡張モジュールの両方をビルドします。
+    ```bash
+    bash build.bash
+    ```
+
+3.  **インストールスクリプトを実行します:**
+    このスクリプトは、全てのコンポーネント (ライブラリ、ヘッダ、Pythonパッケージ) をデフォルトで `/usr/local/hakoniwa` にインストールします。管理者権限が必要な場合があります。
+    ```bash
+    sudo bash install.bash
+    ```
+
+### Python連携の確認
+
+インストール後、`PYTHONPATH` を設定し、簡単なインポートテストを実行してPythonバインディングが正しく動作するかを確認します。
 
 ```bash
+# インストールされたパッケージをPYTHONPATHに追加
+export PYTHONPATH=/usr/local/hakoniwa/share/hakoniwa-pdu-endpoint/python:$PYTHONPATH
+
+# インポートテストを実行
+python3 -c "from hakoniwa_pdu_endpoint.c_endpoint import Endpoint; print(Endpoint)"
+```
+
+成功すると、`<class 'hakoniwa_pdu_endpoint.c_endpoint.Endpoint'>` と表示されます。これで、インストールは完了です。
+注意: このPythonパッケージは、ネイティブの共有ライブラリとCFFI拡張を必要とするため、`pip`だけでインストールすることはできません。
+
+## 開発者向けガイド
+
+このセクションは、プロジェクトへの貢献、テストの実行、または高度なビルド設定を利用したい方向けの情報です。
+
+### 開発環境 (インストールしない場合)
+
+システムディレクトリにインストールせずにローカルでの変更をテストしたい場合は、一時的に環境変数を設定してPythonスクリプトを実行できます。
+
+**macOSの場合:**
+```bash
+# ビルド成果物を指すように環境変数を設定
+export PYTHONPATH=$(pwd)/python:$(pwd)/build/python
+export DYLD_LIBRARY_PATH=$(pwd)/build/src
+
+# これでスクリプトを直接実行可能
+python3 python/test/test_c_endpoint_smoke.py
+```
+
+**Linuxの場合:**
+```bash
+# ビルド成果物を指すように環境変数を設定
+export PYTHONPATH=$(pwd)/python:$(pwd)/build/python
+export LD_LIBRARY_PATH=$(pwd)/build/src
+
+# これでスクリプトを直接実行可能
+python3 python/test/test_c_endpoint_smoke.py
+```
+
+### テストの実行
+
+`bash build.bash` でビルドした後、`build`ディレクトリからC++のテストスイートを実行できます。
+
+```bash
+ctest --test-dir build --output-on-failure
+```
+PythonとC#のテストについては、`test-python.bash` と `test-csharp.bash` スクリプトを参照してください。
+
+### 手動でのCMakeビルド
+
+ビルドプロセスを完全に制御したい場合は、CMakeを直接実行することもできます。
+
+```bash
+# プロジェクトの設定
 cmake -S . -B build
+
+# 全てのターゲットをビルド
 cmake --build build
 ```
-
-FFI や C# 向けに shared library を作る場合:
-
-```bash
-cmake -S . -B build-shared -DBUILD_SHARED_LIBS=ON
-cmake --build build-shared --target hakoniwa_pdu_endpoint
-```
-
-生成物の例:
-
-- macOS: `build-shared/src/libhakoniwa_pdu_endpoint.dylib`
-- Linux: `build-shared/src/libhakoniwa_pdu_endpoint.so`
-- Windows: `build-win/src/Release/hakoniwa_pdu_endpoint.dll`
-
-### Helper Scripts
-
-root には補助スクリプトがあります。
-
-Core C++:
-
-- build: `bash build.bash`
-- test: `bash test.bash`
-
-Python:
-
-- build native + `cffi`: `bash build-python.bash`
-- prefix 配下へ Python runtime 一式を配置: `bash install-python.bash`
-- smoke tests: `bash test-python.bash`
-- Windows: `.\build-python-win.ps1`
-- Windows install: `.\install-python-win.ps1`
-
-C#:
-
-- build shared native + managed projects: `bash build-csharp.bash`
-- smoke tests: `bash test-csharp.bash`
-- Windows:
-  - `.\build-csharp-win.ps1`
-  - `.\test-csharp-win.ps1`
+特定のオプションを渡すには `-D` フラグを使用します (例: `-DHAKO_PDU_ENDPOINT_ENABLE_ZENOH=OFF`)。
 
 ## Quick Start For Storage
 

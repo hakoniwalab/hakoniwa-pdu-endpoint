@@ -117,118 +117,114 @@ This design is intentionally biased toward large, multi-asset simulations: it fa
     -   Core root override: `-DHAKO_PDU_ENDPOINT_HAKONIWA_CORE_ROOT=<path>`
     -   Default: `ON` on macOS/Linux, `OFF` on Windows
 
-## How to Build
+## Quick Start: Build and Install
 
-You can build the project using standard CMake commands.
+This guide provides the fastest path to build the core C++ library and Python bindings, and install them on your system.
 
-1.  **Clone the repository**:
+### Prerequisites
+
+- A C++20 compatible compiler (e.g., GCC, Clang, or MSVC).
+- CMake (version 3.16 or later).
+- Python 3.
+- Python `cffi` package for FFI bindings. It is recommended to use a virtual environment.
+
+    ```bash
+    # Create and activate a virtual environment (optional but recommended)
+    python3 -m venv .venv
+    source .venv/bin/activate
+
+    # Install required Python packages
+    python -m pip install --upgrade pip setuptools wheel cffi
+    ```
+
+### Build and Install
+
+The provided helper scripts automate the build and installation process.
+
+1.  **Clone the repository and navigate into it:**
     ```bash
     git clone https://github.com/hakoniwalab/hakoniwa-pdu-endpoint.git
     cd hakoniwa-pdu-endpoint
     ```
 
-2.  **Configure and build the project**:
-    Create a `build` directory and run CMake and make.
+2.  **Run the build script:**
+    This script builds the C++ shared library (`libhakoniwa_pdu_endpoint.dylib` on macOS) and the Python FFI extension module.
     ```bash
-    cmake -S . -B build
-    cmake --build build
+    bash build.bash
     ```
-    This will compile the static library `libhakoniwa_pdu_endpoint.a` into the `build/src` directory.
-    It also builds `build/tools/hako_pdu_storage_debug` by default.
 
-To build a shared library for C# or other FFI-style runtimes:
+3.  **Run the install script:**
+    This script installs all components (libraries, headers, Python package) to `/usr/local/hakoniwa` by default. It may require administrator privileges.
+    ```bash
+    sudo bash install.bash
+    ```
+
+### Verify Python Integration
+
+After installation, set your `PYTHONPATH` and run a simple import test to verify that the Python bindings are working correctly.
 
 ```bash
-cmake -S . -B build-shared -DBUILD_SHARED_LIBS=ON
-cmake --build build-shared
+# Set the PYTHONPATH to include the installed package
+export PYTHONPATH=/usr/local/hakoniwa/share/hakoniwa-pdu-endpoint/python:$PYTHONPATH
+
+# Run the import test
+python3 -c "from hakoniwa_pdu_endpoint.c_endpoint import Endpoint; print(Endpoint)"
 ```
 
-Typical artifacts:
+If successful, this will print `<class 'hakoniwa_pdu_endpoint.c_endpoint.Endpoint'>`. Your installation is ready to use. Note that the Python package requires the native shared library and CFFI extension; it cannot be installed with `pip` alone.
 
-- macOS: `build-shared/src/libhakoniwa_pdu_endpoint.dylib`
-- Linux: `build-shared/src/libhakoniwa_pdu_endpoint.so`
-- Windows: `build-win/src/Release/hakoniwa_pdu_endpoint.dll`
+## For Developers and Advanced Users
 
-### Helper Scripts
+This section provides information for those who wish to contribute to the project, run tests, or use advanced build configurations.
 
-The repository also includes small helper scripts for common local workflows.
+### Development Environment (without Installing)
 
-Core C++:
+If you want to test local changes without installing the library to system directories, you can run your Python scripts by temporarily setting environment variables.
 
-- build: `bash build.bash`
-- test: `bash test.bash`
+**On macOS:**
+```bash
+# Set variables to point to the build output
+export PYTHONPATH=$(pwd)/python:$(pwd)/build/python
+export DYLD_LIBRARY_PATH=$(pwd)/build/src
 
-Python:
+# Now you can run scripts directly
+python3 python/test/test_c_endpoint_smoke.py
+```
 
-- build native + `cffi`: `bash build-python.bash`
-- install Python runtime files into a prefix: `bash install-python.bash`
-- run Python smoke tests: `bash test-python.bash`
-- Windows helper: `.\build-python-win.ps1`
-- Windows install helper: `.\install-python-win.ps1`
-- Windows smoke tests: `.\test-python-win.ps1`
+**On Linux:**
+```bash
+# Set variables to point to the build output
+export PYTHONPATH=$(pwd)/python:$(pwd)/build/python
+export LD_LIBRARY_PATH=$(pwd)/build/src
 
-C#:
+# Now you can run scripts directly
+python3 python/test/test_c_endpoint_smoke.py
+```
 
-- build shared native + managed projects: `bash build-csharp.bash`
-- run C# smoke tests: `bash test-csharp.bash`
-- Windows helpers:
-  - `.\build-csharp-win.ps1`
-  - `.\test-csharp-win.ps1`
+### Running Tests
 
-### Windows (MSVC + PowerShell) Quick Build
+The project includes a C++ test suite using GoogleTest. After a successful build using `bash build.bash`, run the tests from the `build` directory:
 
-If `.\build-win.ps1` fails with `Could not find ... BoostConfig.cmake`, install Boost via `vcpkg` and pass the toolchain file.
+```bash
+ctest --test-dir build --output-on-failure
+```
+The repository also includes Python and C# smoke tests. See the `test-python.bash` and `test-csharp.bash` helper scripts for usage.
 
-Recent `build-win.ps1` versions also auto-detect `vcpkg` from `VCPKG_ROOT` or a sibling `..\vcpkg` checkout and default to `x64-windows`, so explicit `-ToolchainFile` / `-VcpkgTriplet` arguments are only needed when your setup is elsewhere.
+### Manual CMake Build
 
-1.  **Install vcpkg and Boost headers**:
-    ```powershell
-    cd C:\project
-    git clone https://github.com/microsoft/vcpkg.git
-    cd vcpkg
-    .\bootstrap-vcpkg.bat
-    .\vcpkg.exe install boost-asio:x64-windows boost-beast:x64-windows
-    ```
+For full control over the build process, you can run CMake directly. The `build.bash` script is a wrapper around this process.
 
-2.  **Build this project with the vcpkg toolchain**:
-    ```powershell
-    cd C:\project\hakoniwa-pdu-endpoint
-    .\build-win.ps1 -Clean `
-      -BuildDirName build-win2 `
-      -ToolchainFile C:\project\vcpkg\scripts\buildsystems\vcpkg.cmake `
-      -VcpkgTriplet x64-windows `
-      -Platform x64
-    ```
+```bash
+# Configure the project
+cmake -S . -B build
 
-3.  **Build with Hakoniwa Core integration (optional)**:
-    ```powershell
-    .\build-win.ps1 -Clean `
-      -BuildDirName build-win2 `
-      -ToolchainFile C:\project\vcpkg\scripts\buildsystems\vcpkg.cmake `
-      -VcpkgTriplet x64-windows `
-      -Platform x64 `
-      -EnableHakoniwaCore `
-      -HakoniwaCoreRoot C:\project\hakoniwa-core-pro\install
-    ```
-
-### Windows SHM Benchmark
-
-To use the SHM benchmark on native Windows, build with `-EnableHakoniwaCore` and point `-HakoniwaCoreRoot` to a Hakoniwa Core prefix that contains `include` and `lib`.
-
-Detailed benchmark build and run steps are documented in [benchmarks/README.md](benchmarks/README.md).
-
-Notes:
-- `build-win.ps1` defaults to `Release`. Use `-Configuration Debug` when needed.
-- Default build directory is `build-win`. Override with `-BuildDirName <name>` (for example `build-win2`).
-- Optional features are off by default on Windows too. Enable with `-EnableZenoh` and/or `-EnableMqtt`.
-- Build a shared library for C#/PInvoke with `-BuildShared`.
-- Hakoniwa Core integration (SHM + Hakoniwa time source) is `OFF` by default on Windows.
-- To enable it, install Hakoniwa Core headers/libs and add `-EnableHakoniwaCore`.
-- If Hakoniwa Core is in a custom location (for example `..\hakoniwa-core-pro\install`), also add `-HakoniwaCoreRoot <path>`.
-- `build-win.ps1` now stops immediately when CMake configure fails, so dependency errors are easier to diagnose.
-- Typical Windows artifacts:
-  - `build-win2/src/Release/hakoniwa_pdu_endpoint.lib`
-  - `build-win2/tools/Release/hako_pdu_storage_debug.exe`
+# Build all targets
+cmake --build build
+```
+To pass specific options, use the `-D` flag. For example, to disable Zenoh support (which is off by default anyway):
+```bash
+cmake -S . -B build -DHAKO_PDU_ENDPOINT_ENABLE_ZENOH=OFF
+```
 
 ## Quick Start For Storage
 
