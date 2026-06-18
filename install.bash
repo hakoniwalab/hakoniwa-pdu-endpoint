@@ -7,6 +7,7 @@ PROJECT_ROOT=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
 BUILD_DIR=${BUILD_DIR:-"${PROJECT_ROOT}/build"}
 PY_BUILD_DIR=${PY_BUILD_DIR:-"${PROJECT_ROOT}/build-py"}
 BUILD_TYPE=${BUILD_TYPE:-Release}
+PYTHON_BIN=${PYTHON_BIN:-python3}
 PY_SRC_DIR="${PROJECT_ROOT}/python"
 PY_INSTALL_DIR="${PREFIX}/share/hakoniwa-pdu-endpoint/python"
 PY_PKG_INSTALL_DIR="${PY_INSTALL_DIR}/hakoniwa_pdu_endpoint"
@@ -24,6 +25,20 @@ detect_parallel_level() {
     sysctl -n hw.ncpu 2>/dev/null && return
   fi
   printf "1\n"
+}
+
+ensure_python_cffi() {
+  if "${PYTHON_BIN}" -c "import cffi" >/dev/null 2>&1; then
+    return
+  fi
+
+  if [[ "$(uname -s)" == "Linux" && "${EUID:-$(id -u)}" -eq 0 ]] && command -v apt-get >/dev/null 2>&1; then
+    say "Python cffi module not found for ${PYTHON_BIN}; installing python3-cffi with apt-get..."
+    apt-get install -y python3-cffi
+    "${PYTHON_BIN}" -c "import cffi" >/dev/null 2>&1 && return
+  fi
+
+  die "Python cffi module is required for ${PYTHON_BIN}. Install it first, e.g. 'sudo apt install -y python3-cffi' on Ubuntu."
 }
 
 die() {
@@ -47,6 +62,7 @@ case "$(uname -s)" in
     ;;
 esac
 CMAKE_BUILD_PARALLEL_LEVEL=${CMAKE_BUILD_PARALLEL_LEVEL:-$(detect_parallel_level)}
+ensure_python_cffi
 
 # --- 1. Build Step ---
 say "--- Building static C++ components (${BUILD_TYPE}) ---"
@@ -69,7 +85,7 @@ fi
 say "--- Building Python FFI module ---"
 HAKO_PDU_ENDPOINT_SHARED_LIB="${CORE_LIB}" \
   HAKO_PDU_ENDPOINT_PYTHON_BUILD_DIR="${PY_BUILD_DIR}/python" \
-  python3 "${PROJECT_ROOT}/python/hakoniwa_pdu_endpoint/build_c_endpoint_ffi.py"
+  "${PYTHON_BIN}" "${PROJECT_ROOT}/python/hakoniwa_pdu_endpoint/build_c_endpoint_ffi.py"
 
 # --- 2. C++ Component Installation ---
 say "--- Installing C++ components to ${PREFIX} ---"
