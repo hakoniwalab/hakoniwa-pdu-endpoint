@@ -38,7 +38,13 @@ ensure_python_cffi() {
     "${PYTHON_BIN}" -c "import cffi" >/dev/null 2>&1 && return
   fi
 
-  die "Python cffi module is required for ${PYTHON_BIN}. Install it first, e.g. 'sudo apt install -y python3-cffi' on Ubuntu."
+  if "${PYTHON_BIN}" -m pip --version >/dev/null 2>&1; then
+    say "Python cffi module not found for ${PYTHON_BIN}; installing cffi with pip..."
+    "${PYTHON_BIN}" -m pip install --upgrade cffi
+    "${PYTHON_BIN}" -c "import cffi" >/dev/null 2>&1 && return
+  fi
+
+  die "Python cffi module is required for ${PYTHON_BIN}. Install it first, e.g. 'sudo apt install -y python3-cffi' on Ubuntu or '${PYTHON_BIN} -m pip install cffi'."
 }
 
 die() {
