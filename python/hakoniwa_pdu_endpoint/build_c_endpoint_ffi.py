@@ -147,7 +147,9 @@ def configure_ffi():
     repo_root = Path(__file__).resolve().parents[2]
     include_dir = repo_root / "include"
     build_dir = repo_root / "build"
-    python_build_root = build_dir / "python"
+    python_build_root = Path(
+        os.environ.get("HAKO_PDU_ENDPOINT_PYTHON_BUILD_DIR", build_dir / "python")
+    ).expanduser().resolve()
 
     env_shared_lib = os.environ.get("HAKO_PDU_ENDPOINT_SHARED_LIB")
     env_lib_dir = os.environ.get("HAKO_PDU_ENDPOINT_LIB_DIR")
@@ -171,6 +173,10 @@ def configure_ffi():
                 extra_link_args.append(str(import_lib))
         elif shared_lib_path.suffix in {".so", ".dylib"}:
             extra_link_args.append(str(shared_lib_path))
+            if sys.platform == "darwin":
+                extra_link_args.append("-Wl,-rpath,@loader_path")
+            elif sys.platform.startswith("linux"):
+                extra_link_args.append("-Wl,-rpath,$ORIGIN")
     else:
         for candidate in (
             build_dir / "src",

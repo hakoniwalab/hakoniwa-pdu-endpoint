@@ -4,7 +4,9 @@ set -euo pipefail
 # --- Configuration ---
 PREFIX=${PREFIX:-/usr/local/hakoniwa}
 PROJECT_ROOT=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
-BUILD_DIR="${PROJECT_ROOT}/build"
+BUILD_DIR=${BUILD_DIR:-"${PROJECT_ROOT}/build"}
+PY_BUILD_DIR=${PY_BUILD_DIR:-"${PROJECT_ROOT}/build-py"}
+BUILD_TYPE=${BUILD_TYPE:-Release}
 PY_SRC_DIR="${PROJECT_ROOT}/python"
 PY_INSTALL_DIR="${PREFIX}/share/hakoniwa-pdu-endpoint/python"
 PY_PKG_INSTALL_DIR="${PY_INSTALL_DIR}/hakoniwa_pdu_endpoint"
@@ -12,6 +14,16 @@ PY_PKG_INSTALL_DIR="${PY_INSTALL_DIR}/hakoniwa_pdu_endpoint"
 say() {
   printf "%s
 " "$*"
+}
+
+detect_parallel_level() {
+  if command -v nproc >/dev/null 2>&1; then
+    nproc 2>/dev/null && return
+  fi
+  if command -v sysctl >/dev/null 2>&1; then
+    sysctl -n hw.ncpu 2>/dev/null && return
+  fi
+  printf "1\n"
 }
 
 die() {
@@ -34,15 +46,30 @@ case "$(uname -s)" in
     die "Unsupported OS: $(uname -s)"
     ;;
 esac
+CMAKE_BUILD_PARALLEL_LEVEL=${CMAKE_BUILD_PARALLEL_LEVEL:-$(detect_parallel_level)}
 
 # --- 1. Build Step ---
-say "--- Ensuring project is built ---"
-if [[ ! -d "${BUILD_DIR}" ]]; then
-  say "Build directory not found. Running build.bash..."
-  bash "${PROJECT_ROOT}/build.bash"
-else
-  say "Build directory found. Assuming project is already built."
+say "--- Building static C++ components (${BUILD_TYPE}) ---"
+cmake -S "${PROJECT_ROOT}" -B "${BUILD_DIR}" \
+  -DCMAKE_BUILD_TYPE="${BUILD_TYPE}" \
+  -DBUILD_SHARED_LIBS=OFF
+cmake --build "${BUILD_DIR}" --parallel "${CMAKE_BUILD_PARALLEL_LEVEL}"
+
+say "--- Building shared C++ library for Python/CFFI (${BUILD_TYPE}) ---"
+cmake -S "${PROJECT_ROOT}" -B "${PY_BUILD_DIR}" \
+  -DCMAKE_BUILD_TYPE="${BUILD_TYPE}" \
+  -DBUILD_SHARED_LIBS=ON
+cmake --build "${PY_BUILD_DIR}" --parallel "${CMAKE_BUILD_PARALLEL_LEVEL}" --target hakoniwa_pdu_endpoint
+
+CORE_LIB=$(find "${PY_BUILD_DIR}" -name "${CORE_LIB_PATTERN}" | head -n 1)
+if [[ -z "$CORE_LIB" || ! -f "$CORE_LIB" ]]; then
+  die "Core library (${CORE_LIB_PATTERN}) not found in shared build directory."
 fi
+
+say "--- Building Python FFI module ---"
+HAKO_PDU_ENDPOINT_SHARED_LIB="${CORE_LIB}" \
+  HAKO_PDU_ENDPOINT_PYTHON_BUILD_DIR="${PY_BUILD_DIR}/python" \
+  python3 "${PROJECT_ROOT}/python/hakoniwa_pdu_endpoint/build_c_endpoint_ffi.py"
 
 # --- 2. C++ Component Installation ---
 say "--- Installing C++ components to ${PREFIX} ---"
@@ -53,6 +80,9 @@ cd "${BUILD_DIR}"
 cmake --install . --prefix "${PREFIX}"
 cd "${PROJECT_ROOT}"
 
+say "Installing shared C++ library for Python/CFFI to ${PREFIX}/lib"
+install -d "${PREFIX}/lib"
+cp "${CORE_LIB}" "${PREFIX}/lib/"
 
 # --- 3. Python Package Installation ---
 say "--- Installing Python package to ${PY_INSTALL_DIR} ---"
@@ -66,7 +96,7 @@ cp -R "${PY_SRC_DIR}/hakoniwa_pdu_endpoint/." "${PY_PKG_INSTALL_DIR}/"
 
 # 3.3. Copy Python FFI extension (.so)
 say "Copying Python FFI extension..."
-SO_FILE=$(find "${BUILD_DIR}" -name "_c_endpoint_ffi*.so" | head -n 1)
+SO_FILE=$(find "${PY_BUILD_DIR}/python" -name "_c_endpoint_ffi*.so" | head -n 1)
 if [[ -z "$SO_FILE" || ! -f "$SO_FILE" ]]; then
   die "Python FFI module (_c_endpoint_ffi*.so) not found in build directory. The Python build may have failed or was not run."
 fi
@@ -75,10 +105,6 @@ say "  Copied $SO_FILE"
 
 # 3.4. Copy core dependency library into the package
 say "Copying core C++ library for Python package..."
-CORE_LIB=$(find "${BUILD_DIR}" -name "${CORE_LIB_PATTERN}" | head -n 1)
-if [[ -z "$CORE_LIB" || ! -f "$CORE_LIB" ]]; then
-  die "Core library (${CORE_LIB_PATTERN}) not found in build directory."
-fi
 cp "$CORE_LIB" "${PY_PKG_INSTALL_DIR}/"
 say "  Copied $CORE_LIB"
 

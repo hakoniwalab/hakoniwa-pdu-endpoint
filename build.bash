@@ -2,23 +2,32 @@
 set -euo pipefail
 
 PROJECT_ROOT=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
-BUILD_DIR="${PROJECT_ROOT}/build"
-BUILD_TYPE="Release"
+BUILD_DIR=${BUILD_DIR:-"${PROJECT_ROOT}/build"}
+BUILD_TYPE=${BUILD_TYPE:-Release}
 
 say() {
   printf "%s
 " "$*"
 }
 
+detect_parallel_level() {
+  if command -v nproc >/dev/null 2>&1; then
+    nproc 2>/dev/null && return
+  fi
+  if command -v sysctl >/dev/null 2>&1; then
+    sysctl -n hw.ncpu 2>/dev/null && return
+  fi
+  printf "1\n"
+}
+
+CMAKE_BUILD_PARALLEL_LEVEL=${CMAKE_BUILD_PARALLEL_LEVEL:-$(detect_parallel_level)}
+
 say "--- Configuring C++ Project (${BUILD_TYPE}) ---"
-# BUILD_SHARED_LIBS is now ON by default in CMakeLists.txt
-cmake -S "${PROJECT_ROOT}" -B "${BUILD_DIR}" -DCMAKE_BUILD_TYPE="${BUILD_TYPE}"
+cmake -S "${PROJECT_ROOT}" -B "${BUILD_DIR}" \
+  -DCMAKE_BUILD_TYPE="${BUILD_TYPE}" \
+  -DBUILD_SHARED_LIBS=OFF
 
 say "--- Building C++ Core Library ---"
-# Use parallel build to speed up
-cmake --build "${BUILD_DIR}" -- -j$(nproc 2>/dev/null || sysctl -n hw.ncpu)
-
-say "--- Building Python FFI Module ---"
-python3 "${PROJECT_ROOT}/python/hakoniwa_pdu_endpoint/build_c_endpoint_ffi.py"
+cmake --build "${BUILD_DIR}" --parallel "${CMAKE_BUILD_PARALLEL_LEVEL}"
 
 say "Build complete."
