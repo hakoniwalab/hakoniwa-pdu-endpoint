@@ -46,6 +46,14 @@ bash tools/make-rmw-zenoh-config.bash \
 
 Use `docker/recipes/rmw_zenoh_sub.yml` for subscriber-side endpoint configs.
 
+The generator writes three files under `--out-dir`:
+
+| direction | endpoint config | comm config | Zenoh config |
+| --- | --- | --- | --- |
+| `in` | `endpoint_rmw_zenoh_sub.json` | `rmw_zenoh_sub_comm.json` | `zenoh_client_sub.json5` |
+| `out` | `endpoint_rmw_zenoh_pub.json` | `rmw_zenoh_pub_comm.json` | `zenoh_client_pub.json5` |
+| `inout` | `endpoint_rmw_zenoh_pubsub.json` | `rmw_zenoh_pubsub_comm.json` | `zenoh_client_pubsub.json5` |
+
 To resolve the ROS 2 type hash from registry metadata instead of the ROS
 installation, pass the registry type-hash directory:
 

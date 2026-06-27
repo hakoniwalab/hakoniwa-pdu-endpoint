@@ -394,6 +394,16 @@ bash tools/make-rmw-zenoh-config.bash \
   --out-dir /tmp/hako-rmw-zenoh-manual
 ```
 
+The generator writes three files under `--out-dir`: the endpoint config, the
+`rmw_zenoh` comm config, and the Zenoh client config. File names are derived
+from the effective recipe `direction`:
+
+| direction | endpoint config | comm config | Zenoh config |
+| --- | --- | --- | --- |
+| `in` | `endpoint_rmw_zenoh_sub.json` | `rmw_zenoh_sub_comm.json` | `zenoh_client_sub.json5` |
+| `out` | `endpoint_rmw_zenoh_pub.json` | `rmw_zenoh_pub_comm.json` | `zenoh_client_pub.json5` |
+| `inout` | `endpoint_rmw_zenoh_pubsub.json` | `rmw_zenoh_pubsub_comm.json` | `zenoh_client_pubsub.json5` |
+
 The recipe shape is:
 
 ```yaml
