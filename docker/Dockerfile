@@ -16,6 +16,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     curl \
     git \
     libboost-dev \
+    libfastcdr-dev \
     pkg-config \
     python3 \
     python3-pip \
@@ -24,7 +25,12 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     ros-${ROS_DISTRO}-ros2cli \
     ros-${ROS_DISTRO}-ros2interface \
     ros-${ROS_DISTRO}-std-msgs \
+    ros-${ROS_DISTRO}-geometry-msgs \
+    ros-${ROS_DISTRO}-sensor-msgs \
     && rm -rf /var/lib/apt/lists/*
+
+COPY docker/scripts/ros2-type-hash /usr/local/bin/ros2-type-hash
+RUN chmod +x /usr/local/bin/ros2-type-hash
 
 WORKDIR /workspace/hakoniwa-pdu-endpoint
 

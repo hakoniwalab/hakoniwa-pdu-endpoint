@@ -173,6 +173,22 @@ Hakoniwa endpoint-to-endpoint smoke testing:
 
 These `rmw_zenoh` sample configs use a placeholder `type_hash` for endpoint-to-endpoint testing. Replace it with registry-managed ROS 2 type-hash metadata before testing against real ROS 2 `rmw_zenoh` nodes.
 
+### CDR Examples
+
+When Fast CDR is available, the examples build CDR-aware variants:
+
+- `endpoint_zenoh_pub_cdr`
+- `endpoint_zenoh_sub_cdr`
+
+These examples keep the endpoint transport binary-only. The application layer
+uses the generated `std_msgs/UInt64` CDR converter copied under `examples/cdr`.
+The Docker `rmw_zenoh` smoke tests use these binaries for ROS 2 interop.
+
+```bash
+./build/examples/endpoint_zenoh_sub_cdr config/sample/endpoint_rmw_zenoh_sub.json
+./build/examples/endpoint_zenoh_pub_cdr config/sample/endpoint_rmw_zenoh_pub.json
+```
+
 ## MQTT Pub/Sub
 
 - `endpoint_mqtt_pub`

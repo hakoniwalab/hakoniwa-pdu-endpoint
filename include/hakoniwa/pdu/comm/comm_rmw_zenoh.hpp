@@ -37,7 +37,7 @@ private:
         std::string type;
         std::string type_hash;
         std::string keyexpr;
-        std::array<std::uint8_t, 24> gid{};
+        std::array<std::uint8_t, 16> gid{};
         std::int64_t sequence_number{0};
         bool notify_on_recv{true};
     };
@@ -48,7 +48,7 @@ private:
     std::string make_keyexpr_(const std::string& topic, const std::string& type, const std::string& type_hash) const;
     bool parse_keyexpr_(const std::string& keyexpr, std::string& out_topic, std::string& out_type, std::string& out_type_hash) const;
     std::string derive_rmw_type_(const std::string& pdu_type) const;
-    std::array<std::uint8_t, 24> parse_or_make_gid_(const std::string& gid, const std::string& seed) const;
+    std::array<std::uint8_t, 16> parse_or_make_gid_(const std::string& gid, const std::string& seed) const;
     void cleanup_() noexcept;
     static void on_sample_thunk_(z_loaned_sample_t* sample, void* context);
     void on_sample_(z_loaned_sample_t* sample);

@@ -3,6 +3,7 @@
 #include "hakoniwa/pdu/socket_utils.hpp"
 
 #include <chrono>
+#include <cstring>
 #include <filesystem>
 #include <fstream>
 #include <functional>
@@ -283,28 +284,23 @@ HakoPduErrorType RmwZenohComm::open_session_()
 
 HakoPduErrorType RmwZenohComm::make_attachment_(Mapping& mapping, z_owned_bytes_t& attachment) noexcept
 {
-    ze_owned_serializer_t serializer;
-    if (ze_serializer_empty(&serializer) < 0) {
-        return HAKO_PDU_ERR_IO_ERROR;
-    }
-
     const auto timestamp = std::chrono::duration_cast<std::chrono::nanoseconds>(
         std::chrono::system_clock::now().time_since_epoch()).count();
 
-    auto* s = ze_serializer_loan_mut(&serializer);
-    if (ze_serializer_serialize_int64(s, mapping.sequence_number++) < 0
-        || ze_serializer_serialize_int64(s, static_cast<std::int64_t>(timestamp)) < 0
-        || ze_serializer_serialize_sequence_length(s, mapping.gid.size()) < 0) {
-        ze_serializer_drop(z_move(serializer));
-        return HAKO_PDU_ERR_IO_ERROR;
-    }
-    for (auto b : mapping.gid) {
-        if (ze_serializer_serialize_uint8(s, b) < 0) {
-            ze_serializer_drop(z_move(serializer));
-            return HAKO_PDU_ERR_IO_ERROR;
+    std::array<std::uint8_t, 8 + 8 + 1 + 16> buffer{};
+    auto put_le_i64 = [&buffer](std::size_t offset, std::int64_t value) {
+        const auto v = static_cast<std::uint64_t>(value);
+        for (std::size_t i = 0; i < 8; ++i) {
+            buffer[offset + i] = static_cast<std::uint8_t>((v >> (i * 8)) & 0xffU);
         }
-    }
-    ze_serializer_finish(z_move(serializer), &attachment);
+    };
+
+    put_le_i64(0, mapping.sequence_number++);
+    put_le_i64(8, static_cast<std::int64_t>(timestamp));
+    buffer[16] = static_cast<std::uint8_t>(mapping.gid.size());
+    std::memcpy(buffer.data() + 17, mapping.gid.data(), mapping.gid.size());
+
+    z_bytes_copy_from_buf(&attachment, buffer.data(), buffer.size());
     return HAKO_PDU_ERR_OK;
 }
 
@@ -349,9 +345,9 @@ std::string RmwZenohComm::derive_rmw_type_(const std::string& pdu_type) const
     return package + "::msg::dds_::" + message + "_";
 }
 
-std::array<std::uint8_t, 24> RmwZenohComm::parse_or_make_gid_(const std::string& gid, const std::string& seed) const
+std::array<std::uint8_t, 16> RmwZenohComm::parse_or_make_gid_(const std::string& gid, const std::string& seed) const
 {
-    std::array<std::uint8_t, 24> out{};
+    std::array<std::uint8_t, 16> out{};
     if (gid.size() == out.size() * 2) {
         bool valid = true;
         for (char c : gid) {
@@ -371,9 +367,8 @@ std::array<std::uint8_t, 24> RmwZenohComm::parse_or_make_gid_(const std::string&
     std::hash<std::string> hasher;
     const auto h0 = hasher(seed);
     const auto h1 = hasher(seed + "#rmw_zenoh");
-    const auto h2 = hasher(seed + "#hakoniwa");
-    const std::size_t hashes[3] = {h0, h1, h2};
-    for (std::size_t h = 0; h < 3; ++h) {
+    const std::size_t hashes[2] = {h0, h1};
+    for (std::size_t h = 0; h < 2; ++h) {
         for (std::size_t i = 0; i < 8; ++i) {
             out[(h * 8) + i] = static_cast<std::uint8_t>((hashes[h] >> (i * 8)) & 0xffU);
         }

@@ -463,7 +463,7 @@
         "gid": {
           "type": "string",
           "minLength": 1,
-          "description": "48-character hex RMW GID storage value, or auto for deterministic local generation."
+          "description": "32-character hex RMW GID storage value, or auto for deterministic local generation."
         },
         "notify_on_recv": {
           "type": "boolean"

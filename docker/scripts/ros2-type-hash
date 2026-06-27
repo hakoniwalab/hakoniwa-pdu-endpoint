@@ -1,0 +1,60 @@
+#!/usr/bin/env python3
+import json
+import os
+import sys
+from pathlib import Path
+
+from ament_index_python.packages import PackageNotFoundError
+from ament_index_python.packages import get_package_share_directory
+
+
+def usage():
+    print("usage: ros2-type-hash <pkg/msg/MsgName>", file=sys.stderr)
+    print("example: ros2-type-hash geometry_msgs/msg/Twist", file=sys.stderr)
+
+
+def main():
+    if len(sys.argv) != 2:
+        usage()
+        return 2
+
+    ros_type = sys.argv[1]
+    parts = ros_type.split("/")
+    if len(parts) != 3:
+        print(f"invalid ROS type: {ros_type}", file=sys.stderr)
+        print("expected: <pkg>/<msg|srv|action>/<Name>", file=sys.stderr)
+        return 2
+
+    pkg, kind, name = parts
+    if kind not in {"msg", "srv", "action"}:
+        print(f"invalid ROS interface kind: {kind}", file=sys.stderr)
+        print("expected one of: msg, srv, action", file=sys.stderr)
+        return 2
+
+    try:
+        share = Path(get_package_share_directory(pkg))
+    except PackageNotFoundError:
+        ros_distro = os.environ.get("ROS_DISTRO", "rolling")
+        print(f"ROS package not found: {pkg}", file=sys.stderr)
+        print("hint: install the corresponding ROS package, e.g.", file=sys.stderr)
+        print(f"  apt-get install ros-{ros_distro}-{pkg.replace('_', '-')}", file=sys.stderr)
+        return 1
+
+    json_path = share / kind / f"{name}.json"
+    if not json_path.exists():
+        print(f"type description json not found: {json_path}", file=sys.stderr)
+        print("this ROS package may not ship type description metadata", file=sys.stderr)
+        return 1
+
+    data = json.loads(json_path.read_text(encoding="utf-8"))
+    for item in data.get("type_hashes", []):
+        if item.get("type_name") == ros_type and item.get("hash_string"):
+            print(item["hash_string"])
+            return 0
+
+    print(f"type hash not found for {ros_type} in {json_path}", file=sys.stderr)
+    return 1
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

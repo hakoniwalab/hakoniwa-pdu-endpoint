@@ -3,11 +3,12 @@ set -euo pipefail
 
 ROOT_DIR="/workspace/hakoniwa-pdu-endpoint"
 TMP_DIR="/tmp/hako-rmw-zenoh-test"
-ENDPOINT_CFG="${TMP_DIR}/endpoint_rmw_zenoh_sub.json"
-COMM_CFG="${TMP_DIR}/rmw_zenoh_sub_comm.json"
-ZENOH_CFG="${TMP_DIR}/zenoh_client.json5"
-ENDPOINT_LOG="${TMP_DIR}/endpoint_sub.log"
-ROUTER_LOG="${TMP_DIR}/rmw_zenohd.log"
+ENDPOINT_CFG="${TMP_DIR}/endpoint_rmw_zenoh_pub.json"
+COMM_CFG="${TMP_DIR}/rmw_zenoh_pub_comm.json"
+ZENOH_CFG="${TMP_DIR}/zenoh_client_pub.json5"
+ENDPOINT_LOG="${TMP_DIR}/endpoint_pub_cdr.log"
+ROS_SUB_LOG="${TMP_DIR}/ros_sub.log"
+ROUTER_LOG="${TMP_DIR}/rmw_zenohd_pub.log"
 
 set +u
 source "/opt/ros/${ROS_DISTRO}/setup.bash"
@@ -33,16 +34,10 @@ fi
 if [[ -z "${TYPE_HASH}" ]]; then
   TYPE_HASH="$(ros2 interface type_hash std_msgs/msg/UInt64 2>/dev/null | grep -Eo 'RIHS[0-9A-Za-z_]+' | head -n1 || true)"
 fi
-
 if [[ -z "${TYPE_HASH}" ]]; then
-  if [[ "${HAKO_RMW_ZENOH_ALLOW_HASH_WILDCARD:-0}" == "1" ]]; then
-    TYPE_HASH="*"
-    echo "std_msgs/msg/UInt64 type hash was not available; using receive-only wildcard." >&2
-  else
-    echo "Failed to resolve std_msgs/msg/UInt64 type hash." >&2
-    echo "Set RMW_ZENOH_TYPE_HASH explicitly, or set HAKO_RMW_ZENOH_ALLOW_HASH_WILDCARD=1 for receive-only smoke testing." >&2
-    exit 2
-  fi
+  echo "Failed to resolve std_msgs/msg/UInt64 type hash; publisher tests require a concrete hash." >&2
+  echo "Set RMW_ZENOH_TYPE_HASH explicitly and rerun this script." >&2
+  exit 2
 fi
 
 python3 - "${TYPE_HASH}" "${COMM_CFG}" "${ENDPOINT_CFG}" "${ZENOH_CFG}" "${ZENOH_ROUTER_ENDPOINT}" <<'PY'
@@ -63,8 +58,8 @@ zenoh = {
 
 comm = {
     "protocol": "rmw_zenoh",
-    "name": "rmw_zenoh_sub_docker",
-    "direction": "in",
+    "name": "rmw_zenoh_pub_docker",
+    "direction": "out",
     "rmw_zenoh": {
         "config_path": zenoh_path,
         "domain_id": 0,
@@ -77,7 +72,7 @@ comm = {
                 "type": "auto",
                 "type_hash": type_hash,
                 "gid": "auto",
-                "notify_on_recv": True,
+                "notify_on_recv": False,
                 "qos": {
                     "reliability": "best_effort",
                     "durability": "volatile",
@@ -90,7 +85,7 @@ comm = {
 }
 
 endpoint = {
-    "name": "sample_rmw_zenoh_sub_endpoint_docker",
+    "name": "sample_rmw_zenoh_pub_endpoint_docker",
     "pdu_def_path": f"{root}/config/sample/comm/storage_example/pdudef.json",
     "cache": f"{root}/config/sample/cache/buffer.json",
     "comm": comm_path,
@@ -108,17 +103,17 @@ echo "Using std_msgs/msg/UInt64 type_hash=${TYPE_HASH}"
 echo "Using Zenoh router endpoint=${ZENOH_ROUTER_ENDPOINT}"
 
 ROUTER_PID=""
-ENDPOINT_PID=""
+ROS_SUB_PID=""
 ros2 run rmw_zenoh_cpp rmw_zenohd >"${ROUTER_LOG}" 2>&1 &
 ROUTER_PID=$!
 sleep "${HAKO_RMW_ZENOH_ROUTER_STARTUP_SEC:-1}"
 
-./build-docker/examples/endpoint_zenoh_sub_cdr "${ENDPOINT_CFG}" >"${ENDPOINT_LOG}" 2>&1 &
-ENDPOINT_PID=$!
+python3 docker/ros/rmw_zenoh_uint64_sub.py >"${ROS_SUB_LOG}" 2>&1 &
+ROS_SUB_PID=$!
 
 cleanup() {
-  if [[ -n "${ENDPOINT_PID}" ]]; then
-    kill "${ENDPOINT_PID}" >/dev/null 2>&1 || true
+  if [[ -n "${ROS_SUB_PID}" ]]; then
+    kill "${ROS_SUB_PID}" >/dev/null 2>&1 || true
   fi
   if [[ -n "${ROUTER_PID}" ]]; then
     kill "${ROUTER_PID}" >/dev/null 2>&1 || true
@@ -126,26 +121,29 @@ cleanup() {
 }
 trap cleanup EXIT
 
-sleep 2
-if ! kill -0 "${ENDPOINT_PID}" >/dev/null 2>&1; then
-  wait "${ENDPOINT_PID}" || true
-  echo "----- endpoint log -----"
-  cat "${ENDPOINT_LOG}"
+sleep "${HAKO_RMW_ZENOH_SUBSCRIBER_STARTUP_SEC:-2}"
+if ! kill -0 "${ROS_SUB_PID}" >/dev/null 2>&1; then
+  wait "${ROS_SUB_PID}" || true
+  echo "----- ROS subscriber log -----"
+  cat "${ROS_SUB_LOG}"
   echo "----- rmw_zenohd log -----"
   cat "${ROUTER_LOG}"
-  echo "Endpoint exited before ROS 2 publishing started." >&2
+  echo "ROS 2 subscriber exited before endpoint publishing started." >&2
   exit 1
 fi
 
-python3 docker/ros/rmw_zenoh_uint64_pub.py
-wait "${ENDPOINT_PID}" || true
+./build-docker/examples/endpoint_zenoh_pub_cdr "${ENDPOINT_CFG}" >"${ENDPOINT_LOG}" 2>&1
+wait "${ROS_SUB_PID}" || true
 
 echo "----- endpoint log -----"
 cat "${ENDPOINT_LOG}"
+echo "----- ROS subscriber log -----"
+cat "${ROS_SUB_LOG}"
 echo "----- rmw_zenohd log -----"
 cat "${ROUTER_LOG}"
 
-if ! grep -Eq 'received sample_state_cdr=' "${ENDPOINT_LOG}"; then
-  echo "Endpoint did not receive a ROS 2 rmw_zenoh sample." >&2
+if ! grep -Eq 'received /sample_state=5' "${ROS_SUB_LOG}"; then
+  echo "ROS 2 subscriber did not receive all endpoint rmw_zenoh CDR samples." >&2
   exit 1
 fi
+

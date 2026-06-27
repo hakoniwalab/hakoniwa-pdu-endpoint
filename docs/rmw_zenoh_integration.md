@@ -185,9 +185,11 @@ Important rule:
 - the comm config should either provide the concrete hash value or reference
   registry-managed metadata that contains it
 - missing type-hash metadata is a configuration error
-- for receive-only smoke tests, `type_hash: "*"` may be used as a subscriber
-  wildcard; publishing to ROS 2 still requires the concrete registry-managed
-  hash
+- Docker smoke tests resolve the concrete hash with `ros2-type-hash`, which reads
+  ROS installed type-description JSON files
+- for explicitly opted-in receive-only smoke tests, `type_hash: "*"` may be used
+  as a subscriber wildcard; publishing to ROS 2 still requires the concrete
+  registry-managed hash
 
 This keeps type-name conversion convenient while leaving schema identity under
 the registry, where the message definition is already managed.
@@ -221,10 +223,9 @@ The publish path must attach at least:
 - `int64_t` source timestamp in nanoseconds since UNIX epoch
 - `std::array<uint8_t, RMW_GID_STORAGE_SIZE>` source GID
 
-On the current rolling implementation, this attachment is serialized with
-`zenoh::ext::Serializer`. In zenoh-c terms, this means the fixed-size GID array
-is encoded as a sequence with its length followed by 24 `uint8_t` values, not as
-a custom length byte followed by raw bytes.
+On the current rolling implementation, this attachment is encoded as raw bytes:
+little-endian `int64` sequence number, little-endian `int64` source timestamp,
+one `uint8_t` GID length byte, then the 16-byte GID.
 
 The sequence number should be tracked per publisher mapping. The source
 timestamp can initially use the local clock, with a later option to integrate
@@ -284,13 +285,45 @@ The implementation currently provides:
 - opaque binary payload publishing through `z_put(...)`
 - data key expression generation from `domain_id`, topic, type, and type hash
 - `type: "auto"` conversion from Hakoniwa PDU type names to ROS 2 DDS type-support names
-- `rmw_zenoh` attachment generation with sequence number, source timestamp, and 24-byte GID
+- `rmw_zenoh` attachment generation with sequence number, source timestamp, and 16-byte GID
 - subscriber callback routing for configured key expressions
 
 The implementation intentionally does not perform CDR conversion inside
 `Endpoint` or `RmwZenohComm`. Callers must provide ROS 2 CDR payload bytes when
 publishing to ROS 2 topics, and callers must decode ROS 2 CDR payload bytes when
 consuming received samples as typed data.
+
+### Validated Docker Smoke Tests
+
+The current Docker environment validates both minimal `std_msgs/msg/UInt64`
+data paths through `rmw_zenoh`:
+
+```text
+ROS 2 publisher
+  -> rmw_zenoh
+  -> Hakoniwa Endpoint subscriber
+  -> examples/cdr UInt64 decode
+```
+
+```text
+Hakoniwa Endpoint publisher
+  -> examples/cdr UInt64 encode
+  -> rmw_zenoh
+  -> ROS 2 subscriber
+```
+
+Run them inside the Docker container after `bash tools/build-zenoh-docker.bash`:
+
+```bash
+bash docker/run_ros_rmw_zenoh_pub_to_endpoint_sub.bash
+bash docker/run_endpoint_rmw_zenoh_pub_to_ros_sub.bash
+```
+
+Both scripts generate temporary endpoint configs with the concrete
+`std_msgs/msg/UInt64` type hash from `ros2-type-hash`, start `rmw_zenohd`, and
+connect the endpoint as a Zenoh client. The CDR conversion is performed by the
+example application layer using generated converter headers under
+`examples/cdr`.
 
 ### Current Type Conversion
 
@@ -313,14 +346,13 @@ registry-managed metadata.
 
 ### Current Attachment Encoding
 
-The attachment is serialized with zenoh-c serializer calls to match
-`zenoh::ext::Serializer` layout:
+The attachment is serialized as raw bytes:
 
 ```text
-int64 sequence_number
-int64 source_timestamp_ns
-sequence_length 24
-uint8 gid[24]
+int64 sequence_number, little-endian
+int64 source_timestamp_ns, little-endian
+uint8 gid_length = 16
+uint8 gid[16]
 ```
 
 The source timestamp currently uses `system_clock`. Simulation-time integration

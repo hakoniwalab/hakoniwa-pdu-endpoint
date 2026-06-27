@@ -37,11 +37,44 @@ Run the ROS publisher to endpoint subscriber smoke test inside the container:
 bash docker/run_ros_rmw_zenoh_pub_to_endpoint_sub.bash
 ```
 
-The test starts the `rmw_zenoh` router, generates a temporary endpoint config,
-runs `examples/endpoint_zenoh_sub`, then publishes `/sample_state` from a ROS 2
-node. If the ROS CLI can provide the `std_msgs/msg/UInt64` type hash, the test
-uses it. Otherwise, the endpoint subscriber uses `type_hash: "*"` as a
-receive-only wildcard.
+Expected endpoint-side output includes decoded CDR values:
+
+```text
+received sample_state_cdr=1 bytes=12
+received sample_state_cdr=2 bytes=12
+received sample_state_cdr=3 bytes=12
+received sample_state_cdr=4 bytes=12
+received sample_state_cdr=5 bytes=12
+```
+
+Run the reverse endpoint publisher to ROS subscriber smoke test:
+
+```bash
+bash docker/run_endpoint_rmw_zenoh_pub_to_ros_sub.bash
+```
+
+Expected ROS-side output includes:
+
+```text
+received /sample_state=1
+received /sample_state=2
+received /sample_state=3
+received /sample_state=4
+received /sample_state=5
+```
+
+Both smoke tests start the `rmw_zenoh` router and generate temporary endpoint
+configs with the concrete `std_msgs/msg/UInt64` type hash. The image includes
+`ros2-type-hash`, a small helper that reads ROS installed type-description JSON
+files.
+
+The endpoint client config is generated at runtime and points to the container's
+Zenoh router address. Override it when needed:
+
+```bash
+HAKO_RMW_ZENOH_ROUTER_ENDPOINT=tcp/172.17.0.2:7447 bash docker/run.bash \
+  bash docker/run_ros_rmw_zenoh_pub_to_endpoint_sub.bash
+```
 
 You can pass the type hash explicitly:
 
@@ -50,11 +83,22 @@ RMW_ZENOH_TYPE_HASH=<std_msgs-msg-UInt64-type-hash> bash docker/run.bash \
   bash docker/run_ros_rmw_zenoh_pub_to_endpoint_sub.bash
 ```
 
+For the endpoint publisher to ROS subscriber test, a concrete hash is required.
+
+For receive-only smoke testing, a wildcard can be explicitly enabled if the hash
+cannot be resolved:
+
+```bash
+HAKO_RMW_ZENOH_ALLOW_HASH_WILDCARD=1 bash docker/run.bash \
+  bash docker/run_ros_rmw_zenoh_pub_to_endpoint_sub.bash
+```
+
 You can also run a one-shot command from the host:
 
 ```bash
 bash docker/run.bash bash tools/build-zenoh-docker.bash
 bash docker/run.bash bash docker/run_ros_rmw_zenoh_pub_to_endpoint_sub.bash
+bash docker/run.bash bash docker/run_endpoint_rmw_zenoh_pub_to_ros_sub.bash
 ```
 
 Environment overrides:
