@@ -4,8 +4,6 @@ set -euo pipefail
 ROOT_DIR="/workspace/hakoniwa-pdu-endpoint"
 TMP_DIR="/tmp/hako-rmw-zenoh-test"
 ENDPOINT_CFG="${TMP_DIR}/endpoint_rmw_zenoh_sub.json"
-COMM_CFG="${TMP_DIR}/rmw_zenoh_sub_comm.json"
-ZENOH_CFG="${TMP_DIR}/zenoh_client.json5"
 ENDPOINT_LOG="${TMP_DIR}/endpoint_sub.log"
 ROUTER_LOG="${TMP_DIR}/rmw_zenohd.log"
 
@@ -34,75 +32,18 @@ if [[ -z "${TYPE_HASH}" ]]; then
   TYPE_HASH="$(ros2 interface type_hash std_msgs/msg/UInt64 2>/dev/null | grep -Eo 'RIHS[0-9A-Za-z_]+' | head -n1 || true)"
 fi
 
+if [[ -z "${TYPE_HASH}" && "${HAKO_RMW_ZENOH_ALLOW_HASH_WILDCARD:-0}" == "1" ]]; then
+  TYPE_HASH="*"
+  echo "std_msgs/msg/UInt64 type hash was not available; using receive-only wildcard." >&2
+fi
 if [[ -z "${TYPE_HASH}" ]]; then
-  if [[ "${HAKO_RMW_ZENOH_ALLOW_HASH_WILDCARD:-0}" == "1" ]]; then
-    TYPE_HASH="*"
-    echo "std_msgs/msg/UInt64 type hash was not available; using receive-only wildcard." >&2
-  else
-    echo "Failed to resolve std_msgs/msg/UInt64 type hash." >&2
-    echo "Set RMW_ZENOH_TYPE_HASH explicitly, or set HAKO_RMW_ZENOH_ALLOW_HASH_WILDCARD=1 for receive-only smoke testing." >&2
-    exit 2
-  fi
+  echo "Failed to resolve std_msgs/msg/UInt64 type hash." >&2
+  echo "Set RMW_ZENOH_TYPE_HASH explicitly, or set HAKO_RMW_ZENOH_ALLOW_HASH_WILDCARD=1 for receive-only smoke testing." >&2
+  exit 2
 fi
 
-python3 - "${TYPE_HASH}" "${COMM_CFG}" "${ENDPOINT_CFG}" "${ZENOH_CFG}" "${ZENOH_ROUTER_ENDPOINT}" <<'PY'
-import json
-import sys
-
-type_hash, comm_path, endpoint_path, zenoh_path, zenoh_endpoint = sys.argv[1:6]
-root = "/workspace/hakoniwa-pdu-endpoint"
-
-zenoh = {
-    "mode": "client",
-    "connect": {
-        "endpoints": [
-            zenoh_endpoint,
-        ],
-    },
-}
-
-comm = {
-    "protocol": "rmw_zenoh",
-    "name": "rmw_zenoh_sub_docker",
-    "direction": "in",
-    "rmw_zenoh": {
-        "config_path": zenoh_path,
-        "domain_id": 0,
-        "timestamp": {"source": "system_clock"},
-        "mappings": [
-            {
-                "robot": "StorageDemo",
-                "pdu": "sample_state",
-                "topic": "/sample_state",
-                "type": "auto",
-                "type_hash": type_hash,
-                "gid": "auto",
-                "notify_on_recv": True,
-                "qos": {
-                    "reliability": "best_effort",
-                    "durability": "volatile",
-                    "history": "keep_last",
-                    "depth": 10,
-                },
-            }
-        ],
-    },
-}
-
-endpoint = {
-    "name": "sample_rmw_zenoh_sub_endpoint_docker",
-    "pdu_def_path": f"{root}/config/sample/comm/storage_example/pdudef.json",
-    "cache": f"{root}/config/sample/cache/buffer.json",
-    "comm": comm_path,
-}
-
-with open(comm_path, "w", encoding="utf-8") as f:
-    json.dump(comm, f, indent=2)
-with open(endpoint_path, "w", encoding="utf-8") as f:
-    json.dump(endpoint, f, indent=2)
-with open(zenoh_path, "w", encoding="utf-8") as f:
-    json.dump(zenoh, f, indent=2)
-PY
+RMW_ZENOH_TYPE_HASH="${TYPE_HASH}" HAKO_RMW_ZENOH_ROUTER_ENDPOINT="${ZENOH_ROUTER_ENDPOINT}" \
+  bash docker/make-rmw-zenoh-config.bash --direction in --out-dir "${TMP_DIR}" >/dev/null
 
 echo "Using std_msgs/msg/UInt64 type_hash=${TYPE_HASH}"
 echo "Using Zenoh router endpoint=${ZENOH_ROUTER_ENDPOINT}"

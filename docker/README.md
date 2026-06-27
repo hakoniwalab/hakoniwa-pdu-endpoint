@@ -31,6 +31,15 @@ Build inside the container:
 bash tools/build-zenoh-docker.bash
 ```
 
+Generate a concrete endpoint config for manual endpoint execution:
+
+```bash
+bash docker/make-rmw-zenoh-config.bash --direction out --out-dir /tmp/hako-rmw-zenoh-manual
+./build-docker/examples/endpoint_zenoh_pub_cdr /tmp/hako-rmw-zenoh-manual/endpoint_rmw_zenoh_pub.json
+```
+
+Use `--direction in` for subscriber-side endpoint configs.
+
 Run the ROS publisher to endpoint subscriber smoke test inside the container:
 
 ```bash
@@ -97,6 +106,7 @@ You can also run a one-shot command from the host:
 
 ```bash
 bash docker/run.bash bash tools/build-zenoh-docker.bash
+bash docker/run.bash bash docker/make-rmw-zenoh-config.bash --direction out --out-dir /tmp/hako-rmw-zenoh-manual
 bash docker/run.bash bash docker/run_ros_rmw_zenoh_pub_to_endpoint_sub.bash
 bash docker/run.bash bash docker/run_endpoint_rmw_zenoh_pub_to_ros_sub.bash
 ```

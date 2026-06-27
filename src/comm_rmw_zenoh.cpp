@@ -17,6 +17,12 @@ namespace comm {
 
 namespace {
 using NotifyKey = std::pair<std::string, HakoPduChannelIdType>;
+constexpr std::size_t kRmwZenohSequenceNumberSize = 8;
+constexpr std::size_t kRmwZenohSourceTimestampSize = 8;
+constexpr std::size_t kRmwZenohGidLengthSize = 1;
+constexpr std::size_t kRmwZenohGidSize = 16;
+constexpr std::size_t kRmwZenohAttachmentSize =
+    kRmwZenohSequenceNumberSize + kRmwZenohSourceTimestampSize + kRmwZenohGidLengthSize + kRmwZenohGidSize;
 
 std::string strip_slashes(std::string value)
 {
@@ -284,10 +290,12 @@ HakoPduErrorType RmwZenohComm::open_session_()
 
 HakoPduErrorType RmwZenohComm::make_attachment_(Mapping& mapping, z_owned_bytes_t& attachment) noexcept
 {
+    // Compatibility boundary for the current rmw_zenoh data attachment format.
+    // Keep this isolated because upstream rmw_zenoh may change the wire format.
     const auto timestamp = std::chrono::duration_cast<std::chrono::nanoseconds>(
         std::chrono::system_clock::now().time_since_epoch()).count();
 
-    std::array<std::uint8_t, 8 + 8 + 1 + 16> buffer{};
+    std::array<std::uint8_t, kRmwZenohAttachmentSize> buffer{};
     auto put_le_i64 = [&buffer](std::size_t offset, std::int64_t value) {
         const auto v = static_cast<std::uint64_t>(value);
         for (std::size_t i = 0; i < 8; ++i) {
@@ -296,9 +304,12 @@ HakoPduErrorType RmwZenohComm::make_attachment_(Mapping& mapping, z_owned_bytes_
     };
 
     put_le_i64(0, mapping.sequence_number++);
-    put_le_i64(8, static_cast<std::int64_t>(timestamp));
-    buffer[16] = static_cast<std::uint8_t>(mapping.gid.size());
-    std::memcpy(buffer.data() + 17, mapping.gid.data(), mapping.gid.size());
+    put_le_i64(kRmwZenohSequenceNumberSize, static_cast<std::int64_t>(timestamp));
+    buffer[kRmwZenohSequenceNumberSize + kRmwZenohSourceTimestampSize] = static_cast<std::uint8_t>(mapping.gid.size());
+    std::memcpy(
+        buffer.data() + kRmwZenohSequenceNumberSize + kRmwZenohSourceTimestampSize + kRmwZenohGidLengthSize,
+        mapping.gid.data(),
+        mapping.gid.size());
 
     z_bytes_copy_from_buf(&attachment, buffer.data(), buffer.size());
     return HAKO_PDU_ERR_OK;

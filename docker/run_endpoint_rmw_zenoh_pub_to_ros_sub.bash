@@ -4,8 +4,6 @@ set -euo pipefail
 ROOT_DIR="/workspace/hakoniwa-pdu-endpoint"
 TMP_DIR="/tmp/hako-rmw-zenoh-test"
 ENDPOINT_CFG="${TMP_DIR}/endpoint_rmw_zenoh_pub.json"
-COMM_CFG="${TMP_DIR}/rmw_zenoh_pub_comm.json"
-ZENOH_CFG="${TMP_DIR}/zenoh_client_pub.json5"
 ENDPOINT_LOG="${TMP_DIR}/endpoint_pub_cdr.log"
 ROS_SUB_LOG="${TMP_DIR}/ros_sub.log"
 ROUTER_LOG="${TMP_DIR}/rmw_zenohd_pub.log"
@@ -40,64 +38,8 @@ if [[ -z "${TYPE_HASH}" ]]; then
   exit 2
 fi
 
-python3 - "${TYPE_HASH}" "${COMM_CFG}" "${ENDPOINT_CFG}" "${ZENOH_CFG}" "${ZENOH_ROUTER_ENDPOINT}" <<'PY'
-import json
-import sys
-
-type_hash, comm_path, endpoint_path, zenoh_path, zenoh_endpoint = sys.argv[1:6]
-root = "/workspace/hakoniwa-pdu-endpoint"
-
-zenoh = {
-    "mode": "client",
-    "connect": {
-        "endpoints": [
-            zenoh_endpoint,
-        ],
-    },
-}
-
-comm = {
-    "protocol": "rmw_zenoh",
-    "name": "rmw_zenoh_pub_docker",
-    "direction": "out",
-    "rmw_zenoh": {
-        "config_path": zenoh_path,
-        "domain_id": 0,
-        "timestamp": {"source": "system_clock"},
-        "mappings": [
-            {
-                "robot": "StorageDemo",
-                "pdu": "sample_state",
-                "topic": "/sample_state",
-                "type": "auto",
-                "type_hash": type_hash,
-                "gid": "auto",
-                "notify_on_recv": False,
-                "qos": {
-                    "reliability": "best_effort",
-                    "durability": "volatile",
-                    "history": "keep_last",
-                    "depth": 10,
-                },
-            }
-        ],
-    },
-}
-
-endpoint = {
-    "name": "sample_rmw_zenoh_pub_endpoint_docker",
-    "pdu_def_path": f"{root}/config/sample/comm/storage_example/pdudef.json",
-    "cache": f"{root}/config/sample/cache/buffer.json",
-    "comm": comm_path,
-}
-
-with open(comm_path, "w", encoding="utf-8") as f:
-    json.dump(comm, f, indent=2)
-with open(endpoint_path, "w", encoding="utf-8") as f:
-    json.dump(endpoint, f, indent=2)
-with open(zenoh_path, "w", encoding="utf-8") as f:
-    json.dump(zenoh, f, indent=2)
-PY
+RMW_ZENOH_TYPE_HASH="${TYPE_HASH}" HAKO_RMW_ZENOH_ROUTER_ENDPOINT="${ZENOH_ROUTER_ENDPOINT}" \
+  bash docker/make-rmw-zenoh-config.bash --direction out --out-dir "${TMP_DIR}" >/dev/null
 
 echo "Using std_msgs/msg/UInt64 type_hash=${TYPE_HASH}"
 echo "Using Zenoh router endpoint=${ZENOH_ROUTER_ENDPOINT}"
@@ -146,4 +88,3 @@ if ! grep -Eq 'received /sample_state=5' "${ROS_SUB_LOG}"; then
   echo "ROS 2 subscriber did not receive all endpoint rmw_zenoh CDR samples." >&2
   exit 1
 fi
-
