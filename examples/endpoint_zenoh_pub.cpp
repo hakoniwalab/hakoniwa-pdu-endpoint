@@ -15,11 +15,13 @@ std::vector<std::byte> to_fixed_u64_payload(std::uint64_t value)
 }
 } // namespace
 
-int main()
+int main(int argc, char* argv[])
 {
+    const std::string config_path = (argc > 1) ? argv[1] : "config/sample/endpoint_zenoh_pub.json";
+
     hakoniwa::pdu::Endpoint endpoint("zenoh_pub_example", HAKO_PDU_ENDPOINT_DIRECTION_OUT);
-    if (endpoint.open("config/sample/endpoint_zenoh_pub.json") != HAKO_PDU_ERR_OK) {
-        std::cerr << "Failed to open Zenoh publisher endpoint" << std::endl;
+    if (endpoint.open(config_path) != HAKO_PDU_ERR_OK) {
+        std::cerr << "Failed to open Zenoh publisher endpoint: " << config_path << std::endl;
         return 1;
     }
     if (endpoint.start() != HAKO_PDU_ERR_OK) {

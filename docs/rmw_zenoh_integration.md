@@ -355,6 +355,17 @@ Run the existing C++ test suite:
 ctest --test-dir build-zenoh --output-on-failure
 ```
 
+Run only the `rmw_zenoh` endpoint-to-endpoint smoke test:
+
+```bash
+./build-zenoh/test/endpoint_test \
+  --gtest_filter=EndpointTest.RmwZenohCommPeerToPeerPubSubDeliversOpaquePayloadToCallback
+```
+
+This smoke test validates Hakoniwa endpoint-to-endpoint delivery through the
+`rmw_zenoh` comm implementation. It does not require a ROS 2 node, and it does
+not validate ROS graph visibility or liveliness tokens.
+
 ## Configuration Direction
 
 Add a separate protocol instead of changing the existing `zenoh` protocol in

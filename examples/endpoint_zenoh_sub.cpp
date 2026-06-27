@@ -15,11 +15,13 @@ std::uint64_t from_fixed_u64_payload(std::span<const std::byte> payload)
 }
 } // namespace
 
-int main()
+int main(int argc, char* argv[])
 {
+    const std::string config_path = (argc > 1) ? argv[1] : "config/sample/endpoint_zenoh_sub.json";
+
     hakoniwa::pdu::Endpoint endpoint("zenoh_sub_example", HAKO_PDU_ENDPOINT_DIRECTION_IN);
-    if (endpoint.open("config/sample/endpoint_zenoh_sub.json") != HAKO_PDU_ERR_OK) {
-        std::cerr << "Failed to open Zenoh subscriber endpoint" << std::endl;
+    if (endpoint.open(config_path) != HAKO_PDU_ERR_OK) {
+        std::cerr << "Failed to open Zenoh subscriber endpoint: " << config_path << std::endl;
         return 1;
     }
     endpoint.subscribe_on_recv_callback(

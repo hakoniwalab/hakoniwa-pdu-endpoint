@@ -156,6 +156,23 @@ Run in two terminals:
 ./build/examples/endpoint_zenoh_pub
 ```
 
+Both examples also accept an endpoint config path as the first argument:
+
+```bash
+./build/examples/endpoint_zenoh_sub config/sample/endpoint_zenoh_sub.json
+./build/examples/endpoint_zenoh_pub config/sample/endpoint_zenoh_pub.json
+```
+
+The same binaries can be pointed at the `rmw_zenoh` sample configs for
+Hakoniwa endpoint-to-endpoint smoke testing:
+
+```bash
+./build/examples/endpoint_zenoh_sub config/sample/endpoint_rmw_zenoh_sub.json
+./build/examples/endpoint_zenoh_pub config/sample/endpoint_rmw_zenoh_pub.json
+```
+
+These `rmw_zenoh` sample configs use a placeholder `type_hash` for endpoint-to-endpoint testing. Replace it with registry-managed ROS 2 type-hash metadata before testing against real ROS 2 `rmw_zenoh` nodes.
+
 ## MQTT Pub/Sub
 
 - `endpoint_mqtt_pub`

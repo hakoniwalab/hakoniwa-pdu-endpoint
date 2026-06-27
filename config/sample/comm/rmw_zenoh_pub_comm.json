@@ -1,0 +1,29 @@
+{
+  "protocol": "rmw_zenoh",
+  "name": "rmw_zenoh_pub",
+  "direction": "out",
+  "rmw_zenoh": {
+    "config_path": "zenoh/peer_connect.json5",
+    "domain_id": 0,
+    "timestamp": {
+      "source": "system_clock"
+    },
+    "mappings": [
+      {
+        "robot": "StorageDemo",
+        "pdu": "sample_state",
+        "topic": "/sample_state",
+        "type": "auto",
+        "type_hash": "RIHS01_TEST_HASH",
+        "gid": "auto",
+        "notify_on_recv": false,
+        "qos": {
+          "reliability": "best_effort",
+          "durability": "volatile",
+          "history": "keep_last",
+          "depth": 10
+        }
+      }
+    ]
+  }
+}
