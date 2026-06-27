@@ -2905,6 +2905,149 @@ TEST_F(EndpointTest, ZenohCommPeerToPeerPubSubDeliversPayloadToCallback) {
     ASSERT_EQ(subscriber.stop(), HAKO_PDU_ERR_OK);
     ASSERT_EQ(subscriber.close(), HAKO_PDU_ERR_OK);
 }
+
+TEST_F(EndpointTest, RmwZenohCommPeerToPeerPubSubDeliversOpaquePayloadToCallback) {
+    namespace fs = std::filesystem;
+    const auto temp_base = fs::temp_directory_path() / "hako_pdu_rmw_zenoh_pubsub_test";
+    const auto cache_path = (fs::current_path() / "config/sample/cache/buffer.json").string();
+    const auto pdu_def_path = (fs::current_path() / "config/sample/comm/storage_example/pdudef.json").string();
+    fs::remove_all(temp_base);
+    fs::create_directories(temp_base / "zenoh");
+
+    const int port = find_available_port(SOCK_STREAM);
+    if (port <= 0) {
+        GTEST_SKIP() << "No bindable TCP port available in this environment";
+    }
+
+    const auto peer_listen_path = temp_base / "zenoh" / "peer_listen.json5";
+    const auto peer_connect_path = temp_base / "zenoh" / "peer_connect.json5";
+    const auto sub_comm_path = temp_base / "rmw_zenoh_sub_comm.json";
+    const auto pub_comm_path = temp_base / "rmw_zenoh_pub_comm.json";
+    const auto sub_endpoint_path = temp_base / "endpoint_rmw_zenoh_sub.json";
+    const auto pub_endpoint_path = temp_base / "endpoint_rmw_zenoh_pub.json";
+
+    {
+        std::ofstream ofs(peer_listen_path);
+        ASSERT_TRUE(ofs.is_open());
+        ofs << "{\n"
+               "  mode: \"peer\",\n"
+               "  listen: {\n"
+               "    endpoints: [\n"
+            << "      \"tcp/127.0.0.1:" << port << "\"\n"
+               "    ]\n"
+               "  }\n"
+               "}\n";
+    }
+    {
+        std::ofstream ofs(peer_connect_path);
+        ASSERT_TRUE(ofs.is_open());
+        ofs << "{\n"
+               "  mode: \"peer\",\n"
+               "  connect: {\n"
+               "    endpoints: [\n"
+            << "      \"tcp/127.0.0.1:" << port << "\"\n"
+               "    ]\n"
+               "  }\n"
+               "}\n";
+    }
+
+    const auto make_rmw_zenoh_comm = [](const std::string& direction, const std::string& config_path) {
+        return nlohmann::json{
+            {"protocol", "rmw_zenoh"},
+            {"name", "rmw_zenoh_" + direction},
+            {"direction", direction},
+            {"rmw_zenoh", {
+                {"config_path", config_path},
+                {"domain_id", 0},
+                {"timestamp", {
+                    {"source", "system_clock"}
+                }},
+                {"mappings", nlohmann::json::array({
+                    {
+                        {"robot", "StorageDemo"},
+                        {"pdu", "sample_state"},
+                        {"topic", "/sample_state"},
+                        {"type", "auto"},
+                        {"type_hash", "RIHS01_TEST_HASH"},
+                        {"gid", "auto"},
+                        {"notify_on_recv", true}
+                    }
+                })}
+            }}
+        };
+    };
+
+    {
+        std::ofstream ofs(sub_comm_path);
+        ASSERT_TRUE(ofs.is_open());
+        ofs << make_rmw_zenoh_comm("in", "zenoh/peer_listen.json5").dump(2);
+    }
+    {
+        std::ofstream ofs(pub_comm_path);
+        ASSERT_TRUE(ofs.is_open());
+        ofs << make_rmw_zenoh_comm("out", "zenoh/peer_connect.json5").dump(2);
+    }
+    {
+        std::ofstream ofs(sub_endpoint_path);
+        ASSERT_TRUE(ofs.is_open());
+        ofs << nlohmann::json{
+            {"name", "sample_rmw_zenoh_sub_endpoint"},
+            {"pdu_def_path", pdu_def_path},
+            {"cache", cache_path},
+            {"comm", sub_comm_path.string()}
+        }.dump(2);
+    }
+    {
+        std::ofstream ofs(pub_endpoint_path);
+        ASSERT_TRUE(ofs.is_open());
+        ofs << nlohmann::json{
+            {"name", "sample_rmw_zenoh_pub_endpoint"},
+            {"pdu_def_path", pdu_def_path},
+            {"cache", cache_path},
+            {"comm", pub_comm_path.string()}
+        }.dump(2);
+    }
+
+    hakoniwa::pdu::Endpoint subscriber("rmw_zenoh_sub_test", HAKO_PDU_ENDPOINT_DIRECTION_IN);
+    hakoniwa::pdu::Endpoint publisher("rmw_zenoh_pub_test", HAKO_PDU_ENDPOINT_DIRECTION_OUT);
+
+    ASSERT_EQ(subscriber.open(sub_endpoint_path.string()), HAKO_PDU_ERR_OK);
+
+    std::atomic<bool> received{false};
+    std::vector<std::byte> received_payload;
+    subscriber.subscribe_on_recv_callback(
+        hakoniwa::pdu::PduResolvedKey{"StorageDemo", 0},
+        [&received, &received_payload](const hakoniwa::pdu::PduResolvedKey&, std::span<const std::byte> data) {
+            received_payload.assign(data.begin(), data.end());
+            received.store(true);
+        });
+    ASSERT_EQ(subscriber.start(), HAKO_PDU_ERR_OK);
+
+    ASSERT_EQ(publisher.open(pub_endpoint_path.string()), HAKO_PDU_ERR_OK);
+    ASSERT_EQ(publisher.start(), HAKO_PDU_ERR_OK);
+
+    std::this_thread::sleep_for(std::chrono::milliseconds(300));
+
+    const auto key = create_key("StorageDemo", 0);
+    const std::vector<std::byte> payload{
+        std::byte{0x01}, std::byte{0x02}, std::byte{0x03}, std::byte{0x04},
+        std::byte{0x05}, std::byte{0x06}, std::byte{0x07}, std::byte{0x08}
+    };
+    ASSERT_EQ(publisher.send(key, payload), HAKO_PDU_ERR_OK);
+
+    const auto deadline = std::chrono::steady_clock::now() + std::chrono::seconds(5);
+    while (!received.load() && std::chrono::steady_clock::now() < deadline) {
+        std::this_thread::sleep_for(std::chrono::milliseconds(50));
+    }
+
+    EXPECT_TRUE(received.load());
+    EXPECT_EQ(received_payload, payload);
+
+    ASSERT_EQ(publisher.stop(), HAKO_PDU_ERR_OK);
+    ASSERT_EQ(publisher.close(), HAKO_PDU_ERR_OK);
+    ASSERT_EQ(subscriber.stop(), HAKO_PDU_ERR_OK);
+    ASSERT_EQ(subscriber.close(), HAKO_PDU_ERR_OK);
+}
 #endif
 
 #ifdef HAKO_PDU_ENDPOINT_HAS_MQTT
