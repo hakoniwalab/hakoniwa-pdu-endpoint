@@ -458,7 +458,7 @@
         "type_hash": {
           "type": "string",
           "minLength": 1,
-          "description": "ROS 2 type hash managed by hakoniwa-pdu-registry metadata or provided explicitly."
+          "description": "ROS 2 type hash managed by hakoniwa-pdu-registry metadata or provided explicitly. Use * only for receive-only wildcard smoke tests."
         },
         "gid": {
           "type": "string",

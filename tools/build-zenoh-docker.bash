@@ -4,7 +4,9 @@ set -euo pipefail
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 BUILD_DIR="${HAKO_PDU_ENDPOINT_DOCKER_BUILD_DIR:-build-docker}"
 
+set +u
 source "/opt/ros/${ROS_DISTRO:-rolling}/setup.bash"
+set -u
 
 cd "${ROOT_DIR}"
 

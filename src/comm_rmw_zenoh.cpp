@@ -216,6 +216,9 @@ HakoPduErrorType RmwZenohComm::parse_config_(const std::string& config_path)
         if (mapping.key.robot.empty() || mapping.pdu_name.empty() || mapping.topic.empty() || mapping.type_hash.empty()) {
             return HAKO_PDU_ERR_INVALID_CONFIG;
         }
+        if (direction_ == HAKO_PDU_ENDPOINT_DIRECTION_OUT && mapping.type_hash == "*") {
+            return HAKO_PDU_ERR_INVALID_CONFIG;
+        }
 
         PduDef def;
         if (!pdu_def_->resolve(mapping.key.robot, mapping.pdu_name, def)) {
@@ -420,7 +423,17 @@ void RmwZenohComm::on_sample_(z_loaned_sample_t* sample)
         if (!parse_keyexpr_(keyexpr, topic, type, type_hash)) {
             return;
         }
-        return;
+        for (std::size_t i = 0; i < mappings_.size(); ++i) {
+            const auto& candidate = mappings_.at(i);
+            if (candidate.topic == topic && candidate.type == type
+                && (candidate.type_hash == type_hash || candidate.type_hash == "*")) {
+                it = keyexpr_to_mapping_.emplace(keyexpr, i).first;
+                break;
+            }
+        }
+        if (it == keyexpr_to_mapping_.end()) {
+            return;
+        }
     }
 
     const auto& mapping = mappings_.at(it->second);

@@ -21,6 +21,8 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     python3-pip \
     rustc \
     ros-${ROS_DISTRO}-rmw-zenoh-cpp \
+    ros-${ROS_DISTRO}-ros2cli \
+    ros-${ROS_DISTRO}-ros2interface \
     ros-${ROS_DISTRO}-std-msgs \
     && rm -rf /var/lib/apt/lists/*
 

@@ -37,12 +37,13 @@ Run the ROS publisher to endpoint subscriber smoke test inside the container:
 bash docker/run_ros_rmw_zenoh_pub_to_endpoint_sub.bash
 ```
 
-The test starts the `rmw_zenoh` router, generates a temporary endpoint config
-with the ROS 2 `std_msgs/msg/UInt64` type hash, runs
-`examples/endpoint_zenoh_sub`, then publishes `/sample_state` from a ROS 2 node.
+The test starts the `rmw_zenoh` router, generates a temporary endpoint config,
+runs `examples/endpoint_zenoh_sub`, then publishes `/sample_state` from a ROS 2
+node. If the ROS CLI can provide the `std_msgs/msg/UInt64` type hash, the test
+uses it. Otherwise, the endpoint subscriber uses `type_hash: "*"` as a
+receive-only wildcard.
 
-If the ROS CLI cannot provide the type hash in your ROS distribution, pass it
-explicitly:
+You can pass the type hash explicitly:
 
 ```bash
 RMW_ZENOH_TYPE_HASH=<std_msgs-msg-UInt64-type-hash> bash docker/run.bash \

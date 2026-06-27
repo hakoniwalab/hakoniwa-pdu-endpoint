@@ -185,6 +185,9 @@ Important rule:
 - the comm config should either provide the concrete hash value or reference
   registry-managed metadata that contains it
 - missing type-hash metadata is a configuration error
+- for receive-only smoke tests, `type_hash: "*"` may be used as a subscriber
+  wildcard; publishing to ROS 2 still requires the concrete registry-managed
+  hash
 
 This keeps type-name conversion convenient while leaving schema identity under
 the registry, where the message definition is already managed.

@@ -8,7 +8,9 @@ COMM_CFG="${TMP_DIR}/rmw_zenoh_sub_comm.json"
 ENDPOINT_LOG="${TMP_DIR}/endpoint_sub.log"
 ROUTER_LOG="${TMP_DIR}/rmw_zenohd.log"
 
+set +u
 source "/opt/ros/${ROS_DISTRO}/setup.bash"
+set -u
 export RMW_IMPLEMENTATION="${RMW_IMPLEMENTATION:-rmw_zenoh_cpp}"
 
 mkdir -p "${TMP_DIR}"
@@ -20,9 +22,8 @@ if [[ -z "${TYPE_HASH}" ]]; then
 fi
 
 if [[ -z "${TYPE_HASH}" ]]; then
-  echo "Failed to resolve std_msgs/msg/UInt64 type hash." >&2
-  echo "Set RMW_ZENOH_TYPE_HASH explicitly and rerun this script." >&2
-  exit 2
+  TYPE_HASH="*"
+  echo "std_msgs/msg/UInt64 type hash was not available from this ROS 2 CLI; using subscriber wildcard." >&2
 fi
 
 python3 - "${TYPE_HASH}" "${COMM_CFG}" "${ENDPOINT_CFG}" <<'PY'
@@ -98,4 +99,3 @@ if ! grep -Eq 'received (sample_state=|[0-9]+ bytes)' "${ENDPOINT_LOG}"; then
   echo "Endpoint did not receive a ROS 2 rmw_zenoh sample." >&2
   exit 1
 fi
-
