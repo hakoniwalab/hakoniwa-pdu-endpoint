@@ -413,17 +413,6 @@
           "minimum": 0,
           "description": "ROS_DOMAIN_ID-compatible graph/data partition."
         },
-        "timestamp": {
-          "type": "object",
-          "additionalProperties": false,
-          "properties": {
-            "source": {
-              "type": "string",
-              "enum": ["system_clock"],
-              "description": "Source timestamp policy for rmw_zenoh attachments."
-            }
-          }
-        },
         "mappings": {
           "type": "array",
           "minItems": 1,
@@ -434,43 +423,55 @@
     "rmw_zenoh_mapping": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["robot", "pdu", "topic", "type_hash"],
+      "required": ["endpoint", "ros2"],
       "properties": {
-        "robot": {
-          "type": "string",
-          "minLength": 1
-        },
-        "pdu": {
-          "type": "string",
-          "minLength": 1,
-          "description": "PDU org_name from pdudef.json."
-        },
-        "topic": {
-          "type": "string",
-          "minLength": 1,
-          "description": "Fully-qualified ROS 2 topic name."
-        },
-        "type": {
-          "type": "string",
-          "minLength": 1,
-          "description": "rmw_zenoh key-expression type component. Use auto to derive from pdudef type, e.g. geometry_msgs/Twist -> geometry_msgs::msg::dds_::Twist_."
-        },
-        "type_hash": {
-          "type": "string",
-          "minLength": 1,
-          "description": "ROS 2 type hash managed by hakoniwa-pdu-registry metadata or provided explicitly. Use * only for receive-only wildcard smoke tests."
-        },
-        "gid": {
-          "type": "string",
-          "minLength": 1,
-          "description": "32-character hex RMW GID storage value, or auto for deterministic local generation."
-        },
-        "notify_on_recv": {
-          "type": "boolean"
-        },
-        "qos": {
+        "endpoint": {
           "type": "object",
-          "description": "Reserved for liveliness/QoS graph tokens. The initial data-path PoC does not enforce this field."
+          "additionalProperties": false,
+          "required": ["robot", "pdu"],
+          "description": "Hakoniwa endpoint-side mapping.",
+          "properties": {
+            "robot": {
+              "type": "string",
+              "minLength": 1
+            },
+            "pdu": {
+              "type": "string",
+              "minLength": 1,
+              "description": "PDU org_name from pdudef.json."
+            },
+            "notify_on_recv": {
+              "type": "boolean"
+            }
+          }
+        },
+        "ros2": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["topic", "type_hash"],
+          "description": "ROS 2 rmw_zenoh-side mapping.",
+          "properties": {
+            "topic": {
+              "type": "string",
+              "minLength": 1,
+              "description": "Fully-qualified ROS 2 topic name."
+            },
+            "type": {
+              "type": "string",
+              "minLength": 1,
+              "description": "Optional rmw_zenoh key-expression type override. Omit or use auto to derive from pdudef type, e.g. geometry_msgs/Twist -> geometry_msgs::msg::dds_::Twist_."
+            },
+            "type_hash": {
+              "type": "string",
+              "minLength": 1,
+              "description": "ROS 2 type hash managed by hakoniwa-pdu-registry metadata or provided explicitly. Use * only for receive-only wildcard smoke tests."
+            },
+            "gid": {
+              "type": "string",
+              "minLength": 1,
+              "description": "Optional 32-character hex RMW GID storage override. Omit or use auto for deterministic local generation."
+            }
+          }
         }
       }
     },

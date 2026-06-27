@@ -5,23 +5,16 @@
   "rmw_zenoh": {
     "config_path": "zenoh/peer_connect.json5",
     "domain_id": 0,
-    "timestamp": {
-      "source": "system_clock"
-    },
     "mappings": [
       {
-        "robot": "Drone",
-        "pdu": "velocity",
-        "topic": "/cmd_vel",
-        "type": "auto",
-        "type_hash": "<registry-managed-ros2-type-hash>",
-        "gid": "auto",
-        "notify_on_recv": true,
-        "qos": {
-          "reliability": "best_effort",
-          "durability": "volatile",
-          "history": "keep_last",
-          "depth": 10
+        "endpoint": {
+          "robot": "Drone",
+          "pdu": "velocity",
+          "notify_on_recv": true
+        },
+        "ros2": {
+          "topic": "/cmd_vel",
+          "type_hash": "<registry-managed-ros2-type-hash>"
         }
       }
     ]

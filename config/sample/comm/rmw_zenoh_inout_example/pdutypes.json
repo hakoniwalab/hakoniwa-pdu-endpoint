@@ -1,0 +1,4 @@
+[
+  { "channel_id": 0, "pdu_size": 8, "name": "sample_state_rx", "type": "std_msgs/UInt64" },
+  { "channel_id": 1, "pdu_size": 8, "name": "sample_state_tx", "type": "std_msgs/UInt64" }
+]

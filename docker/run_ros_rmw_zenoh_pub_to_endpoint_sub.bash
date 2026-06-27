@@ -24,26 +24,20 @@ if [[ -z "${ZENOH_ROUTER_HOST}" ]]; then
 fi
 ZENOH_ROUTER_ENDPOINT="${HAKO_RMW_ZENOH_ROUTER_ENDPOINT:-tcp/${ZENOH_ROUTER_HOST}:7447}"
 
-TYPE_HASH="${RMW_ZENOH_TYPE_HASH:-}"
-if [[ -z "${TYPE_HASH}" ]]; then
-  TYPE_HASH="$(ros2-type-hash std_msgs/msg/UInt64 2>/dev/null || true)"
-fi
-if [[ -z "${TYPE_HASH}" ]]; then
-  TYPE_HASH="$(ros2 interface type_hash std_msgs/msg/UInt64 2>/dev/null | grep -Eo 'RIHS[0-9A-Za-z_]+' | head -n1 || true)"
-fi
+HAKO_RMW_ZENOH_ROUTER_ENDPOINT="${ZENOH_ROUTER_ENDPOINT}" \
+  bash tools/make-rmw-zenoh-config.bash \
+    --recipe docker/recipes/rmw_zenoh_sub.yml \
+    --out-dir "${TMP_DIR}" >/dev/null
 
-if [[ -z "${TYPE_HASH}" && "${HAKO_RMW_ZENOH_ALLOW_HASH_WILDCARD:-0}" == "1" ]]; then
-  TYPE_HASH="*"
-  echo "std_msgs/msg/UInt64 type hash was not available; using receive-only wildcard." >&2
-fi
-if [[ -z "${TYPE_HASH}" ]]; then
-  echo "Failed to resolve std_msgs/msg/UInt64 type hash." >&2
-  echo "Set RMW_ZENOH_TYPE_HASH explicitly, or set HAKO_RMW_ZENOH_ALLOW_HASH_WILDCARD=1 for receive-only smoke testing." >&2
-  exit 2
-fi
+TYPE_HASH="$(python3 - "${TMP_DIR}/rmw_zenoh_sub_comm.json" <<'PY'
+import json
+import sys
 
-RMW_ZENOH_TYPE_HASH="${TYPE_HASH}" HAKO_RMW_ZENOH_ROUTER_ENDPOINT="${ZENOH_ROUTER_ENDPOINT}" \
-  bash docker/make-rmw-zenoh-config.bash --direction in --out-dir "${TMP_DIR}" >/dev/null
+with open(sys.argv[1], encoding="utf-8") as f:
+    data = json.load(f)
+print(data["rmw_zenoh"]["mappings"][0]["ros2"]["type_hash"])
+PY
+)"
 
 echo "Using std_msgs/msg/UInt64 type_hash=${TYPE_HASH}"
 echo "Using Zenoh router endpoint=${ZENOH_ROUTER_ENDPOINT}"

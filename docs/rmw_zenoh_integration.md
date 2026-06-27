@@ -246,27 +246,6 @@ The proof of concept should make this distinction explicit:
 - phase 2: ROS graph visibility through liveliness tokens
 - phase 3: broader QoS and lifecycle behavior
 
-## Initial Scope
-
-Recommended first proof of concept:
-
-- one message type: `geometry_msgs/msg/Twist`
-- one topic: `/cmd_vel`
-- one Hakoniwa PDU mapping from an existing `geometry_msgs/Twist` PDU
-- pub/sub only
-- best-effort or default QoS only
-- one ROS domain ID
-- one generated or configured publisher GID
-
-Success criteria:
-
-- Hakoniwa endpoint publishes CDR payloads that a ROS 2 `rmw_zenoh` subscriber
-  can deserialize
-- Hakoniwa endpoint subscribes to a ROS 2 `rmw_zenoh` publisher and converts the
-  CDR payload back into Hakoniwa PDU bytes
-- sequence number and timestamp attachments are present and parseable
-- unsupported QoS or type mismatches fail explicitly
-
 ## Current Implementation Status
 
 The initial `rmw_zenoh` transport PoC is implemented as a separate comm protocol:
@@ -284,16 +263,18 @@ The implementation currently provides:
 - sample comm config at `config/sample/comm/rmw_zenoh_pubsub_comm.json`
 - opaque binary payload publishing through `z_put(...)`
 - data key expression generation from `domain_id`, topic, type, and type hash
-- `type: "auto"` conversion from Hakoniwa PDU type names to ROS 2 DDS type-support names
+- automatic conversion from Hakoniwa PDU type names to ROS 2 DDS type-support names
 - `rmw_zenoh` attachment generation with sequence number, source timestamp, and 16-byte GID
 - subscriber callback routing for configured key expressions
+- `in`, `out`, and `inout` comm directions
+- recipe-based config generation with registry-backed `type_hash` resolution
 
 The implementation intentionally does not perform CDR conversion inside
 `Endpoint` or `RmwZenohComm`. Callers must provide ROS 2 CDR payload bytes when
 publishing to ROS 2 topics, and callers must decode ROS 2 CDR payload bytes when
 consuming received samples as typed data.
 
-### Validated Docker Smoke Tests
+## Validated Scope
 
 The current Docker environment validates both minimal `std_msgs/msg/UInt64`
 data paths through `rmw_zenoh`:
@@ -325,15 +306,54 @@ connect the endpoint as a Zenoh client. The CDR conversion is performed by the
 example application layer using generated converter headers under
 `examples/cdr`.
 
-### Current Type Conversion
+The validated target is data-path interoperability, not full ROS graph
+emulation. The current smoke tests prove:
 
-When a mapping uses:
+- ROS 2 publisher to Hakoniwa endpoint subscriber
+- Hakoniwa endpoint publisher to ROS 2 subscriber
+- CDR encode/decode in the application/example layer
+- `rmw_zenoh` data key expression matching
+- publish attachment generation with sequence number, timestamp, and GID
+- concrete `type_hash` resolution for `std_msgs/msg/UInt64`
+
+## Configuration
+
+Static ROS 2 / `rmw_zenoh` fields such as `domain_id`, mapping rules, and type
+hashes belong in the comm config file. The comm config keeps Hakoniwa endpoint
+fields under `endpoint` and ROS 2 fields under `ros2`:
 
 ```json
-"type": "auto"
+{
+  "protocol": "rmw_zenoh",
+  "name": "ros2_cmd_vel",
+  "direction": "inout",
+  "rmw_zenoh": {
+    "config_path": "zenoh/peer_connect.json5",
+    "domain_id": 0,
+    "mappings": [
+      {
+        "endpoint": {
+          "robot": "Drone",
+          "pdu": "velocity",
+          "notify_on_recv": true
+        },
+        "ros2": {
+          "topic": "/cmd_vel",
+          "type_hash": "<registry-managed-ros2-type-hash>"
+        }
+      }
+    ]
+  }
+}
 ```
 
-the comm resolves the Hakoniwa PDU definition and converts:
+`endpoint.pdu` refers to the `org_name` in `pdudef.json`. The endpoint side maps
+by unique `robot + pdu`, so each mapping in a single comm config must resolve to
+a distinct endpoint key.
+
+### Type Conversion
+
+By default, the comm resolves the Hakoniwa PDU definition and converts:
 
 ```text
 geometry_msgs/Twist
@@ -344,7 +364,7 @@ This matches the type component used by the current `rmw_zenoh` data key
 expression. The `type_hash` is still required in the comm config or from
 registry-managed metadata.
 
-### Current Attachment Encoding
+### Attachment Encoding
 
 The attachment is serialized as raw bytes:
 
@@ -358,21 +378,98 @@ uint8 gid[16]
 The source timestamp currently uses `system_clock`. Simulation-time integration
 is a future extension.
 
-### Current Limitations
+## Config Generation
 
-The PoC does not yet implement:
+`tools/make-rmw-zenoh-config.bash` is the supported generator for temporary or
+checked-in `rmw_zenoh` endpoint configs. The bash wrapper handles environment
+setup and router endpoint defaults, then delegates config generation to
+`tools/make_rmw_zenoh_config.py`.
 
-- `rmw_zenoh` liveliness tokens
-- ROS graph visibility through `@ros2_lv/...`
-- QoS matching or enforcement
-- registry metadata lookup for `type_hash`
-- ROS 2 services, clients, or actions
-- transport-level validation that payload bytes are valid CDR for the mapped type
+Minimal usage:
 
-This means the first validation target is data-path interoperability, not full
-ROS graph behavior.
+```bash
+bash tools/make-rmw-zenoh-config.bash \
+  --recipe config/sample/rmw_zenoh_recipe.yml \
+  --type-hash-dir ../hakoniwa-pdu-registry/pdu/type_hash \
+  --out-dir /tmp/hako-rmw-zenoh-manual
+```
 
-### Build And Test
+The recipe shape is:
+
+```yaml
+direction: out
+domain_id: 0
+pdu_def_path: config/sample/comm/storage_example/pdudef.json
+cache: config/sample/cache/buffer.json
+zenoh:
+  endpoint: tcp/127.0.0.1:7447
+mappings:
+  - endpoint:
+      robot: StorageDemo
+      pdu: sample_state
+      notify_on_recv: false
+    ros2:
+      topic: /sample_state
+      message_type: std_msgs/msg/UInt64
+```
+
+`ros2.message_type` is used only by the generator. The generated comm config
+contains `ros2.type_hash`, not `message_type`. The type hash is resolved in this
+order:
+
+1. `ros2.type_hash` in the recipe
+2. `--type-hash` / `RMW_ZENOH_TYPE_HASH`, for single-mapping recipes
+3. `--type-hash-dir` / `HAKO_RMW_ZENOH_TYPE_HASH_DIR`
+4. `ros2-type-hash` or `ros2 interface type_hash`, when available
+5. `*` only for receive-side configs when `HAKO_RMW_ZENOH_ALLOW_HASH_WILDCARD=1`
+
+`--type-hash-dir` accepts either the registry root or the
+`pdu/type_hash` directory itself. For `std_msgs/msg/UInt64`, the generator reads:
+
+```text
+pdu/type_hash/std_msgs/UInt64.json
+```
+
+The Docker smoke tests also use recipes:
+
+```text
+docker/recipes/rmw_zenoh_sub.yml
+docker/recipes/rmw_zenoh_pub.yml
+```
+
+This keeps the Docker tests on the same path as manual and registry-backed
+config generation.
+
+### Bidirectional Recipe
+
+```yaml
+direction: inout
+domain_id: 0
+pdu_def_path: config/sample/comm/rmw_zenoh_inout_example/pdudef.json
+cache: config/sample/cache/buffer.json
+mappings:
+  - endpoint:
+      robot: StorageDemo
+      pdu: sample_state_rx
+      notify_on_recv: true
+    ros2:
+      topic: /sample_state_rx
+      message_type: std_msgs/msg/UInt64
+  - endpoint:
+      robot: StorageDemo
+      pdu: sample_state_tx
+      notify_on_recv: false
+    ros2:
+      topic: /sample_state_tx
+      message_type: std_msgs/msg/UInt64
+```
+
+Use `direction: inout` and list both receive-side and publish-side mappings.
+The sample file is `config/sample/rmw_zenoh_inout_recipe.yml`. In `inout` mode
+the comm is publisher-capable, so the generator requires concrete type hashes.
+Receive-side wildcard hashes are only allowed for `direction: in`.
+
+## Build And Test
 
 Build with Zenoh support:
 
@@ -397,69 +494,37 @@ Run only the `rmw_zenoh` endpoint-to-endpoint smoke test:
   --gtest_filter=EndpointTest.RmwZenohCommPeerToPeerPubSubDeliversOpaquePayloadToCallback
 ```
 
-This smoke test validates Hakoniwa endpoint-to-endpoint delivery through the
-`rmw_zenoh` comm implementation. It does not require a ROS 2 node, and it does
-not validate ROS graph visibility or liveliness tokens.
+Run the ROS 2 Docker smoke tests inside the container after
+`bash tools/build-zenoh-docker.bash`:
 
-## Configuration Direction
-
-Add a separate protocol instead of changing the existing `zenoh` protocol in
-place.
-
-Static ROS 2 / `rmw_zenoh` fields such as `domain_id`, mapping rules, QoS, type
-names, type hashes, and timestamp policy belong in the comm config file, for
-example `config/sample/comm/rmw_zenoh_pubsub_comm.json`.
-
-Example direction:
-
-```json
-{
-  "protocol": "rmw_zenoh",
-  "name": "ros2_cmd_vel",
-  "direction": "inout",
-  "rmw_zenoh": {
-    "config_path": "zenoh/peer_connect.json5",
-    "domain_id": 0,
-    "timestamp": {
-      "source": "system_clock"
-    },
-    "mappings": [
-      {
-        "robot": "Drone",
-        "pdu": "velocity",
-        "topic": "/cmd_vel",
-        "type": "auto",
-        "type_hash": "<registry-managed-ros2-type-hash>",
-        "qos": {
-          "reliability": "best_effort",
-          "durability": "volatile",
-          "history": "keep_last",
-          "depth": 10
-        },
-        "gid": "auto"
-      }
-    ]
-  }
-}
+```bash
+bash docker/run_ros_rmw_zenoh_pub_to_endpoint_sub.bash
+bash docker/run_endpoint_rmw_zenoh_pub_to_ros_sub.bash
 ```
 
-Keeping this separate preserves the current Hakoniwa Zenoh behavior and makes
-the ROS 2 compatibility surface easier to test.
+See `docker/README.md` for Docker setup and one-shot host commands.
 
-In this example, `pdu` refers to the `org_name` in `pdudef.json`. The loader may
-also support direct `channel_id` mappings, but name-based mappings are preferred
-because they are easier to review.
+## Current Limitations
+
+The PoC does not yet implement:
+
+- `rmw_zenoh` liveliness tokens
+- ROS graph visibility through `@ros2_lv/...`
+- QoS matching or enforcement
+- ROS 2 services, clients, or actions
+- transport-level validation that payload bytes are valid CDR for the mapped type
+
+This means the current supported target is data-path interoperability, not full
+ROS graph behavior.
 
 ## Open Questions
 
-- Where should generated ROS 2 type hashes be stored in the registry output?
 - Should additional generated ROS 2 metadata be referenced directly by comm
   config or loaded through a generated companion file?
 - Should simulation time be used for the `source_timestamp` attachment?
 - How much QoS compatibility is required for the first supported release?
 - Should liveliness tokens be implemented in the first PoC or immediately after
   data delivery is proven?
-- How should missing generated type metadata be reported at config-load time?
 
 ## Non-goals For The First PoC
 

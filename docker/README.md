@@ -5,6 +5,8 @@ tree is not copied into the image. Instead, `docker/run.bash` bind-mounts the
 current `hakoniwa-pdu-endpoint` checkout into the container so local fixes are
 available immediately.
 
+## Image
+
 Create or update the image from the repository root:
 
 ```bash
@@ -31,14 +33,39 @@ Build inside the container:
 bash tools/build-zenoh-docker.bash
 ```
 
+## Config Generation
+
 Generate a concrete endpoint config for manual endpoint execution:
 
 ```bash
-bash docker/make-rmw-zenoh-config.bash --direction out --out-dir /tmp/hako-rmw-zenoh-manual
+bash tools/make-rmw-zenoh-config.bash \
+  --recipe docker/recipes/rmw_zenoh_pub.yml \
+  --out-dir /tmp/hako-rmw-zenoh-manual
 ./build-docker/examples/endpoint_zenoh_pub_cdr /tmp/hako-rmw-zenoh-manual/endpoint_rmw_zenoh_pub.json
 ```
 
-Use `--direction in` for subscriber-side endpoint configs.
+Use `docker/recipes/rmw_zenoh_sub.yml` for subscriber-side endpoint configs.
+
+To resolve the ROS 2 type hash from registry metadata instead of the ROS
+installation, pass the registry type-hash directory:
+
+```bash
+bash tools/make-rmw-zenoh-config.bash \
+  --recipe config/sample/rmw_zenoh_recipe.yml \
+  --type-hash-dir ../hakoniwa-pdu-registry/pdu/type_hash \
+  --out-dir /tmp/hako-rmw-zenoh-manual
+```
+
+For a two-topic bidirectional config, use the sample `inout` recipe:
+
+```bash
+bash tools/make-rmw-zenoh-config.bash \
+  --recipe config/sample/rmw_zenoh_inout_recipe.yml \
+  --type-hash-dir ../hakoniwa-pdu-registry/pdu/type_hash \
+  --out-dir /tmp/hako-rmw-zenoh-inout
+```
+
+## Smoke Tests
 
 Run the ROS publisher to endpoint subscriber smoke test inside the container:
 
@@ -73,9 +100,12 @@ received /sample_state=5
 ```
 
 Both smoke tests start the `rmw_zenoh` router and generate temporary endpoint
-configs with the concrete `std_msgs/msg/UInt64` type hash. The image includes
-`ros2-type-hash`, a small helper that reads ROS installed type-description JSON
-files.
+configs from `docker/recipes/rmw_zenoh_sub.yml` or
+`docker/recipes/rmw_zenoh_pub.yml`. The generated config includes the concrete
+`std_msgs/msg/UInt64` type hash. The image includes `ros2-type-hash`, a small
+helper that reads ROS installed type-description JSON files.
+
+## Overrides
 
 The endpoint client config is generated at runtime and points to the container's
 Zenoh router address. Override it when needed:
@@ -102,11 +132,15 @@ HAKO_RMW_ZENOH_ALLOW_HASH_WILDCARD=1 bash docker/run.bash \
   bash docker/run_ros_rmw_zenoh_pub_to_endpoint_sub.bash
 ```
 
+## One-Shot Host Commands
+
 You can also run a one-shot command from the host:
 
 ```bash
 bash docker/run.bash bash tools/build-zenoh-docker.bash
-bash docker/run.bash bash docker/make-rmw-zenoh-config.bash --direction out --out-dir /tmp/hako-rmw-zenoh-manual
+bash docker/run.bash bash tools/make-rmw-zenoh-config.bash \
+  --recipe docker/recipes/rmw_zenoh_pub.yml \
+  --out-dir /tmp/hako-rmw-zenoh-manual
 bash docker/run.bash bash docker/run_ros_rmw_zenoh_pub_to_endpoint_sub.bash
 bash docker/run.bash bash docker/run_endpoint_rmw_zenoh_pub_to_ros_sub.bash
 ```

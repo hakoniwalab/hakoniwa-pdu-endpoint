@@ -208,17 +208,24 @@ HakoPduErrorType RmwZenohComm::parse_config_(const std::string& config_path)
     keyexpr_to_mapping_.clear();
 
     for (const auto& item : rmw.at("mappings")) {
-        if (!item.is_object() || !item.contains("robot") || !item.contains("pdu")
-            || !item.contains("topic") || !item.contains("type_hash")) {
+        if (!item.is_object() || !item.contains("endpoint") || !item.at("endpoint").is_object()
+            || !item.contains("ros2") || !item.at("ros2").is_object()) {
+            return HAKO_PDU_ERR_INVALID_CONFIG;
+        }
+
+        const auto& endpoint = item.at("endpoint");
+        const auto& ros2 = item.at("ros2");
+        if (!endpoint.contains("robot") || !endpoint.contains("pdu")
+            || !ros2.contains("topic") || !ros2.contains("type_hash")) {
             return HAKO_PDU_ERR_INVALID_CONFIG;
         }
 
         Mapping mapping;
-        mapping.key.robot = item.at("robot").get<std::string>();
-        mapping.pdu_name = item.at("pdu").get<std::string>();
-        mapping.topic = item.at("topic").get<std::string>();
-        mapping.type_hash = item.at("type_hash").get<std::string>();
-        mapping.notify_on_recv = item.value("notify_on_recv", true);
+        mapping.key.robot = endpoint.at("robot").get<std::string>();
+        mapping.pdu_name = endpoint.at("pdu").get<std::string>();
+        mapping.notify_on_recv = endpoint.value("notify_on_recv", true);
+        mapping.topic = ros2.at("topic").get<std::string>();
+        mapping.type_hash = ros2.at("type_hash").get<std::string>();
 
         if (mapping.key.robot.empty() || mapping.pdu_name.empty() || mapping.topic.empty() || mapping.type_hash.empty()) {
             return HAKO_PDU_ERR_INVALID_CONFIG;
@@ -233,14 +240,14 @@ HakoPduErrorType RmwZenohComm::parse_config_(const std::string& config_path)
         }
         mapping.key.channel_id = def.channel_id;
 
-        const auto type = item.value("type", std::string{"auto"});
+        const auto type = ros2.value("type", std::string{"auto"});
         mapping.type = (type == "auto") ? derive_rmw_type_(def.type) : type;
         if (mapping.type.empty() || mapping.type.find('/') != std::string::npos) {
             return HAKO_PDU_ERR_INVALID_CONFIG;
         }
 
         mapping.keyexpr = make_keyexpr_(mapping.topic, mapping.type, mapping.type_hash);
-        mapping.gid = parse_or_make_gid_(item.value("gid", std::string{"auto"}), mapping.keyexpr);
+        mapping.gid = parse_or_make_gid_(ros2.value("gid", std::string{"auto"}), mapping.keyexpr);
 
         const std::size_t index = mappings_.size();
         key_to_mapping_[NotifyKey{mapping.key.robot, mapping.key.channel_id}] = index;

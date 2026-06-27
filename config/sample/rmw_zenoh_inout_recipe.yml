@@ -1,0 +1,21 @@
+direction: inout
+domain_id: 0
+pdu_def_path: config/sample/comm/rmw_zenoh_inout_example/pdudef.json
+cache: config/sample/cache/buffer.json
+zenoh:
+  endpoint: tcp/127.0.0.1:7447
+mappings:
+  - endpoint:
+      robot: StorageDemo
+      pdu: sample_state_rx
+      notify_on_recv: true
+    ros2:
+      topic: /sample_state_rx
+      message_type: std_msgs/msg/UInt64
+  - endpoint:
+      robot: StorageDemo
+      pdu: sample_state_tx
+      notify_on_recv: false
+    ros2:
+      topic: /sample_state_tx
+      message_type: std_msgs/msg/UInt64

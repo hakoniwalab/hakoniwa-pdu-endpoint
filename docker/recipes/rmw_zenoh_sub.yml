@@ -1,0 +1,12 @@
+direction: in
+domain_id: 0
+pdu_def_path: config/sample/comm/storage_example/pdudef.json
+cache: config/sample/cache/buffer.json
+mappings:
+  - endpoint:
+      robot: StorageDemo
+      pdu: sample_state
+      notify_on_recv: true
+    ros2:
+      topic: /sample_state
+      message_type: std_msgs/msg/UInt64
