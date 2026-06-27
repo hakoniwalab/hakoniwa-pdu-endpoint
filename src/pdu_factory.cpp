@@ -10,6 +10,7 @@
 #include "hakoniwa/pdu/comm/comm_storage.hpp"
 #ifdef HAKO_PDU_ENDPOINT_HAS_ZENOH
 #include "hakoniwa/pdu/comm/comm_zenoh.hpp"
+#include "hakoniwa/pdu/comm/comm_rmw_zenoh.hpp"
 #endif
 #ifdef HAKO_PDU_ENDPOINT_HAS_MQTT
 #include "hakoniwa/pdu/comm/comm_mqtt.hpp"
@@ -80,6 +81,13 @@ std::shared_ptr<PduComm> create_pdu_comm(const std::string& config_path) {
             return std::make_shared<comm::ZenohComm>();
 #else
             std::cerr << "PduComm Factory Error: protocol 'zenoh' requested but Zenoh support is disabled." << std::endl;
+            return nullptr;
+#endif
+        } else if (protocol == "rmw_zenoh") {
+#ifdef HAKO_PDU_ENDPOINT_HAS_ZENOH
+            return std::make_shared<comm::RmwZenohComm>();
+#else
+            std::cerr << "PduComm Factory Error: protocol 'rmw_zenoh' requested but Zenoh support is disabled." << std::endl;
             return nullptr;
 #endif
         } else if (protocol == "mqtt") {

@@ -7,7 +7,7 @@
   "properties": {
     "protocol": {
       "type": "string",
-      "enum": ["tcp", "udp", "shm", "websocket", "storage", "zenoh", "mqtt"],
+      "enum": ["tcp", "udp", "shm", "websocket", "storage", "zenoh", "rmw_zenoh", "mqtt"],
       "description": "Protocol type."
     },
     "name": {
@@ -104,6 +104,9 @@
     },
     "zenoh": {
       "$ref": "#/$defs/zenoh"
+    },
+    "rmw_zenoh": {
+      "$ref": "#/$defs/rmw_zenoh"
     },
     "mqtt": {
       "$ref": "#/$defs/mqtt"
@@ -222,6 +225,15 @@
         "required": ["direction", "zenoh"],
         "properties": {
           "zenoh": { "$ref": "#/$defs/zenoh" }
+        }
+      }
+    },
+    {
+      "if": { "properties": { "protocol": { "const": "rmw_zenoh" } } },
+      "then": {
+        "required": ["direction", "rmw_zenoh"],
+        "properties": {
+          "rmw_zenoh": { "$ref": "#/$defs/rmw_zenoh" }
         }
       }
     },
@@ -382,6 +394,83 @@
         "io": {
           "$ref": "#/$defs/shm_io",
           "description": "Per-key receive notification settings. The shape matches SHM io so existing PDU declarations can be reused."
+        }
+      }
+    },
+    "rmw_zenoh": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["config_path", "mappings"],
+      "description": "ROS 2 rmw_zenoh-compatible transport metadata. Payload bytes remain opaque; this section maps endpoint keys to rmw_zenoh key expressions and attachments.",
+      "properties": {
+        "config_path": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Path to a Zenoh JSON5 config file. Relative paths are resolved from the comm config directory."
+        },
+        "domain_id": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "ROS_DOMAIN_ID-compatible graph/data partition."
+        },
+        "timestamp": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "source": {
+              "type": "string",
+              "enum": ["system_clock"],
+              "description": "Source timestamp policy for rmw_zenoh attachments."
+            }
+          }
+        },
+        "mappings": {
+          "type": "array",
+          "minItems": 1,
+          "items": { "$ref": "#/$defs/rmw_zenoh_mapping" }
+        }
+      }
+    },
+    "rmw_zenoh_mapping": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["robot", "pdu", "topic", "type_hash"],
+      "properties": {
+        "robot": {
+          "type": "string",
+          "minLength": 1
+        },
+        "pdu": {
+          "type": "string",
+          "minLength": 1,
+          "description": "PDU org_name from pdudef.json."
+        },
+        "topic": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Fully-qualified ROS 2 topic name."
+        },
+        "type": {
+          "type": "string",
+          "minLength": 1,
+          "description": "rmw_zenoh key-expression type component. Use auto to derive from pdudef type, e.g. geometry_msgs/Twist -> geometry_msgs::msg::dds_::Twist_."
+        },
+        "type_hash": {
+          "type": "string",
+          "minLength": 1,
+          "description": "ROS 2 type hash managed by hakoniwa-pdu-registry metadata or provided explicitly."
+        },
+        "gid": {
+          "type": "string",
+          "minLength": 1,
+          "description": "48-character hex RMW GID storage value, or auto for deterministic local generation."
+        },
+        "notify_on_recv": {
+          "type": "boolean"
+        },
+        "qos": {
+          "type": "object",
+          "description": "Reserved for liveliness/QoS graph tokens. The initial data-path PoC does not enforce this field."
         }
       }
     },

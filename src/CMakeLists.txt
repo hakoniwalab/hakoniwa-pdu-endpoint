@@ -141,6 +141,7 @@ add_library(hakoniwa_pdu_endpoint
   comm_tcp.cpp
   comm_storage.cpp
   $<$<BOOL:${HAKO_PDU_ENDPOINT_ENABLE_ZENOH}>:comm_zenoh.cpp>
+  $<$<BOOL:${HAKO_PDU_ENDPOINT_ENABLE_ZENOH}>:comm_rmw_zenoh.cpp>
   $<$<BOOL:${HAKO_PDU_ENDPOINT_ENABLE_MQTT}>:comm_mqtt.cpp>
   comm_tcp_mux.cpp
   comm_websocket.cpp

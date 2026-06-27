@@ -355,6 +355,7 @@ TCP Mux は複数 client を 1 server endpoint 群として扱うための仕組
 - [docs/design_notes.md](docs/design_notes.md)
 - [docs/design_tradeoffs.md](docs/design_tradeoffs.md)
 - [docs/receive_semantics.md](docs/receive_semantics.md)
+- [docs/rmw_zenoh_integration.md](docs/rmw_zenoh_integration.md)
 
 ---
 

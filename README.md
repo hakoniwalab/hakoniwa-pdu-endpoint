@@ -1083,6 +1083,7 @@ See `docs/design_notes.md` for a concise summary of design trade-offs.
 If you want “preset-style” configurations, see `config/sample/endpoint_examples.json` as a curated set of working combinations.
 For a smooth first-run path, use: generator → validator → examples. Treat generator + validator as the default workflow.
 For a deeper discussion of configuration trade-offs (multi-file JSON vs single-file vs code-based), see `docs/design_tradeoffs.md`.
+For the current ROS 2 `rmw_zenoh` interoperability design notes, see `docs/rmw_zenoh_integration.md`.
 
 ## Config Generator
 

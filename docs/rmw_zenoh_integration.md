@@ -1,0 +1,425 @@
+# ROS 2 `rmw_zenoh` Integration Notes
+
+This document records the current design direction for adding a Hakoniwa PDU
+endpoint transport that can interoperate with ROS 2 nodes using `rmw_zenoh`.
+
+The first target is pub/sub interoperability. Services, clients, actions, and
+complete ROS graph emulation are out of scope for the initial proof of concept.
+
+## Background
+
+The existing `zenoh` comm implementation publishes Hakoniwa PDU payloads with a
+Hakoniwa-specific key expression:
+
+```text
+hakoniwa/<robot>/<channel_id>
+```
+
+That is useful for Hakoniwa-to-Hakoniwa communication, but it is not sufficient
+for direct interoperability with ROS 2 nodes using `rmw_zenoh`.
+
+`rmw_zenoh` uses ROS 2-specific Zenoh key expressions, message attachments, and
+liveliness tokens so that ROS domain separation, topic/type matching, graph
+introspection, and QoS compatibility can be represented over Zenoh.
+
+## Endpoint Responsibility
+
+The base `Endpoint` and `PduComm` contract is binary-oriented.
+
+`Endpoint` is responsible for:
+
+- accepting a resolved key and a binary payload
+- applying cache semantics
+- applying receive-state semantics
+- forwarding bytes to the configured comm implementation
+
+`Endpoint` is not responsible for:
+
+- interpreting the payload schema
+- converting Hakoniwa PDU bytes to ROS 2 CDR bytes
+- converting ROS 2 CDR bytes back to typed Hakoniwa data
+- deriving ROS 2 type hashes from message definitions
+
+`TypedEndpoint` may provide typed convenience behavior, but it is not the
+baseline transport contract. The `rmw_zenoh` transport should preserve this
+boundary and treat payload bytes as opaque.
+
+## Available Codec Building Block
+
+The PDU registry already provides CDR converters under:
+
+```text
+../hakoniwa-pdu-registry/pdu/types/
+```
+
+Generated headers such as:
+
+```text
+geometry_msgs/pdu_cpptype_cdr_conv_Twist.hpp
+sensor_msgs/pdu_cpptype_cdr_conv_PointCloud2.hpp
+```
+
+provide APIs in this shape:
+
+```text
+Hako C++ PDU -> full CDR payload
+full CDR payload -> Hako C++ PDU
+```
+
+The generated converters include DDS CDR encapsulation by calling
+`serialize_encapsulation()` when serializing and `read_encapsulation()` when
+deserializing. This matches the expected payload direction for ROS 2 serialized
+messages and is the main reason the integration is feasible.
+
+These converters are expected to be used by the application layer, a typed
+wrapper, or another explicit codec layer above `Endpoint`. They are not required
+inside the base `Endpoint` implementation.
+
+## Required Data Path
+
+The Hakoniwa endpoint transport receives opaque bytes at the `PduComm` boundary:
+
+```text
+send(PduResolvedKey, span<const byte>)
+recv(PduResolvedKey, span<byte>, size_t&)
+```
+
+An `rmw_zenoh`-compatible transport therefore must not assume whether those
+bytes originated as Hakoniwa raw PDU bytes or ROS 2 CDR bytes. The caller is
+responsible for preparing a payload that matches the configured ROS 2 topic and
+type mapping.
+
+### Publish Path
+
+```text
+application / codec layer
+  -> ROS 2 CDR binary payload
+  -> Endpoint
+  -> rmw_zenoh comm
+  -> rmw_zenoh Zenoh key expression + attachment + put options
+  -> z_put(...)
+```
+
+### Subscribe Path
+
+```text
+rmw_zenoh Zenoh sample
+  -> rmw_zenoh comm validates / parses key expression and attachment
+  -> Endpoint receives opaque ROS 2 CDR binary payload
+  -> application / codec layer converts bytes if typed data is needed
+```
+
+The CDR conversion step is already largely covered by generated registry code,
+but it belongs outside the base `Endpoint` responsibility. The `rmw_zenoh` comm
+is responsible for ROS 2 / `rmw_zenoh` routing and discovery metadata.
+
+## Metadata Still Needed
+
+CDR payload compatibility is necessary but not sufficient.
+
+The transport also needs configuration or generated metadata for each mapped
+endpoint key / ROS topic pair:
+
+- ROS 2 topic name, for example `/cmd_vel`
+- ROS 2 message type name, for example `geometry_msgs/msg/Twist`
+- type hash used by `rmw_zenoh`
+- ROS domain ID
+- QoS profile relevant to discovery and matching
+- stable publisher/subscriber GID
+- mapping from Hakoniwa `(robot, org_name/channel_id)` to ROS topic
+
+The current `PduDef` has useful fields such as `type`, `org_name`, `name`,
+`channel_id`, and `pdu_size`, but it does not currently carry all ROS 2
+metadata required by `rmw_zenoh`.
+
+Static `rmw_zenoh` metadata should live in the comm configuration, not in the
+base endpoint contract. This keeps `Endpoint` binary-only while allowing the
+comm implementation to decide how a binary payload is represented on ROS 2
+Zenoh.
+
+## Automatic Metadata Derivation
+
+Some metadata can be derived safely and should be described as part of the
+configuration contract.
+
+### Type Name Conversion
+
+Hakoniwa PDU definitions commonly use type names such as:
+
+```text
+geometry_msgs/Twist
+```
+
+ROS 2 type names commonly use:
+
+```text
+geometry_msgs/msg/Twist
+```
+
+However, the `rmw_zenoh` data key expression uses the DDS type-support name
+generated by ROS 2/Fast DDS type support. For example:
+
+```text
+geometry_msgs::msg::dds_::Twist_
+```
+
+The `rmw_zenoh` config may allow automatic conversion from Hakoniwa PDU type
+names:
+
+```text
+<package>/<Message>
+  -> <package>::msg::dds_::<Message>_
+```
+
+This conversion is a naming rule only. It does not prove schema compatibility by
+itself.
+
+### Type Hash
+
+`type_hash` should be managed by `hakoniwa-pdu-registry` as generated type
+metadata.
+
+Important rule:
+
+- `type_hash` must not be guessed from the type name
+- the comm config should either provide the concrete hash value or reference
+  registry-managed metadata that contains it
+- missing type-hash metadata is a configuration error
+
+This keeps type-name conversion convenient while leaving schema identity under
+the registry, where the message definition is already managed.
+
+## Zenoh Key Expression
+
+The new transport should not reuse the existing Hakoniwa Zenoh key expression.
+
+It should generate the key expression expected by `rmw_zenoh`, including at
+least:
+
+- ROS domain ID
+- fully-qualified ROS topic name
+- ROS 2/DDS type name
+- type hash
+
+This prevents different domains, topics, or incompatible message definitions
+from sharing the same data path.
+
+The exact key format should be treated as an `rmw_zenoh` compatibility contract
+and kept isolated in a small helper so future upstream changes are easy to
+track.
+
+## Attachment
+
+`rmw_zenoh` data samples carry message metadata in a Zenoh attachment.
+
+The publish path must attach at least:
+
+- `int64_t` sequence number
+- `int64_t` source timestamp in nanoseconds since UNIX epoch
+- `std::array<uint8_t, RMW_GID_STORAGE_SIZE>` source GID
+
+On the current rolling implementation, this attachment is serialized with
+`zenoh::ext::Serializer`. In zenoh-c terms, this means the fixed-size GID array
+is encoded as a sequence with its length followed by 24 `uint8_t` values, not as
+a custom length byte followed by raw bytes.
+
+The sequence number should be tracked per publisher mapping. The source
+timestamp can initially use the local clock, with a later option to integrate
+Hakoniwa simulation time if ROS consumers need simulation-time semantics.
+
+## Liveliness And Graph Visibility
+
+For a minimal data-only experiment, matching key expressions and attachments may
+be enough for a ROS 2 subscriber to receive samples.
+
+For normal ROS 2 behavior, the transport also needs `rmw_zenoh` liveliness
+tokens for publishers and subscribers. Without them, ROS graph visibility and
+tools such as topic introspection may be incomplete or misleading.
+
+The proof of concept should make this distinction explicit:
+
+- phase 1: data delivery
+- phase 2: ROS graph visibility through liveliness tokens
+- phase 3: broader QoS and lifecycle behavior
+
+## Initial Scope
+
+Recommended first proof of concept:
+
+- one message type: `geometry_msgs/msg/Twist`
+- one topic: `/cmd_vel`
+- one Hakoniwa PDU mapping from an existing `geometry_msgs/Twist` PDU
+- pub/sub only
+- best-effort or default QoS only
+- one ROS domain ID
+- one generated or configured publisher GID
+
+Success criteria:
+
+- Hakoniwa endpoint publishes CDR payloads that a ROS 2 `rmw_zenoh` subscriber
+  can deserialize
+- Hakoniwa endpoint subscribes to a ROS 2 `rmw_zenoh` publisher and converts the
+  CDR payload back into Hakoniwa PDU bytes
+- sequence number and timestamp attachments are present and parseable
+- unsupported QoS or type mismatches fail explicitly
+
+## Current Implementation Status
+
+The initial `rmw_zenoh` transport PoC is implemented as a separate comm protocol:
+
+```text
+protocol: "rmw_zenoh"
+```
+
+The implementation currently provides:
+
+- a separate `RmwZenohComm` class
+- factory registration through `create_pdu_comm(...)`
+- CMake integration behind `HAKO_PDU_ENDPOINT_ENABLE_ZENOH`
+- schema support for `rmw_zenoh` comm config
+- sample comm config at `config/sample/comm/rmw_zenoh_pubsub_comm.json`
+- opaque binary payload publishing through `z_put(...)`
+- data key expression generation from `domain_id`, topic, type, and type hash
+- `type: "auto"` conversion from Hakoniwa PDU type names to ROS 2 DDS type-support names
+- `rmw_zenoh` attachment generation with sequence number, source timestamp, and 24-byte GID
+- subscriber callback routing for configured key expressions
+
+The implementation intentionally does not perform CDR conversion inside
+`Endpoint` or `RmwZenohComm`. Callers must provide ROS 2 CDR payload bytes when
+publishing to ROS 2 topics, and callers must decode ROS 2 CDR payload bytes when
+consuming received samples as typed data.
+
+### Current Type Conversion
+
+When a mapping uses:
+
+```json
+"type": "auto"
+```
+
+the comm resolves the Hakoniwa PDU definition and converts:
+
+```text
+geometry_msgs/Twist
+  -> geometry_msgs::msg::dds_::Twist_
+```
+
+This matches the type component used by the current `rmw_zenoh` data key
+expression. The `type_hash` is still required in the comm config or from
+registry-managed metadata.
+
+### Current Attachment Encoding
+
+The attachment is serialized with zenoh-c serializer calls to match
+`zenoh::ext::Serializer` layout:
+
+```text
+int64 sequence_number
+int64 source_timestamp_ns
+sequence_length 24
+uint8 gid[24]
+```
+
+The source timestamp currently uses `system_clock`. Simulation-time integration
+is a future extension.
+
+### Current Limitations
+
+The PoC does not yet implement:
+
+- `rmw_zenoh` liveliness tokens
+- ROS graph visibility through `@ros2_lv/...`
+- QoS matching or enforcement
+- registry metadata lookup for `type_hash`
+- ROS 2 services, clients, or actions
+- transport-level validation that payload bytes are valid CDR for the mapped type
+
+This means the first validation target is data-path interoperability, not full
+ROS graph behavior.
+
+### Build And Test
+
+Build with Zenoh support:
+
+```bash
+cmake -S . -B build-zenoh \
+  -DHAKO_PDU_ENDPOINT_ENABLE_ZENOH=ON \
+  -DHAKO_PDU_ENDPOINT_BUILD_EXAMPLES=OFF
+
+cmake --build build-zenoh -j4
+```
+
+Run the existing C++ test suite:
+
+```bash
+ctest --test-dir build-zenoh --output-on-failure
+```
+
+## Configuration Direction
+
+Add a separate protocol instead of changing the existing `zenoh` protocol in
+place.
+
+Static ROS 2 / `rmw_zenoh` fields such as `domain_id`, mapping rules, QoS, type
+names, type hashes, and timestamp policy belong in the comm config file, for
+example `config/sample/comm/rmw_zenoh_pubsub_comm.json`.
+
+Example direction:
+
+```json
+{
+  "protocol": "rmw_zenoh",
+  "name": "ros2_cmd_vel",
+  "direction": "inout",
+  "rmw_zenoh": {
+    "config_path": "zenoh/peer_connect.json5",
+    "domain_id": 0,
+    "timestamp": {
+      "source": "system_clock"
+    },
+    "mappings": [
+      {
+        "robot": "Drone",
+        "pdu": "velocity",
+        "topic": "/cmd_vel",
+        "type": "auto",
+        "type_hash": "<registry-managed-ros2-type-hash>",
+        "qos": {
+          "reliability": "best_effort",
+          "durability": "volatile",
+          "history": "keep_last",
+          "depth": 10
+        },
+        "gid": "auto"
+      }
+    ]
+  }
+}
+```
+
+Keeping this separate preserves the current Hakoniwa Zenoh behavior and makes
+the ROS 2 compatibility surface easier to test.
+
+In this example, `pdu` refers to the `org_name` in `pdudef.json`. The loader may
+also support direct `channel_id` mappings, but name-based mappings are preferred
+because they are easier to review.
+
+## Open Questions
+
+- Where should generated ROS 2 type hashes be stored in the registry output?
+- Should additional generated ROS 2 metadata be referenced directly by comm
+  config or loaded through a generated companion file?
+- Should simulation time be used for the `source_timestamp` attachment?
+- How much QoS compatibility is required for the first supported release?
+- Should liveliness tokens be implemented in the first PoC or immediately after
+  data delivery is proven?
+- How should missing generated type metadata be reported at config-load time?
+
+## Non-goals For The First PoC
+
+- ROS 2 services and clients
+- actions
+- complete QoS matrix support
+- multi-domain bridging
+- automatic type discovery from arbitrary ROS 2 workspaces
+- replacing the existing Hakoniwa-specific `zenoh` transport
