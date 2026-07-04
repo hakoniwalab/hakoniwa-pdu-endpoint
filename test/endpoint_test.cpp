@@ -2964,13 +2964,17 @@ TEST_F(EndpointTest, RmwZenohCommPeerToPeerPubSubDeliversOpaquePayloadToCallback
                 }},
                 {"mappings", nlohmann::json::array({
                     {
-                        {"robot", "StorageDemo"},
-                        {"pdu", "sample_state"},
-                        {"topic", "/sample_state"},
-                        {"type", "auto"},
-                        {"type_hash", "RIHS01_TEST_HASH"},
-                        {"gid", "auto"},
-                        {"notify_on_recv", true}
+                        {"endpoint", {
+                            {"robot", "StorageDemo"},
+                            {"pdu", "sample_state"},
+                            {"notify_on_recv", true}
+                        }},
+                        {"ros2", {
+                            {"topic", "/sample_state"},
+                            {"type", "auto"},
+                            {"type_hash", "RIHS01_TEST_HASH"},
+                            {"gid", "auto"}
+                        }}
                     }
                 })}
             }}

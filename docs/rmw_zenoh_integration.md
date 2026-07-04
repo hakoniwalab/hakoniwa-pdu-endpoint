@@ -481,6 +481,67 @@ Receive-side wildcard hashes are only allowed for `direction: in`.
 
 ## Build And Test
 
+### macOS Native Build
+
+The endpoint library and `rmw_zenoh` comm implementation can be built directly
+on macOS. This validates the native C++ transport code and the
+endpoint-to-endpoint smoke test. It does not replace the Docker ROS 2
+interoperability tests, because those also require a ROS 2 environment with
+`rmw_zenoh_cpp` and `rmw_zenohd`.
+
+Install the usual build tools. With Homebrew, the minimum practical set is:
+
+```bash
+brew install cmake boost googletest rust
+```
+
+`rust` is needed because CMake fetches and builds the pinned `zenoh-c` version
+from `ZENOH_VERSION.txt`.
+
+Configure and build from the repository root:
+
+```bash
+cmake -S . -B build-zenoh \
+  -DHAKO_PDU_ENDPOINT_ENABLE_ZENOH=ON \
+  -DHAKO_PDU_ENDPOINT_ENABLE_HAKONIWA_CORE=OFF \
+  -DHAKO_PDU_ENDPOINT_BUILD_EXAMPLES=ON \
+  -DHAKO_PDU_ENDPOINT_BUILD_BENCHMARKS=OFF \
+  -DHAKO_PDU_ENDPOINT_BUILD_TOOLS=OFF \
+  -DHAKO_PDU_ENDPOINT_INSTALL=OFF
+
+cmake --build build-zenoh -j4
+```
+
+Run the C++ tests:
+
+```bash
+ctest --test-dir build-zenoh --output-on-failure
+```
+
+Run only the `rmw_zenoh` endpoint-to-endpoint smoke test:
+
+```bash
+./build-zenoh/test/endpoint_test \
+  --gtest_filter=EndpointTest.RmwZenohCommPeerToPeerPubSubDeliversOpaquePayloadToCallback \
+  --gtest_color=no
+```
+
+You can also generate local sample configs when registry-managed type hashes are
+available:
+
+```bash
+bash tools/make-rmw-zenoh-config.bash \
+  --recipe config/sample/rmw_zenoh_recipe.yml \
+  --type-hash-dir ../hakoniwa-pdu-registry/pdu/type_hash \
+  --out-dir /tmp/hako-rmw-zenoh-macos
+```
+
+The generated endpoint binaries still expect ROS 2 CDR payload bytes. CDR
+encoding and decoding remain the responsibility of the example/application layer,
+not `Endpoint` or `RmwZenohComm`.
+
+### Generic CMake Build
+
 Build with Zenoh support:
 
 ```bash
