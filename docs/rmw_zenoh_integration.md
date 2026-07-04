@@ -540,6 +540,108 @@ The generated endpoint binaries still expect ROS 2 CDR payload bytes. CDR
 encoding and decoding remain the responsibility of the example/application layer,
 not `Endpoint` or `RmwZenohComm`.
 
+### macOS Publisher To Ubuntu ROS 2 Echo
+
+This manual experiment runs a ROS 2 subscriber on Ubuntu and publishes from a
+macOS Hakoniwa endpoint. The Ubuntu machine runs the `rmw_zenoh` router; the
+macOS endpoint connects to that router as a Zenoh client.
+
+The sample uses:
+
+- ROS 2 topic: `/sample_state`
+- ROS 2 type: `std_msgs/msg/UInt64`
+- Hakoniwa endpoint: `StorageDemo/sample_state`
+- payload codec: `examples/endpoint_zenoh_pub_cdr`
+
+#### Ubuntu Terminal 1: Start `rmw_zenohd`
+
+Start the `rmw_zenoh` router:
+
+```bash
+source /opt/ros/${ROS_DISTRO}/setup.bash
+export RMW_IMPLEMENTATION=rmw_zenoh_cpp
+
+ros2 run rmw_zenoh_cpp rmw_zenohd
+```
+
+Keep this terminal running. The macOS endpoint will connect to this machine on
+the default Zenoh router port `7447`.
+
+#### Ubuntu Terminal 2: Echo With An Explicit Type
+
+Because the current PoC does not publish `rmw_zenoh` liveliness tokens, ROS graph
+discovery may not show the endpoint publisher. Use an explicit message type:
+
+```bash
+source /opt/ros/${ROS_DISTRO}/setup.bash
+export RMW_IMPLEMENTATION=rmw_zenoh_cpp
+
+ros2 topic echo /sample_state std_msgs/msg/UInt64
+```
+
+#### macOS Terminal: Generate Config And Publish
+
+Use the Ubuntu machine's IP address. This is the same publisher-side path used
+by the Docker smoke test, but the generated Zenoh client config points to the
+Ubuntu router:
+
+```bash
+UBUNTU_IP=<ubuntu-ip-address>
+
+HAKO_RMW_ZENOH_ROUTER_ENDPOINT="tcp/${UBUNTU_IP}:7447" \
+  bash tools/make-rmw-zenoh-config.bash \
+    --recipe docker/recipes/rmw_zenoh_pub.yml \
+    --type-hash-dir ../hakoniwa-pdu-registry/pdu/type_hash \
+    --out-dir /tmp/hako-rmw-zenoh-macos-to-ubuntu
+
+./build-zenoh/examples/endpoint_zenoh_pub_cdr \
+  /tmp/hako-rmw-zenoh-macos-to-ubuntu/endpoint_rmw_zenoh_pub.json
+```
+
+Expected macOS publisher output:
+
+```text
+published sample_state_cdr=1 bytes=12
+published sample_state_cdr=2 bytes=12
+published sample_state_cdr=3 bytes=12
+published sample_state_cdr=4 bytes=12
+published sample_state_cdr=5 bytes=12
+```
+
+Expected Ubuntu `ros2 topic echo` output contains the same values:
+
+```text
+data: 1
+---
+data: 2
+---
+data: 3
+```
+
+If the registry type-hash metadata is not available on macOS, pass the concrete
+hash instead. On Ubuntu:
+
+```bash
+source /opt/ros/${ROS_DISTRO}/setup.bash
+ros2 interface type_hash std_msgs/msg/UInt64
+```
+
+Then replace `--type-hash-dir ...` on macOS with:
+
+```bash
+--type-hash <RIHS... value from Ubuntu>
+```
+
+If no samples arrive, check:
+
+- Ubuntu firewall allows TCP port `7447` from the macOS host.
+- `UBUNTU_IP` is reachable from macOS.
+- the generated config contains the concrete type hash for
+  `std_msgs/msg/UInt64`.
+- `ros2 topic echo` was started with the explicit `std_msgs/msg/UInt64` type.
+- The macOS endpoint was built with `HAKO_PDU_ENDPOINT_ENABLE_ZENOH=ON` and
+  examples enabled.
+
 ### Generic CMake Build
 
 Build with Zenoh support:
