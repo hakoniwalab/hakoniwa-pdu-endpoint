@@ -553,6 +553,35 @@ The sample uses:
 - Hakoniwa endpoint: `StorageDemo/sample_state`
 - payload codec: `examples/endpoint_zenoh_pub_cdr`
 
+#### Ubuntu Prerequisites
+
+Install the ROS 2 packages used by the Docker smoke test. Set `ROS_DISTRO` to
+the installed distro on the Ubuntu machine, for example `rolling` or `jazzy`:
+
+```bash
+export ROS_DISTRO=rolling
+
+sudo apt-get update
+sudo apt-get install -y \
+  ros-${ROS_DISTRO}-rmw-zenoh-cpp \
+  ros-${ROS_DISTRO}-ros2cli \
+  ros-${ROS_DISTRO}-ros2interface \
+  ros-${ROS_DISTRO}-std-msgs
+```
+
+Then open a new shell or source the setup file again:
+
+```bash
+source /opt/ros/${ROS_DISTRO}/setup.bash
+export RMW_IMPLEMENTATION=rmw_zenoh_cpp
+
+ros2 pkg executables rmw_zenoh_cpp
+```
+
+The last command should list `rmw_zenohd`. If `ros2` reports that
+`rmw_zenoh_cpp` is not installed, check that `ROS_DISTRO` matches the
+`/opt/ros/<distro>` setup file being sourced.
+
 #### Ubuntu Terminal 1: Start `rmw_zenohd`
 
 Start the `rmw_zenoh` router:
