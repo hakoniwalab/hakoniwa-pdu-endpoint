@@ -35,6 +35,7 @@ say "Building Python cffi module..."
 env_args=(
   "HAKO_PDU_ENDPOINT_LIB_DIR=${BUILD_DIR}/src"
   "HAKO_PDU_ENDPOINT_SHARED_LIB=${SHARED_LIB}"
+  "HAKO_PDU_ENDPOINT_PYTHON_BUILD_DIR=${BUILD_DIR}/python"
 )
 
 env "${env_args[@]}" PYTHONPATH= \

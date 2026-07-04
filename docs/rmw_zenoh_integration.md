@@ -481,199 +481,16 @@ Receive-side wildcard hashes are only allowed for `direction: in`.
 
 ## Build And Test
 
-### macOS Native Build
+Platform-specific operation runbooks are split by host so Mac and Ubuntu
+commands do not mix in one file:
 
-The endpoint library and `rmw_zenoh` comm implementation can be built directly
-on macOS. This validates the native C++ transport code and the
-endpoint-to-endpoint smoke test. It does not replace the Docker ROS 2
-interoperability tests, because those also require a ROS 2 environment with
-`rmw_zenoh_cpp` and `rmw_zenohd`.
-
-Install the usual build tools. With Homebrew, the minimum practical set is:
-
-```bash
-brew install cmake boost googletest rust
-```
-
-`rust` is needed because CMake fetches and builds the pinned `zenoh-c` version
-from `ZENOH_VERSION.txt`.
-
-Configure and build from the repository root:
-
-```bash
-cmake -S . -B build-zenoh \
-  -DHAKO_PDU_ENDPOINT_ENABLE_ZENOH=ON \
-  -DHAKO_PDU_ENDPOINT_ENABLE_HAKONIWA_CORE=OFF \
-  -DHAKO_PDU_ENDPOINT_BUILD_EXAMPLES=ON \
-  -DHAKO_PDU_ENDPOINT_BUILD_BENCHMARKS=OFF \
-  -DHAKO_PDU_ENDPOINT_BUILD_TOOLS=OFF \
-  -DHAKO_PDU_ENDPOINT_INSTALL=OFF
-
-cmake --build build-zenoh -j4
-```
-
-Run the C++ tests:
-
-```bash
-ctest --test-dir build-zenoh --output-on-failure
-```
-
-Run only the `rmw_zenoh` endpoint-to-endpoint smoke test:
-
-```bash
-./build-zenoh/test/endpoint_test \
-  --gtest_filter=EndpointTest.RmwZenohCommPeerToPeerPubSubDeliversOpaquePayloadToCallback \
-  --gtest_color=no
-```
-
-You can also generate local sample configs when registry-managed type hashes are
-available:
-
-```bash
-bash tools/make-rmw-zenoh-config.bash \
-  --recipe config/sample/rmw_zenoh_recipe.yml \
-  --type-hash-dir ../hakoniwa-pdu-registry/pdu/type_hash \
-  --out-dir /tmp/hako-rmw-zenoh-macos
-```
-
-The generated endpoint binaries still expect ROS 2 CDR payload bytes. CDR
-encoding and decoding remain the responsibility of the example/application layer,
-not `Endpoint` or `RmwZenohComm`.
-
-### macOS Publisher To Ubuntu ROS 2 Echo
-
-This manual experiment runs a ROS 2 subscriber on Ubuntu and publishes from a
-macOS Hakoniwa endpoint. The Ubuntu machine runs the `rmw_zenoh` router; the
-macOS endpoint connects to that router as a Zenoh client.
-
-The sample uses:
-
-- ROS 2 topic: `/sample_state`
-- ROS 2 type: `std_msgs/msg/UInt64`
-- Hakoniwa endpoint: `StorageDemo/sample_state`
-- payload codec: `examples/endpoint_zenoh_pub_cdr`
-
-#### Ubuntu Prerequisites
-
-Install the ROS 2 packages used by the Docker smoke test. Set `ROS_DISTRO` to
-the installed distro on the Ubuntu machine, for example `rolling` or `jazzy`:
-
-```bash
-export ROS_DISTRO=rolling
-
-sudo apt-get update
-sudo apt-get install -y \
-  ros-${ROS_DISTRO}-rmw-zenoh-cpp \
-  ros-${ROS_DISTRO}-ros2cli \
-  ros-${ROS_DISTRO}-ros2interface \
-  ros-${ROS_DISTRO}-std-msgs
-```
-
-Then open a new shell or source the setup file again:
-
-```bash
-source /opt/ros/${ROS_DISTRO}/setup.bash
-export RMW_IMPLEMENTATION=rmw_zenoh_cpp
-
-ros2 pkg executables rmw_zenoh_cpp
-```
-
-The last command should list `rmw_zenohd`. If `ros2` reports that
-`rmw_zenoh_cpp` is not installed, check that `ROS_DISTRO` matches the
-`/opt/ros/<distro>` setup file being sourced.
-
-#### Ubuntu Terminal 1: Start `rmw_zenohd`
-
-Start the `rmw_zenoh` router:
-
-```bash
-source /opt/ros/${ROS_DISTRO}/setup.bash
-export RMW_IMPLEMENTATION=rmw_zenoh_cpp
-
-ros2 run rmw_zenoh_cpp rmw_zenohd
-```
-
-Keep this terminal running. The macOS endpoint will connect to this machine on
-the default Zenoh router port `7447`.
-
-#### Ubuntu Terminal 2: Echo With An Explicit Type
-
-Because the current PoC does not publish `rmw_zenoh` liveliness tokens, ROS graph
-discovery may not show the endpoint publisher. Use an explicit message type:
-
-```bash
-source /opt/ros/${ROS_DISTRO}/setup.bash
-export RMW_IMPLEMENTATION=rmw_zenoh_cpp
-
-ros2 topic echo /sample_state std_msgs/msg/UInt64
-```
-
-#### macOS Terminal: Generate Config And Publish
-
-Use the Ubuntu machine's IP address. This is the same publisher-side path used
-by the Docker smoke test, but the generated Zenoh client config points to the
-Ubuntu router:
-
-```bash
-UBUNTU_IP=<ubuntu-ip-address>
-
-HAKO_RMW_ZENOH_ROUTER_ENDPOINT="tcp/${UBUNTU_IP}:7447" \
-  bash tools/make-rmw-zenoh-config.bash \
-    --recipe docker/recipes/rmw_zenoh_pub.yml \
-    --type-hash-dir ../hakoniwa-pdu-registry/pdu/type_hash \
-    --out-dir /tmp/hako-rmw-zenoh-macos-to-ubuntu
-
-./build-zenoh/examples/endpoint_zenoh_pub_cdr \
-  /tmp/hako-rmw-zenoh-macos-to-ubuntu/endpoint_rmw_zenoh_pub.json
-```
-
-Expected macOS publisher output:
-
-```text
-published sample_state_cdr=1 bytes=12
-published sample_state_cdr=2 bytes=12
-published sample_state_cdr=3 bytes=12
-published sample_state_cdr=4 bytes=12
-published sample_state_cdr=5 bytes=12
-```
-
-Expected Ubuntu `ros2 topic echo` output contains the same values:
-
-```text
-data: 1
----
-data: 2
----
-data: 3
-```
-
-If the registry type-hash metadata is not available on macOS, pass the concrete
-hash instead. On Ubuntu:
-
-```bash
-source /opt/ros/${ROS_DISTRO}/setup.bash
-ros2 interface type_hash std_msgs/msg/UInt64
-```
-
-Then replace `--type-hash-dir ...` on macOS with:
-
-```bash
---type-hash <RIHS... value from Ubuntu>
-```
-
-If no samples arrive, check:
-
-- Ubuntu firewall allows TCP port `7447` from the macOS host.
-- `UBUNTU_IP` is reachable from macOS.
-- the generated config contains the concrete type hash for
-  `std_msgs/msg/UInt64`.
-- `ros2 topic echo` was started with the explicit `std_msgs/msg/UInt64` type.
-- The macOS endpoint was built with `HAKO_PDU_ENDPOINT_ENABLE_ZENOH=ON` and
-  examples enabled.
+- macOS commands: [docs/rmw_zenoh_integration-mac.md](rmw_zenoh_integration-mac.md)
+- Ubuntu/Linux commands: [docs/rmw_zenoh_integration-ubuntu.md](rmw_zenoh_integration-ubuntu.md)
+- Docker smoke tests: [docker/README.md](../docker/README.md)
 
 ### Generic CMake Build
 
-Build with Zenoh support:
+Build with Zenoh support when you only need the native C++ transport and tests:
 
 ```bash
 cmake -S . -B build-zenoh \
@@ -703,8 +520,6 @@ Run the ROS 2 Docker smoke tests inside the container after
 bash docker/run_ros_rmw_zenoh_pub_to_endpoint_sub.bash
 bash docker/run_endpoint_rmw_zenoh_pub_to_ros_sub.bash
 ```
-
-See `docker/README.md` for Docker setup and one-shot host commands.
 
 ## Current Limitations
 

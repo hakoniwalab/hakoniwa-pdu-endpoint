@@ -180,6 +180,8 @@ def configure_ffi():
     else:
         for candidate in (
             build_dir / "src",
+            repo_root / "build-zenoh" / "src",
+            repo_root / "build-zenoh-shared" / "src",
             repo_root / "build-shared" / "src",
             repo_root / "build-win" / "src" / "Release",
             repo_root / "build-win2" / "src" / "Release",

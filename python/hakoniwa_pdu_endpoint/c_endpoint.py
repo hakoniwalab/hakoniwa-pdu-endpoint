@@ -35,7 +35,10 @@ def _candidate_ffi_suffixes() -> List[str]:
 
 def _candidate_python_build_roots() -> List[Path]:
     roots: List[Path] = []
-    for build_dir_name in ("build", "build-win", "build-win2", "build-shared"):
+    env_python_build_dir = os.environ.get("HAKO_PDU_ENDPOINT_PYTHON_BUILD_DIR")
+    if env_python_build_dir:
+        roots.append(Path(env_python_build_dir).expanduser().resolve())
+    for build_dir_name in ("build-zenoh-shared", "build-zenoh", "build-shared", "build", "build-win", "build-win2"):
         root = _repo_root / build_dir_name / "python"
         if root.exists():
             roots.append(root)
@@ -55,6 +58,8 @@ def _candidate_native_lib_dirs() -> List[Path]:
 
     for candidate in (
         _repo_root / "build" / "src",
+        _repo_root / "build-zenoh" / "src",
+        _repo_root / "build-zenoh-shared" / "src",
         _repo_root / "build-shared" / "src",
         _repo_root / "build-win" / "src" / "Release",
         _repo_root / "build-win2" / "src" / "Release",
