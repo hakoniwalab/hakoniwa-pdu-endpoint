@@ -126,7 +126,7 @@ ffi.cdef(
         void* buffer,
         size_t buffer_size,
         hako_pdu_resolved_key_t* out_key,
-        unsigned long long* out_timestamp_ns,
+        uint64_t* out_timestamp_ns,
         size_t* received_size);
     size_t hako_pdu_endpoint_get_pdu_size(
         const hako_pdu_endpoint_handle_t* endpoint,

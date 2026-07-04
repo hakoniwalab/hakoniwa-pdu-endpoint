@@ -101,6 +101,9 @@ sudo apt-get install -y \
   libboost-dev \
   libfastcdr-dev \
   pkg-config \
+  python3 \
+  python3-cffi \
+  python3-dev \
   rustc
 ```
 
@@ -154,6 +157,9 @@ HAKO_RMW_ZENOH_ROUTER_ENDPOINT="tcp/${UBUNTU_IP}:7447" \
 ```
 
 ## Python Endpoint On Linux
+
+Install the native dependencies from `Linux Endpoint Native Build` first. The
+Python binding build requires `python3-cffi` and `python3-dev`.
 
 Build the shared native library and Python CFFI module:
 

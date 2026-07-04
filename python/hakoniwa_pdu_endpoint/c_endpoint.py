@@ -424,7 +424,7 @@ class Endpoint:
     def recv_next(self, buffer_size: int) -> PduRecord:
         buffer = ffi.new(f"unsigned char[{buffer_size}]")
         out_key = ffi.new("hako_pdu_resolved_key_t*")
-        out_timestamp_ns = ffi.new("unsigned long long*")
+        out_timestamp_ns = ffi.new("uint64_t*")
         received_size = ffi.new("size_t*")
         _check(
             lib.hako_pdu_endpoint_recv_next(
