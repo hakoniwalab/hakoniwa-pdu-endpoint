@@ -488,6 +488,13 @@ commands do not mix in one file:
 - Ubuntu/Linux commands: [docs/rmw_zenoh_integration-ubuntu.md](rmw_zenoh_integration-ubuntu.md)
 - Docker smoke tests: [docker/README.md](../docker/README.md)
 
+For normal macOS/Ubuntu use, prefer the installer:
+
+```bash
+./tools/install-rmw-zenoh.bash --router-endpoint tcp/<router-host>:7447
+source rmw-zenoh.env
+```
+
 ### Generic CMake Build
 
 Build with Zenoh support when you only need the native C++ transport and tests:

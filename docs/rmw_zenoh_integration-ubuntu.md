@@ -10,6 +10,47 @@ The examples use:
 - Hakoniwa endpoint: `StorageDemo/sample_state`
 - Zenoh router port: `7447`
 
+## Installer Setup
+
+Run the installer once on Ubuntu/Linux:
+
+```bash
+./tools/install-rmw-zenoh.bash \
+  --ros-distro rolling \
+  --router-endpoint tcp/<ubuntu-ip-address>:7447
+
+source rmw-zenoh.env
+```
+
+The installer builds the C++ CDR examples, builds the shared library for the
+Python examples, and generates `rmw-zenoh.env`. On Linux, the env file also
+sources `/opt/ros/${ROS_DISTRO}/setup.bash` when it exists and sets
+`RMW_IMPLEMENTATION=rmw_zenoh_cpp`.
+
+After sourcing `rmw-zenoh.env`, create endpoint configs with short helper
+commands:
+
+```bash
+hako_rmw_zenoh_make_pub_config /tmp/hako-rmw-zenoh-pub
+hako_rmw_zenoh_make_sub_config /tmp/hako-rmw-zenoh-sub
+```
+
+Run C++ examples:
+
+```bash
+hako_rmw_zenoh_cpp_pub /tmp/hako-rmw-zenoh-pub/endpoint_rmw_zenoh_pub.json
+hako_rmw_zenoh_cpp_sub /tmp/hako-rmw-zenoh-sub/endpoint_rmw_zenoh_sub.json
+```
+
+Run Python examples:
+
+```bash
+hako_rmw_zenoh_python_pub /tmp/hako-rmw-zenoh-pub/endpoint_rmw_zenoh_pub.json
+hako_rmw_zenoh_python_sub /tmp/hako-rmw-zenoh-sub/endpoint_rmw_zenoh_sub.json
+```
+
+To install apt dependencies, including `rmw_zenoh_cpp`, add `--install-deps`.
+
 ## ROS 2 `rmw_zenoh` Install
 
 Set `ROS_DISTRO` to the installed ROS 2 distro, for example `rolling` or

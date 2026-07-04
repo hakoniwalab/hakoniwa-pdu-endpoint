@@ -10,6 +10,45 @@ The examples use:
 - Hakoniwa endpoint: `StorageDemo/sample_state`
 - Ubuntu Zenoh router endpoint: `tcp/<ubuntu-ip-address>:7447`
 
+## Installer Setup
+
+Run the installer once on macOS:
+
+```bash
+./tools/install-rmw-zenoh.bash \
+  --router-endpoint tcp/<ubuntu-ip-address>:7447
+
+source rmw-zenoh.env
+```
+
+The installer builds the C++ CDR examples, builds the shared library for the
+Python examples, and generates `rmw-zenoh.env`. Re-run the installer when the
+router address or build options change.
+
+After sourcing `rmw-zenoh.env`, create endpoint configs with short helper
+commands:
+
+```bash
+hako_rmw_zenoh_make_pub_config /tmp/hako-rmw-zenoh-pub
+hako_rmw_zenoh_make_sub_config /tmp/hako-rmw-zenoh-sub
+```
+
+Run C++ examples:
+
+```bash
+hako_rmw_zenoh_cpp_pub /tmp/hako-rmw-zenoh-pub/endpoint_rmw_zenoh_pub.json
+hako_rmw_zenoh_cpp_sub /tmp/hako-rmw-zenoh-sub/endpoint_rmw_zenoh_sub.json
+```
+
+Run Python examples:
+
+```bash
+hako_rmw_zenoh_python_pub /tmp/hako-rmw-zenoh-pub/endpoint_rmw_zenoh_pub.json
+hako_rmw_zenoh_python_sub /tmp/hako-rmw-zenoh-sub/endpoint_rmw_zenoh_sub.json
+```
+
+To install Homebrew dependencies at the same time, add `--install-deps`.
+
 ## Native Build
 
 Install dependencies:
