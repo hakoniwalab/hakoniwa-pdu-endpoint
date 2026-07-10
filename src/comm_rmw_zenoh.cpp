@@ -10,6 +10,7 @@
 #include <iomanip>
 #include <nlohmann/json.hpp>
 #include <sstream>
+#include <iostream>
 
 namespace hakoniwa {
 namespace pdu {
@@ -67,10 +68,12 @@ HakoPduErrorType RmwZenohComm::open(const std::string& config_path)
     }
     auto err = parse_config_(config_path);
     if (err != HAKO_PDU_ERR_OK) {
+        std::cerr << "Failed to parse RMW Zenoh comm config: " << static_cast<int>(err) << std::endl;
         return err;
     }
     err = open_session_();
     if (err != HAKO_PDU_ERR_OK) {
+        std::cerr << "Failed to open RMW Zenoh session: " << static_cast<int>(err) << std::endl;
         cleanup_();
         return err;
     }
@@ -266,6 +269,7 @@ HakoPduErrorType RmwZenohComm::open_session_()
     auto* owned_session = new z_owned_session_t{};
     if (zc_config_from_file(&config_, zenoh_config_path_.c_str()) < 0) {
         delete owned_session;
+        std::cerr << "Failed to load Zenoh config from file: " << zenoh_config_path_ << std::endl;
         return HAKO_PDU_ERR_FILE_NOT_FOUND;
     }
     if (z_open(owned_session, z_move(config_), nullptr) < 0) {
