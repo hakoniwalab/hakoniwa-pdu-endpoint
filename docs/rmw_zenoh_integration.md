@@ -306,14 +306,16 @@ connect the endpoint as a Zenoh client. The CDR conversion is performed by the
 example application layer using generated converter headers under
 `examples/cdr`.
 
-The validated target is data-path interoperability, not full ROS graph
-emulation. The current smoke tests prove:
+The validated target is data-path interoperability plus topic-level ROS graph
+visibility. The current smoke tests and manual graph check prove:
 
 - ROS 2 publisher to Hakoniwa endpoint subscriber
 - Hakoniwa endpoint publisher to ROS 2 subscriber
 - CDR encode/decode in the application/example layer
 - `rmw_zenoh` data key expression matching
 - publish attachment generation with sequence number, timestamp, and GID
+- `NN` pseudo-node and `MP`/`MS` topic liveliness declarations for ROS graph
+  visibility
 - concrete `type_hash` resolution for `std_msgs/msg/UInt64`
 
 ## Configuration
@@ -335,7 +337,7 @@ fields under `endpoint` and ROS 2 fields under `ros2`:
         "endpoint": {
           "robot": "Drone",
           "pdu": "velocity",
-          "notify_on_recv": true
+          "direction": "inout"
         },
         "ros2": {
           "topic": "/cmd_vel",
@@ -422,16 +424,28 @@ direction: out
 domain_id: 0
 pdu_def_path: config/sample/comm/storage_example/pdudef.json
 cache: config/sample/cache/buffer.json
+rmw_zenoh_graph:
+  enabled: true
+  node_name: hakoniwa_pdu_endpoint
+  node_namespace: /
+  enclave: "%"
+  session_id: auto
+  node_id: 0
+  qos: default
 zenoh:
   endpoint: tcp/127.0.0.1:7447
 mappings:
   - endpoint:
       robot: StorageDemo
       pdu: sample_state
-      notify_on_recv: false
+      direction: out
     ros2:
       topic: /sample_state
       message_type: std_msgs/msg/UInt64
+      graph:
+        enabled: true
+        entity_id: 1
+        qos: default
 ```
 
 `ros2.message_type` is used only by the generator. The generated comm config
@@ -443,6 +457,37 @@ order:
 3. `--type-hash-dir` / `HAKO_RMW_ZENOH_TYPE_HASH_DIR`
 4. `ros2-type-hash` or `ros2 interface type_hash`, when available
 5. `*` only for receive-side configs when `HAKO_RMW_ZENOH_ALLOW_HASH_WILDCARD=1`
+
+`rmw_zenoh_graph` controls ROS graph visibility through `@ros2_lv/...`
+liveliness tokens. It does not change the data plane. The existing
+`z_put(...)`, subscriber, CDR payload, and attachment paths remain responsible
+for actual message delivery.
+
+When graph support is enabled, `RmwZenohComm::open()` declares one `NN` token for
+the pseudo ROS node. `RmwZenohComm::start()` declares `MP` tokens for publish
+directions and `MS` tokens for subscribe directions. `close()` drops topic
+tokens first, then the node token, then the normal Zenoh subscriber/session
+resources.
+
+The default `node_name` is the generated endpoint name, sanitized to ROS
+node-name characters. The default namespace and SROS enclave both encode to `%`
+in the liveliness key. `session_id: auto` generates a process-local id when the
+Zenoh C API does not expose a session id.
+
+`qos: default` is a recipe-level alias. At runtime it is normalized to the
+default `rmw_zenoh_cpp` QoS key-expression suffix:
+
+```text
+::,:,:,:,,
+```
+
+This value is not cosmetic. `rmw_zenoh_cpp` parses the QoS suffix when it
+receives a non-node liveliness token. If the suffix cannot be parsed, the `MP`
+or `MS` token is ignored and the topic will not appear in `ros2 topic list`,
+even though the `NN` node token may still appear in `ros2 node list`.
+
+Set `qos` to an explicit suffix only when matching a non-default
+`rmw_zenoh_cpp` publisher/subscriber profile observed from a real token.
 
 `--type-hash-dir` accepts either the registry root or the
 `pdu/type_hash` directory itself. For `std_msgs/msg/UInt64`, the generator reads:
@@ -472,23 +517,27 @@ mappings:
   - endpoint:
       robot: StorageDemo
       pdu: sample_state_rx
-      notify_on_recv: true
+      direction: in
     ros2:
       topic: /sample_state_rx
       message_type: std_msgs/msg/UInt64
   - endpoint:
       robot: StorageDemo
       pdu: sample_state_tx
-      notify_on_recv: false
+      direction: out
     ros2:
       topic: /sample_state_tx
       message_type: std_msgs/msg/UInt64
 ```
 
-Use `direction: inout` and list both receive-side and publish-side mappings.
+Use per-mapping `endpoint.direction` to declare whether each PDU mapping is a
+ROS-facing publisher (`out`), subscriber (`in`), or both (`inout`). The top-level
+`direction` remains as a backward-compatible fallback and file-name hint, but
+mixed pub/sub recipes should put the real direction on each mapping.
 The sample file is `config/sample/rmw_zenoh_inout_recipe.yml`. In `inout` mode
 the comm is publisher-capable, so the generator requires concrete type hashes.
-Receive-side wildcard hashes are only allowed for `direction: in`.
+Receive-side wildcard hashes are only allowed for mappings whose
+`endpoint.direction` is `in`.
 
 ## Build And Test
 
@@ -539,18 +588,61 @@ bash docker/run_ros_rmw_zenoh_pub_to_endpoint_sub.bash
 bash docker/run_endpoint_rmw_zenoh_pub_to_ros_sub.bash
 ```
 
+### Graph Visibility Check
+
+With graph support enabled, a publisher endpoint should appear as a ROS node and
+its mapped topic should appear in the ROS graph:
+
+```bash
+./build-docker/examples/endpoint_zenoh_pub_cdr \
+  ./myconfig/hako-rmw-zenoh-endpoint-pub/endpoint_rmw_zenoh_pub.json
+```
+
+In another shell using the same `rmw_zenoh` router:
+
+```bash
+ros2 node list
+ros2 topic list
+ros2 topic info -v /sample_state
+```
+
+Expected graph entries include:
+
+```text
+/sample_rmw_zenoh_out_endpoint_manual
+/sample_state
+```
+
+`rqt_graph` uses the same ROS graph information, so it should show the pseudo
+endpoint node and its topic when run on a Linux desktop with `rqt_graph`
+installed. The Docker image used for smoke tests may not include GUI tools.
+
+For token-level debugging, run the endpoint with:
+
+```bash
+HAKO_RMW_ZENOH_GRAPH_DEBUG=1 \
+./build-docker/examples/endpoint_zenoh_pub_cdr \
+  ./myconfig/hako-rmw-zenoh-endpoint-pub/endpoint_rmw_zenoh_pub.json
+```
+
+The publisher mapping should declare both `NN` and `MP` tokens. A default-QoS
+`MP` token ends with:
+
+```text
+/::,:,:,:,,
+```
+
 ## Current Limitations
 
 The PoC does not yet implement:
 
-- `rmw_zenoh` liveliness tokens
-- ROS graph visibility through `@ros2_lv/...`
-- QoS matching or enforcement
+- complete QoS matrix support beyond passing the graph QoS suffix through
 - ROS 2 services, clients, or actions
 - transport-level validation that payload bytes are valid CDR for the mapped type
 
-This means the current supported target is data-path interoperability, not full
-ROS graph behavior.
+The current supported target is topic-level data-path interoperability plus ROS
+graph visibility for pseudo nodes, publishers, and subscribers through
+`@ros2_lv/...` `NN`/`MP`/`MS` liveliness tokens.
 
 ## Open Questions
 
@@ -558,8 +650,6 @@ ROS graph behavior.
   config or loaded through a generated companion file?
 - Should simulation time be used for the `source_timestamp` attachment?
 - How much QoS compatibility is required for the first supported release?
-- Should liveliness tokens be implemented in the first PoC or immediately after
-  data delivery is proven?
 
 ## Non-goals For The First PoC
 

@@ -113,6 +113,44 @@ configs from `docker/recipes/rmw_zenoh_sub.yml` or
 `std_msgs/msg/UInt64` type hash. The image includes `ros2-type-hash`, a small
 helper that reads ROS installed type-description JSON files.
 
+The generated recipes also enable ROS graph liveliness. The endpoint declares a
+pseudo ROS node with an `NN` token and declares publisher/subscriber mappings
+with `MP` or `MS` tokens. This makes the endpoint visible to ROS graph tools
+without changing the data plane.
+
+Manual graph check:
+
+```bash
+HAKO_RMW_ZENOH_ROUTER_ENDPOINT=tcp/${UBUNTU_IP}:7447 \
+  bash tools/make-rmw-zenoh-config.bash \
+    --recipe docker/recipes/rmw_zenoh_pub.yml \
+    --type-hash-dir ./work/hakoniwa-pdu-registry/pdu/type_hash \
+    --out-dir ./myconfig/hako-rmw-zenoh-endpoint-pub
+
+HAKO_RMW_ZENOH_GRAPH_DEBUG=1 \
+  ./build-docker/examples/endpoint_zenoh_pub_cdr \
+    ./myconfig/hako-rmw-zenoh-endpoint-pub/endpoint_rmw_zenoh_pub.json
+```
+
+In another shell connected to the same router:
+
+```bash
+ros2 node list
+ros2 topic list
+ros2 topic info -v /sample_state
+```
+
+Expected graph entries include:
+
+```text
+/sample_rmw_zenoh_out_endpoint_manual
+/sample_state
+```
+
+`rqt_graph` should show the same pseudo node/topic when run on a native Linux
+desktop or a GUI-enabled container with `ros-<distro>-rqt-graph` installed. The
+smoke-test container may not include `rqt_graph`.
+
 ## Overrides
 
 The endpoint client config is generated at runtime and points to the container's

@@ -2959,6 +2959,15 @@ TEST_F(EndpointTest, RmwZenohCommPeerToPeerPubSubDeliversOpaquePayloadToCallback
             {"rmw_zenoh", {
                 {"config_path", config_path},
                 {"domain_id", 0},
+                {"graph", {
+                    {"enabled", true},
+                    {"node_name", "rmw_zenoh_" + direction + "_test"},
+                    {"node_namespace", "/"},
+                    {"enclave", "%"},
+                    {"session_id", "test_" + direction},
+                    {"node_id", 0},
+                    {"qos", "default"}
+                }},
                 {"timestamp", {
                     {"source", "system_clock"}
                 }},
@@ -2967,13 +2976,18 @@ TEST_F(EndpointTest, RmwZenohCommPeerToPeerPubSubDeliversOpaquePayloadToCallback
                         {"endpoint", {
                             {"robot", "StorageDemo"},
                             {"pdu", "sample_state"},
-                            {"notify_on_recv", true}
+                            {"direction", direction}
                         }},
                         {"ros2", {
                             {"topic", "/sample_state"},
                             {"type", "auto"},
                             {"type_hash", "RIHS01_TEST_HASH"},
-                            {"gid", "auto"}
+                            {"gid", "auto"},
+                            {"graph", {
+                                {"enabled", true},
+                                {"entity_id", 1},
+                                {"qos", "default"}
+                            }}
                         }}
                     }
                 })}

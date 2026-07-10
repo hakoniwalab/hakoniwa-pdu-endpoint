@@ -49,7 +49,7 @@ int main(int argc, char* argv[])
     }
 
     std::cout << "Waiting for Zenoh CDR samples..." << std::endl;
-    std::this_thread::sleep_for(std::chrono::seconds(5));
+    std::this_thread::sleep_for(std::chrono::seconds(500));
 
     (void)endpoint.stop();
     (void)endpoint.close();

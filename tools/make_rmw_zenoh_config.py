@@ -188,28 +188,42 @@ def command_type_hash(ros_type):
     return ""
 
 
-def resolve_type_hash(mapping, args, type_hash_dir, allow_single_override):
+def mapping_direction(mapping, fallback_direction):
+    return mapping.get("endpoint", {}).get("direction") or fallback_direction
+
+
+def union_direction(directions):
+    can_in = any(d in {"in", "inout"} for d in directions)
+    can_out = any(d in {"out", "inout"} for d in directions)
+    if can_in and can_out:
+        return "inout"
+    if can_in:
+        return "in"
+    return "out"
+
+
+def resolve_type_hash(mapping, args, type_hash_dir, allow_single_override, direction):
     ros2 = mapping["ros2"]
     if ros2.get("type_hash"):
-        if args.direction != "in" and ros2["type_hash"] == "*":
+        if direction != "in" and ros2["type_hash"] == "*":
             raise ValueError("publisher-capable config requires a concrete type_hash")
         return ros2["type_hash"]
     if args.type_hash and allow_single_override:
-        if args.direction != "in" and args.type_hash == "*":
+        if direction != "in" and args.type_hash == "*":
             raise ValueError("publisher-capable config requires a concrete type_hash")
         return args.type_hash
     ros_type = ros2.get("message_type") or args.ros_type
     value = read_type_hash(type_hash_dir, ros_type) if type_hash_dir else ""
     if not value:
         value = command_type_hash(ros_type)
-    if not value and args.direction == "in" and os.environ.get("HAKO_RMW_ZENOH_ALLOW_HASH_WILDCARD") == "1":
+    if not value and direction == "in" and os.environ.get("HAKO_RMW_ZENOH_ALLOW_HASH_WILDCARD") == "1":
         return "*"
     if not value:
         raise RuntimeError(
             f"failed to resolve type_hash for {ros_type}; pass --type-hash-dir, --type-hash, "
             "or set ros2.type_hash in the recipe"
         )
-    if args.direction != "in" and value == "*":
+    if direction != "in" and value == "*":
         raise ValueError("publisher-capable config requires a concrete type_hash")
     return value
 
@@ -219,7 +233,7 @@ def mapping_from_args(args):
         "endpoint": {
             "robot": args.robot,
             "pdu": args.pdu,
-            "notify_on_recv": args.direction != "out",
+            "direction": args.direction,
         },
         "ros2": {
             "topic": args.topic,
@@ -249,12 +263,10 @@ def main():
     args = parse_args()
     recipe = load_recipe(args.recipe)
     root = recipe.get("root_dir", args.root_dir)
-    direction = recipe.get("direction", args.direction)
-    if direction not in {"in", "out", "inout"}:
+    fallback_direction = recipe.get("direction", args.direction)
+    if fallback_direction not in {"in", "out", "inout"}:
         raise ValueError("direction must be in, out, or inout")
-    args.direction = direction
     domain_id = int(recipe.get("domain_id", args.domain_id))
-    role = {"in": "sub", "out": "pub", "inout": "pubsub"}[direction]
 
     zenoh = recipe.get("zenoh", {})
     zenoh_endpoint = os.environ.get("HAKO_RMW_ZENOH_ROUTER_ENDPOINT") or zenoh.get("endpoint") or args.zenoh_endpoint
@@ -263,14 +275,34 @@ def main():
     mappings = recipe.get("mappings") or [mapping_from_args(args)]
     if not isinstance(mappings, list) or not mappings:
         raise ValueError("recipe mappings must be a non-empty list")
+    mapping_directions = [mapping_direction(mapping, fallback_direction) for mapping in mappings]
+    for d in mapping_directions:
+        if d not in {"in", "out", "inout"}:
+            raise ValueError("mapping endpoint.direction must be in, out, or inout")
+    direction = union_direction(mapping_directions)
+    args.direction = direction
+    role = {"in": "sub", "out": "pub", "inout": "pubsub"}[direction]
+    endpoint_name = recipe.get("endpoint_name", f"sample_rmw_zenoh_{direction}_endpoint_manual")
+    graph_recipe = recipe.get("rmw_zenoh_graph", {})
+    graph_config = {
+        "enabled": bool(graph_recipe.get("enabled", False)),
+        "node_name": graph_recipe.get("node_name", endpoint_name),
+        "node_namespace": graph_recipe.get("node_namespace", "/"),
+        "enclave": graph_recipe.get("enclave", "%"),
+        "session_id": graph_recipe.get("session_id", "auto"),
+        "node_id": int(graph_recipe.get("node_id", 0)),
+        "qos": graph_recipe.get("qos", "default"),
+    }
 
     comm_mappings = []
+    next_entity_id = 1
     for mapping in mappings:
         endpoint = mapping.get("endpoint", {})
         ros2 = mapping.get("ros2", {})
         if not endpoint.get("robot") or not endpoint.get("pdu") or not ros2.get("topic"):
             raise ValueError("each mapping requires endpoint.robot, endpoint.pdu, and ros2.topic")
-        type_hash = resolve_type_hash(mapping, args, type_hash_dir, len(mappings) == 1)
+        map_direction = mapping_direction(mapping, fallback_direction)
+        type_hash = resolve_type_hash(mapping, args, type_hash_dir, len(mappings) == 1, map_direction)
         ros2_out = {
             "topic": ros2["topic"],
             "type_hash": type_hash,
@@ -279,11 +311,17 @@ def main():
             ros2_out["type"] = ros2["type"]
         if ros2.get("gid"):
             ros2_out["gid"] = ros2["gid"]
+        graph_out = dict(ros2.get("graph", {}))
+        graph_out.setdefault("enabled", graph_config["enabled"])
+        graph_out.setdefault("entity_id", next_entity_id)
+        graph_out.setdefault("qos", graph_config["qos"])
+        ros2_out["graph"] = graph_out
+        next_entity_id += 2 if map_direction == "inout" else 1
         comm_mappings.append({
             "endpoint": {
                 "robot": endpoint["robot"],
                 "pdu": endpoint["pdu"],
-                "notify_on_recv": bool(endpoint.get("notify_on_recv", direction != "out")),
+                "direction": map_direction,
             },
             "ros2": ros2_out,
         })
@@ -309,12 +347,13 @@ def main():
         "rmw_zenoh": {
             "config_path": config_ref(comm_path, zenoh_path),
             "domain_id": domain_id,
+            "graph": graph_config,
             "mappings": comm_mappings,
         },
     }
 
     endpoint = {
-        "name": recipe.get("endpoint_name", f"sample_rmw_zenoh_{direction}_endpoint_manual"),
+        "name": endpoint_name,
         "pdu_def_path": as_abs(root, recipe.get("pdu_def_path", "config/sample/comm/storage_example/pdudef.json")),
         "cache": as_abs(root, recipe.get("cache", "config/sample/cache/buffer.json")),
         "comm": config_ref(endpoint_path, comm_path),

@@ -413,10 +413,74 @@
           "minimum": 0,
           "description": "ROS_DOMAIN_ID-compatible graph/data partition."
         },
+        "graph": {
+          "$ref": "#/$defs/rmw_zenoh_graph",
+          "description": "Optional ROS graph liveliness settings. When enabled, NN liveliness is declared at open and MP/MS topic liveliness is declared at start."
+        },
         "mappings": {
           "type": "array",
           "minItems": 1,
           "items": { "$ref": "#/$defs/rmw_zenoh_mapping" }
+        }
+      }
+    },
+    "rmw_zenoh_graph": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "enabled": {
+          "type": "boolean",
+          "description": "Declare rmw_zenoh @ros2_lv liveliness tokens for ROS graph visibility."
+        },
+        "node_name": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Pseudo ROS 2 node name. Invalid ROS node-name characters are sanitized by the runtime."
+        },
+        "node_namespace": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Pseudo ROS 2 namespace. / is encoded as % in liveliness token key expressions."
+        },
+        "enclave": {
+          "type": "string",
+          "minLength": 1,
+          "description": "SROS enclave component for graph liveliness. Use % when SROS is not used."
+        },
+        "session_id": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Zenoh session id component. Use auto to let the runtime generate a process-local id when the Zenoh API does not expose one."
+        },
+        "node_id": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Pseudo ROS 2 node id component. A single-node endpoint normally uses 0."
+        },
+        "qos": {
+          "type": "string",
+          "minLength": 1,
+          "description": "rmw_zenoh graph QoS token suffix. The value default is normalized by the runtime to the rmw_zenoh_cpp default QoS keyexpr (::,:,:,:,,). For non-default QoS, provide the suffix observed from rmw_zenoh_cpp."
+        }
+      }
+    },
+    "rmw_zenoh_mapping_graph": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "enabled": {
+          "type": "boolean",
+          "description": "Override graph liveliness declaration for this mapping."
+        },
+        "entity_id": {
+          "type": "integer",
+          "minimum": 1,
+          "description": "Graph entity id. In inout mode this id is used for MP and the following id is used for MS."
+        },
+        "qos": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Mapping-specific rmw_zenoh graph QoS token suffix. The value default is normalized by the runtime to the rmw_zenoh_cpp default QoS keyexpr."
         }
       }
     },
@@ -440,8 +504,14 @@
               "minLength": 1,
               "description": "PDU org_name from pdudef.json."
             },
+            "direction": {
+              "type": "string",
+              "enum": ["in", "out", "inout"],
+              "description": "Per-mapping rmw_zenoh direction. out declares/sends as MP, in declares/subscribes as MS, and inout does both. If omitted, the comm-level direction is used for backward compatibility."
+            },
             "notify_on_recv": {
-              "type": "boolean"
+              "type": "boolean",
+              "description": "Deprecated for rmw_zenoh recipes. Receive callback notification now follows endpoint.direction; this remains for backward-compatible explicit callback gating."
             }
           }
         },
@@ -470,6 +540,10 @@
               "type": "string",
               "minLength": 1,
               "description": "Optional 32-character hex RMW GID storage override. Omit or use auto for deterministic local generation."
+            },
+            "graph": {
+              "$ref": "#/$defs/rmw_zenoh_mapping_graph",
+              "description": "Optional per-mapping ROS graph liveliness override."
             }
           }
         }

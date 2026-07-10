@@ -37,7 +37,7 @@ int main(int argc, char* argv[])
 
     hako::pdu::msgs::std_msgs::UInt64Cdr converter;
     const hakoniwa::pdu::PduResolvedKey key{"StorageDemo", 0};
-    for (std::uint64_t i = 1; i <= 5; ++i) {
+    for (std::uint64_t i = 1; i <= 500; ++i) {
         HakoCpp_UInt64 value{};
         value.data = i;
 
