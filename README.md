@@ -775,6 +775,18 @@ The schemas for these can be found in `config/schema/`:
 3. Create a single endpoint config (e.g., `config/sample/endpoint.json`) that references the cache and comm files.
 4. Optional: create a container config (e.g., `config/sample/endpoint_container.json`) to manage multiple endpoints under a `nodeId`.
 
+Relative paths are resolved from the config file that contains the path:
+
+- `endpoint.cache`, `endpoint.comm`, and `endpoint.pdu_def_path` are resolved from the endpoint config directory.
+- `container.endpoints[].config_path` is resolved from the container config directory.
+- Protocol-specific paths inside a comm config, such as `zenoh.config_path`, `rmw_zenoh.config_path`, or `storage.path`, are resolved from the comm config directory.
+
+For example, if `config/generated/endpoint_rmw_zenoh_pub.json` contains
+`"comm": "rmw_zenoh_pub_comm.json"`, the comm file is
+`config/generated/rmw_zenoh_pub_comm.json`. If that comm file contains
+`"config_path": "zenoh_client_pub.json5"`, the Zenoh config is
+`config/generated/zenoh_client_pub.json5`.
+
 You can validate configs with the JSON schema checker (after install, set `PYTHONPATH`):
 ```bash
 export PYTHONPATH="/usr/local/hakoniwa/share/hakoniwa-pdu-endpoint/python:$PYTHONPATH"

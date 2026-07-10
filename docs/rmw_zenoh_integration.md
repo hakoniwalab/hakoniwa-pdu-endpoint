@@ -404,6 +404,17 @@ from the effective recipe `direction`:
 | `out` | `endpoint_rmw_zenoh_pub.json` | `rmw_zenoh_pub_comm.json` | `zenoh_client_pub.json5` |
 | `inout` | `endpoint_rmw_zenoh_pubsub.json` | `rmw_zenoh_pubsub_comm.json` | `zenoh_client_pubsub.json5` |
 
+Generated path references follow the normal config rule: a relative path is
+resolved from the config file that contains it. The endpoint config's `comm`
+field is relative to the endpoint config directory. The comm config's
+`rmw_zenoh.config_path` field is relative to the comm config directory.
+
+When all three generated files are written directly under the same `--out-dir`,
+the endpoint config therefore contains only the comm file name, for example
+`"comm": "rmw_zenoh_pub_comm.json"`, and the comm config contains only the
+Zenoh config file name, for example `"config_path": "zenoh_client_pub.json5"`.
+Do not include `--out-dir` itself in these relative references.
+
 The recipe shape is:
 
 ```yaml

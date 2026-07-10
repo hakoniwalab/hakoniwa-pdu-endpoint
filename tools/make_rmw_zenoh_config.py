@@ -136,6 +136,10 @@ def as_abs(root, value):
     return str((Path(root) / path).resolve())
 
 
+def config_ref(from_config, to_config):
+    return os.path.relpath(to_config, start=from_config.parent)
+
+
 def normalize_type_hash_dir(value):
     if not value:
         return None
@@ -303,7 +307,7 @@ def main():
         "name": recipe.get("name", f"rmw_zenoh_{direction}_manual"),
         "direction": direction,
         "rmw_zenoh": {
-            "config_path": str(zenoh_path),
+            "config_path": config_ref(comm_path, zenoh_path),
             "domain_id": domain_id,
             "mappings": comm_mappings,
         },
@@ -313,7 +317,7 @@ def main():
         "name": recipe.get("endpoint_name", f"sample_rmw_zenoh_{direction}_endpoint_manual"),
         "pdu_def_path": as_abs(root, recipe.get("pdu_def_path", "config/sample/comm/storage_example/pdudef.json")),
         "cache": as_abs(root, recipe.get("cache", "config/sample/cache/buffer.json")),
-        "comm": str(comm_path),
+        "comm": config_ref(endpoint_path, comm_path),
     }
 
     for path, data in [

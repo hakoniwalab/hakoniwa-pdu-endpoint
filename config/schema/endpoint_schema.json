@@ -13,17 +13,17 @@
     },
     "cache": {
       "type": "string",
-      "description": "Path to the cache configuration file.",
+      "description": "Path to the cache configuration file. Relative paths are resolved from the endpoint config directory.",
       "pattern": ".*\\.json$"
     },
     "comm": {
       "type": ["string", "null"],
-      "description": "Path to the communication configuration file, or null if no communication is used (e.g., for internal endpoints).",
+      "description": "Path to the communication configuration file, or null if no communication is used (e.g., for internal endpoints). Relative paths are resolved from the endpoint config directory.",
       "pattern": ".*\\.json$"
     },
     "pdu_def_path": {
       "type": ["string", "null"],
-      "description": "Optional path to a PDU definition file for name-based resolution.",
+      "description": "Optional path to a PDU definition file for name-based resolution. Relative paths are resolved from the endpoint config directory.",
       "pattern": ".*\\.json$"
     },
     "recv_cache_write": {
