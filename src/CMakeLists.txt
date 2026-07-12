@@ -190,6 +190,8 @@ endif()
 
 if(HAKO_PDU_ENDPOINT_ENABLE_HAKONIWA_CORE)
   target_compile_definitions(hakoniwa_pdu_endpoint PUBLIC HAKO_PDU_ENDPOINT_HAS_HAKONIWA_CORE=1)
+else()
+  target_compile_definitions(hakoniwa_pdu_endpoint PUBLIC HAKO_PDU_ENDPOINT_DISABLE_HAKONIWA_CORE=1)
 endif()
 
 if(HAKO_PDU_ENDPOINT_ENABLE_ZENOH)
