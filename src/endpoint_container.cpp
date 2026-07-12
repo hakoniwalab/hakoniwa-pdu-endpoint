@@ -431,6 +431,15 @@ std::shared_ptr<Endpoint> EndpointContainer::ref(const std::string& id)
     }
     return it->second;
 }
+
+void EndpointContainer::add_opened_endpoint(const std::string& endpoint_id, std::shared_ptr<Endpoint> endpoint)
+{
+    std::lock_guard<std::mutex> lock(mtx_);
+    last_error_.clear();
+    cache_[endpoint_id] = std::move(endpoint);
+    initialized_ = true;
+}
+
 HakoPduErrorType EndpointContainer::stop(const std::string& endpoint_id) noexcept
 {
     std::lock_guard<std::mutex> lock(mtx_);

@@ -42,6 +42,7 @@ public:
   HakoPduErrorType post_start(const std::string& endpoint_id) noexcept;
   HakoPduErrorType stop(const std::string& endpoint_id) noexcept;
   std::shared_ptr<Endpoint> ref(const std::string& id);
+  void add_opened_endpoint(const std::string& endpoint_id, std::shared_ptr<Endpoint> endpoint);
 
   std::vector<std::string> list_endpoint_ids() const;
   const std::string& node_id() const { return node_id_; }

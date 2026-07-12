@@ -134,6 +134,9 @@ protected:
     HakoPduErrorType raw_stop() noexcept override
     {
         if (!is_running_) {
+            if (recv_thread_.joinable()) {
+                recv_thread_.join();
+            }
             return HAKO_PDU_ERR_OK;
         }
         stopping_ = true;
