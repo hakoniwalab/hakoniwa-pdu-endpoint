@@ -5,6 +5,7 @@ build
 build/python
 dist/
 release-assets/
+rmw-config/
 csharp/**/bin/
 csharp/**/obj/
 

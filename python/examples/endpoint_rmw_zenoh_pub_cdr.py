@@ -2,6 +2,7 @@
 import os
 import sys
 import time
+import argparse
 from pathlib import Path
 
 
@@ -17,6 +18,20 @@ def add_registry_python_path(repo_root: Path) -> None:
 
 def main() -> int:
     repo_root = Path(__file__).resolve().parents[2]
+    parser = argparse.ArgumentParser(
+        description="Publish std_msgs/msg/UInt64 ROS 2 CDR payloads through an rmw_zenoh endpoint."
+    )
+    parser.add_argument(
+        "config",
+        nargs="?",
+        type=Path,
+        default=repo_root / "config/sample/endpoint_rmw_zenoh_pub.json",
+        help="Endpoint config path.",
+    )
+    parser.add_argument("--count", type=int, default=500, help="Number of samples to publish.")
+    parser.add_argument("--interval", type=float, default=0.5, help="Seconds between samples.")
+    args = parser.parse_args()
+
     python_root = repo_root / "python"
     sys.path.insert(0, str(python_root))
     add_registry_python_path(repo_root)
@@ -25,25 +40,19 @@ def main() -> int:
     from python.std_msgs.pdu_cdr_conv_UInt64 import py_to_cdr_UInt64
     from python.std_msgs.pdu_pytype_UInt64 import UInt64
 
-    config_path = (
-        Path(sys.argv[1])
-        if len(sys.argv) > 1
-        else repo_root / "config/sample/endpoint_rmw_zenoh_pub.json"
-    )
-
     endpoint = Endpoint("py_rmw_zenoh_pub_cdr_example", "out")
-    endpoint.open(str(config_path))
+    endpoint.open(str(args.config))
     endpoint.start()
 
     key = PduResolvedKey(robot="StorageDemo", channel_id=0)
     try:
-        for value in range(1, 6):
+        for value in range(1, args.count + 1):
             msg = UInt64()
             msg.data = value
             payload = py_to_cdr_UInt64(msg)
             endpoint.send(key, payload)
             print(f"published sample_state_cdr={value} bytes={len(payload)}")
-            time.sleep(0.5)
+            time.sleep(args.interval)
     finally:
         endpoint.stop()
         endpoint.close()

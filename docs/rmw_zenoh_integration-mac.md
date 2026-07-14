@@ -29,22 +29,22 @@ After sourcing `rmw-zenoh.env`, create endpoint configs with short helper
 commands:
 
 ```bash
-hako_rmw_zenoh_make_pub_config /tmp/hako-rmw-zenoh-pub
-hako_rmw_zenoh_make_sub_config /tmp/hako-rmw-zenoh-sub
+hako_rmw_zenoh_make_pub_config ./rmw-config/pub
+hako_rmw_zenoh_make_sub_config ./rmw-config/sub
 ```
 
 Run C++ examples:
 
 ```bash
-hako_rmw_zenoh_cpp_pub /tmp/hako-rmw-zenoh-pub/endpoint_rmw_zenoh_pub.json
-hako_rmw_zenoh_cpp_sub /tmp/hako-rmw-zenoh-sub/endpoint_rmw_zenoh_sub.json
+hako_rmw_zenoh_cpp_pub ./rmw-config/pub/endpoint_rmw_zenoh_pub.json
+hako_rmw_zenoh_cpp_sub ./rmw-config/sub/endpoint_rmw_zenoh_sub.json
 ```
 
 Run Python examples:
 
 ```bash
-hako_rmw_zenoh_python_pub /tmp/hako-rmw-zenoh-pub/endpoint_rmw_zenoh_pub.json
-hako_rmw_zenoh_python_sub /tmp/hako-rmw-zenoh-sub/endpoint_rmw_zenoh_sub.json
+hako_rmw_zenoh_python_pub ./rmw-config/pub/endpoint_rmw_zenoh_pub.json
+hako_rmw_zenoh_python_sub ./rmw-config/sub/endpoint_rmw_zenoh_sub.json
 ```
 
 To install Homebrew dependencies at the same time, add `--install-deps`.
@@ -88,10 +88,10 @@ HAKO_RMW_ZENOH_ROUTER_ENDPOINT="tcp/${UBUNTU_IP}:7447" \
   bash tools/make-rmw-zenoh-config.bash \
     --recipe docker/recipes/rmw_zenoh_pub.yml \
     --type-hash-dir ../hakoniwa-pdu-registry/pdu/type_hash \
-    --out-dir /tmp/hako-rmw-zenoh-macos-to-ubuntu
+    --out-dir ./rmw-config/macos-to-ubuntu
 
 ./build-zenoh/examples/endpoint_zenoh_pub_cdr \
-  /tmp/hako-rmw-zenoh-macos-to-ubuntu/endpoint_rmw_zenoh_pub.json
+  ./rmw-config/macos-to-ubuntu/endpoint_rmw_zenoh_pub.json
 ```
 
 Do not use `endpoint_zenoh_pub` for ROS 2 echo tests. It sends raw endpoint
@@ -108,10 +108,10 @@ HAKO_RMW_ZENOH_ROUTER_ENDPOINT="tcp/${UBUNTU_IP}:7447" \
   bash tools/make-rmw-zenoh-config.bash \
     --recipe docker/recipes/rmw_zenoh_sub.yml \
     --type-hash-dir ../hakoniwa-pdu-registry/pdu/type_hash \
-    --out-dir /tmp/hako-rmw-zenoh-ubuntu-to-macos
+    --out-dir ./rmw-config/ubuntu-to-macos
 
 ./build-zenoh/examples/endpoint_zenoh_sub_cdr \
-  /tmp/hako-rmw-zenoh-ubuntu-to-macos/endpoint_rmw_zenoh_sub.json
+  ./rmw-config/ubuntu-to-macos/endpoint_rmw_zenoh_sub.json
 ```
 
 Expected output starts with:
@@ -133,10 +133,10 @@ HAKO_RMW_ZENOH_ROUTER_ENDPOINT="tcp/${UBUNTU_IP}:7447" \
   bash tools/make-rmw-zenoh-config.bash \
     --recipe docker/recipes/rmw_zenoh_sub.yml \
     --type-hash-dir ../hakoniwa-pdu-registry/pdu/type_hash \
-    --out-dir /tmp/hako-rmw-zenoh-endpoint-sub
+    --out-dir ./rmw-config/endpoint-sub
 
 ./build-zenoh/examples/endpoint_zenoh_sub_cdr \
-  /tmp/hako-rmw-zenoh-endpoint-sub/endpoint_rmw_zenoh_sub.json
+  ./rmw-config/endpoint-sub/endpoint_rmw_zenoh_sub.json
 ```
 
 On the publishing machine, run:
@@ -148,13 +148,57 @@ HAKO_RMW_ZENOH_ROUTER_ENDPOINT="tcp/${UBUNTU_IP}:7447" \
   bash tools/make-rmw-zenoh-config.bash \
     --recipe docker/recipes/rmw_zenoh_pub.yml \
     --type-hash-dir ../hakoniwa-pdu-registry/pdu/type_hash \
-    --out-dir /tmp/hako-rmw-zenoh-endpoint-pub
+    --out-dir ./rmw-config/endpoint-pub
 
 ./build-zenoh/examples/endpoint_zenoh_pub_cdr \
-  /tmp/hako-rmw-zenoh-endpoint-pub/endpoint_rmw_zenoh_pub.json
+  ./rmw-config/endpoint-pub/endpoint_rmw_zenoh_pub.json
 ```
 
 Swap publisher and subscriber machines to test the opposite direction.
+
+## Endpoint Pub/Sub Between Two Macs
+
+For endpoint-to-endpoint smoke tests, an Ubuntu `rmw_zenohd` router is not
+required. Run one Mac as a Zenoh peer listener and connect the other Mac to it.
+
+On the receiving Mac, choose the IP address that the publishing Mac can reach,
+then run:
+
+```bash
+export LISTEN_ENDPOINT=tcp/0.0.0.0:7447
+
+bash tools/make-rmw-zenoh-config.bash \
+  --recipe docker/recipes/rmw_zenoh_sub.yml \
+  --type-hash-dir ../hakoniwa-pdu-registry/pdu/type_hash \
+  --zenoh-mode peer \
+  --zenoh-listen "${LISTEN_ENDPOINT}" \
+  --out-dir ./rmw-config/mac-peer-sub
+
+python3 python/examples/endpoint_rmw_zenoh_sub_cdr.py \
+  ./rmw-config/mac-peer-sub/endpoint_rmw_zenoh_sub.json
+```
+
+On the publishing Mac, connect to the receiving Mac's reachable IP address:
+
+SUBSCRIBER_MAC_IPは、現場に合わせてください。
+デモでは、ローカルルホストのIPアドレスを使用しています。
+```bash
+export SUBSCRIBER_MAC_IP=127.0.0.1
+
+HAKO_RMW_ZENOH_ROUTER_ENDPOINT="tcp/${SUBSCRIBER_MAC_IP}:7447" \
+  bash tools/make-rmw-zenoh-config.bash \
+    --recipe docker/recipes/rmw_zenoh_pub.yml \
+    --type-hash-dir ../hakoniwa-pdu-registry/pdu/type_hash \
+    --zenoh-mode peer \
+    --out-dir ./rmw-config/mac-peer-pub
+
+python3 python/examples/endpoint_rmw_zenoh_pub_cdr.py \
+  ./rmw-config/mac-peer-pub/endpoint_rmw_zenoh_pub.json
+```
+
+The same generated configs can be used with the C++ examples by replacing the
+`python3 ...` commands with `./build-zenoh/examples/endpoint_zenoh_sub_cdr ...`
+and `./build-zenoh/examples/endpoint_zenoh_pub_cdr ...`.
 
 ## Python Endpoint
 
@@ -193,10 +237,10 @@ HAKO_RMW_ZENOH_ROUTER_ENDPOINT="tcp/${UBUNTU_IP}:7447" \
   bash tools/make-rmw-zenoh-config.bash \
     --recipe docker/recipes/rmw_zenoh_sub.yml \
     --type-hash-dir ../hakoniwa-pdu-registry/pdu/type_hash \
-    --out-dir /tmp/hako-rmw-zenoh-python-sub
+    --out-dir ./rmw-config/python-sub
 
 python3 python/examples/endpoint_rmw_zenoh_sub_cdr.py \
-  /tmp/hako-rmw-zenoh-python-sub/endpoint_rmw_zenoh_sub.json
+  ./rmw-config/python-sub/endpoint_rmw_zenoh_sub.json
 ```
 
 Python publisher:
@@ -208,10 +252,10 @@ HAKO_RMW_ZENOH_ROUTER_ENDPOINT="tcp/${UBUNTU_IP}:7447" \
   bash tools/make-rmw-zenoh-config.bash \
     --recipe docker/recipes/rmw_zenoh_pub.yml \
     --type-hash-dir ../hakoniwa-pdu-registry/pdu/type_hash \
-    --out-dir /tmp/hako-rmw-zenoh-python-pub
+    --out-dir ./rmw-config/python-pub
 
 python3 python/examples/endpoint_rmw_zenoh_pub_cdr.py \
-  /tmp/hako-rmw-zenoh-python-pub/endpoint_rmw_zenoh_pub.json
+  ./rmw-config/python-pub/endpoint_rmw_zenoh_pub.json
 ```
 
 The Python examples use the generated CDR converters under

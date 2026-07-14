@@ -393,7 +393,7 @@ Minimal usage:
 bash tools/make-rmw-zenoh-config.bash \
   --recipe config/sample/rmw_zenoh_recipe.yml \
   --type-hash-dir ../hakoniwa-pdu-registry/pdu/type_hash \
-  --out-dir /tmp/hako-rmw-zenoh-manual
+  --out-dir ./rmw-config/manual
 ```
 
 The generator writes three files under `--out-dir`: the endpoint config, the

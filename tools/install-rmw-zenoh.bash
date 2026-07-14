@@ -243,7 +243,7 @@ fi
 cat >> "${ENV_FILE}" <<'EOF'
 
 hako_rmw_zenoh_make_pub_config() {
-  local out_dir="${1:-/tmp/hako-rmw-zenoh-pub}"
+  local out_dir="${1:-${HAKO_PDU_ENDPOINT_ROOT}/rmw-config/pub}"
   HAKO_RMW_ZENOH_ROUTER_ENDPOINT="${HAKO_RMW_ZENOH_ROUTER_ENDPOINT}" \
     bash "${HAKO_PDU_ENDPOINT_ROOT}/tools/make-rmw-zenoh-config.bash" \
       --recipe "${HAKO_PDU_ENDPOINT_ROOT}/docker/recipes/rmw_zenoh_pub.yml" \
@@ -252,7 +252,7 @@ hako_rmw_zenoh_make_pub_config() {
 }
 
 hako_rmw_zenoh_make_sub_config() {
-  local out_dir="${1:-/tmp/hako-rmw-zenoh-sub}"
+  local out_dir="${1:-${HAKO_PDU_ENDPOINT_ROOT}/rmw-config/sub}"
   HAKO_RMW_ZENOH_ROUTER_ENDPOINT="${HAKO_RMW_ZENOH_ROUTER_ENDPOINT}" \
     bash "${HAKO_PDU_ENDPOINT_ROOT}/tools/make-rmw-zenoh-config.bash" \
       --recipe "${HAKO_PDU_ENDPOINT_ROOT}/docker/recipes/rmw_zenoh_sub.yml" \
@@ -261,22 +261,22 @@ hako_rmw_zenoh_make_sub_config() {
 }
 
 hako_rmw_zenoh_cpp_pub() {
-  local config="${1:-/tmp/hako-rmw-zenoh-pub/endpoint_rmw_zenoh_pub.json}"
+  local config="${1:-${HAKO_PDU_ENDPOINT_ROOT}/rmw-config/pub/endpoint_rmw_zenoh_pub.json}"
   "${HAKO_PDU_ENDPOINT_BUILD_DIR}/examples/endpoint_zenoh_pub_cdr" "${config}"
 }
 
 hako_rmw_zenoh_cpp_sub() {
-  local config="${1:-/tmp/hako-rmw-zenoh-sub/endpoint_rmw_zenoh_sub.json}"
+  local config="${1:-${HAKO_PDU_ENDPOINT_ROOT}/rmw-config/sub/endpoint_rmw_zenoh_sub.json}"
   "${HAKO_PDU_ENDPOINT_BUILD_DIR}/examples/endpoint_zenoh_sub_cdr" "${config}"
 }
 
 hako_rmw_zenoh_python_pub() {
-  local config="${1:-/tmp/hako-rmw-zenoh-pub/endpoint_rmw_zenoh_pub.json}"
+  local config="${1:-${HAKO_PDU_ENDPOINT_ROOT}/rmw-config/pub/endpoint_rmw_zenoh_pub.json}"
   python3 "${HAKO_PDU_ENDPOINT_ROOT}/python/examples/endpoint_rmw_zenoh_pub_cdr.py" "${config}"
 }
 
 hako_rmw_zenoh_python_sub() {
-  local config="${1:-/tmp/hako-rmw-zenoh-sub/endpoint_rmw_zenoh_sub.json}"
+  local config="${1:-${HAKO_PDU_ENDPOINT_ROOT}/rmw-config/sub/endpoint_rmw_zenoh_sub.json}"
   python3 "${HAKO_PDU_ENDPOINT_ROOT}/python/examples/endpoint_rmw_zenoh_sub_cdr.py" "${config}"
 }
 EOF

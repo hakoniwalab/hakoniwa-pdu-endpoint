@@ -255,6 +255,8 @@ def parse_args():
     parser.add_argument("--pdu", required=True)
     parser.add_argument("--domain-id", required=True)
     parser.add_argument("--zenoh-endpoint", required=True)
+    parser.add_argument("--zenoh-mode", default="")
+    parser.add_argument("--zenoh-listen-endpoint", default="")
     parser.add_argument("--recipe", default="")
     return parser.parse_args()
 
@@ -269,7 +271,15 @@ def main():
     domain_id = int(recipe.get("domain_id", args.domain_id))
 
     zenoh = recipe.get("zenoh", {})
+    zenoh_mode = recipe.get("zenoh_mode") or zenoh.get("mode") or args.zenoh_mode or "client"
+    if zenoh_mode not in {"client", "peer", "router"}:
+        raise ValueError("zenoh mode must be client, peer, or router")
     zenoh_endpoint = os.environ.get("HAKO_RMW_ZENOH_ROUTER_ENDPOINT") or zenoh.get("endpoint") or args.zenoh_endpoint
+    zenoh_listen_endpoint = (
+        os.environ.get("HAKO_RMW_ZENOH_LISTEN_ENDPOINT")
+        or zenoh.get("listen_endpoint")
+        or args.zenoh_listen_endpoint
+    )
     type_hash_dir = normalize_type_hash_dir(recipe.get("type_hash_dir") or args.type_hash_dir)
 
     mappings = recipe.get("mappings") or [mapping_from_args(args)]
@@ -331,14 +341,24 @@ def main():
     comm_path = out_dir / f"rmw_zenoh_{role}_comm.json"
     zenoh_path = out_dir / f"zenoh_client_{role}.json5"
 
-    zenoh_config = {
-        "mode": "client",
-        "connect": {
-            "endpoints": [
-                zenoh_endpoint,
-            ],
-        },
-    }
+    if zenoh_listen_endpoint:
+        zenoh_config = {
+            "mode": zenoh_mode,
+            "listen": {
+                "endpoints": [
+                    zenoh_listen_endpoint,
+                ],
+            },
+        }
+    else:
+        zenoh_config = {
+            "mode": zenoh_mode,
+            "connect": {
+                "endpoints": [
+                    zenoh_endpoint,
+                ],
+            },
+        }
 
     comm = {
         "protocol": "rmw_zenoh",

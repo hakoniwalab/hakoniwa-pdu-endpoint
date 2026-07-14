@@ -168,8 +168,16 @@ server received: hakoniwa websocket demo
   - internal cache を使う基本フロー
 - まだ対象外:
   - SHM
-  - Zenoh
   - MQTT
+
+Zenoh は `rmw_zenoh` の CDR サンプルとして、リポジトリ checkout からの実行手順を用意しています。
+native shared library と Python CFFI module を build したうえで、次の script を使います。
+
+- publisher: `python/examples/endpoint_rmw_zenoh_pub_cdr.py`
+- subscriber: `python/examples/endpoint_rmw_zenoh_sub_cdr.py`
+
+このサンプルは `std_msgs/msg/UInt64` の ROS 2 CDR payload を扱います。CDR encode/decode には
+`HAKO_PDU_REGISTRY_PDU_PATH` で指定した `hakoniwa-pdu-registry/pdu/python` 配下の生成コードを使います。
 
 ## 7. よくある詰まりどころ
 

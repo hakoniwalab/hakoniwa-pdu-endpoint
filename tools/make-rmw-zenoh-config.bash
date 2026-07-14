@@ -5,7 +5,7 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 DEFAULT_ROOT_DIR="$(cd "${SCRIPT_DIR}/.." && pwd)"
 
 ROOT_DIR="${HAKO_PDU_ENDPOINT_ROOT:-${DEFAULT_ROOT_DIR}}"
-OUT_DIR="/tmp/hako-rmw-zenoh-test"
+OUT_DIR="./rmw-config"
 DIRECTION="out"
 TYPE_HASH="${RMW_ZENOH_TYPE_HASH:-}"
 TYPE_HASH_DIR="${HAKO_RMW_ZENOH_TYPE_HASH_DIR:-}"
@@ -15,6 +15,8 @@ ROBOT="StorageDemo"
 PDU="sample_state"
 ROS_TYPE="std_msgs/msg/UInt64"
 DOMAIN_ID="0"
+ZENOH_MODE=""
+ZENOH_LISTEN_ENDPOINT=""
 
 usage() {
   cat <<'USAGE'
@@ -26,13 +28,15 @@ Options:
                             pdu/type_hash directory itself.
   --direction <in|out|inout>
                             Endpoint direction. Default: out, or recipe value.
-  --out-dir <path>          Output directory. Default: /tmp/hako-rmw-zenoh-test
+  --out-dir <path>          Output directory. Default: ./rmw-config
   --type-hash <hash>        Explicit ROS 2 type hash for single-mapping recipes.
   --topic <topic>           ROS 2 topic fallback. Default: /sample_state
   --ros-type <type>         ROS 2 message type fallback. Default: std_msgs/msg/UInt64
   --robot <name>            Hakoniwa robot name fallback. Default: StorageDemo
   --pdu <name>              Hakoniwa PDU name fallback. Default: sample_state
   --domain-id <id>          ROS domain id component for rmw_zenoh keyexpr. Default: 0
+  --zenoh-mode <mode>       Zenoh session mode: client, peer, or router.
+  --zenoh-listen <endpoint> Generate a listen endpoint instead of connect.
   --root-dir <path>         hakoniwa-pdu-endpoint root for generated endpoint paths.
   -h, --help                Show this help.
 
@@ -55,6 +59,8 @@ Recipe shape:
 Environment:
   HAKO_RMW_ZENOH_ROUTER_ENDPOINT  Zenoh router endpoint override.
   HAKO_RMW_ZENOH_ROUTER_HOST      Router host override.
+  HAKO_RMW_ZENOH_MODE             Default --zenoh-mode.
+  HAKO_RMW_ZENOH_LISTEN_ENDPOINT  Default --zenoh-listen.
   HAKO_RMW_ZENOH_TYPE_HASH_DIR    Default --type-hash-dir.
   RMW_ZENOH_TYPE_HASH             Default --type-hash.
 USAGE
@@ -102,6 +108,14 @@ while [[ $# -gt 0 ]]; do
       DOMAIN_ID="$2"
       shift 2
       ;;
+    --zenoh-mode)
+      ZENOH_MODE="$2"
+      shift 2
+      ;;
+    --zenoh-listen)
+      ZENOH_LISTEN_ENDPOINT="$2"
+      shift 2
+      ;;
     --root-dir)
       ROOT_DIR="$2"
       shift 2
@@ -138,6 +152,8 @@ if [[ -z "${ZENOH_ROUTER_HOST}" ]]; then
   ZENOH_ROUTER_HOST="127.0.0.1"
 fi
 ZENOH_ROUTER_ENDPOINT="${HAKO_RMW_ZENOH_ROUTER_ENDPOINT:-tcp/${ZENOH_ROUTER_HOST}:7447}"
+ZENOH_MODE="${ZENOH_MODE:-${HAKO_RMW_ZENOH_MODE:-}}"
+ZENOH_LISTEN_ENDPOINT="${ZENOH_LISTEN_ENDPOINT:-${HAKO_RMW_ZENOH_LISTEN_ENDPOINT:-}}"
 
 mkdir -p "${OUT_DIR}"
 
@@ -153,6 +169,8 @@ PY_ARGS=(
   --pdu "${PDU}"
   --domain-id "${DOMAIN_ID}"
   --zenoh-endpoint "${ZENOH_ROUTER_ENDPOINT}"
+  --zenoh-mode "${ZENOH_MODE}"
+  --zenoh-listen-endpoint "${ZENOH_LISTEN_ENDPOINT}"
 )
 if [[ -n "${RECIPE}" ]]; then
   PY_ARGS+=(--recipe "${RECIPE}")
