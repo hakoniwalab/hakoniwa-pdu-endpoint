@@ -1,0 +1,8 @@
+{
+  "paths": [
+    { "id": "default", "path": "pdutypes.json" }
+  ],
+  "robots": [
+    { "name": "demo", "pdutypes_id": "default" }
+  ]
+}

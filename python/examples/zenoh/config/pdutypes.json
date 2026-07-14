@@ -1,0 +1,4 @@
+[
+  { "channel_id": 0, "pdu_size": 32, "name": "command", "type": "std_msgs/UInt16" },
+  { "channel_id": 1, "pdu_size": 32, "name": "debuginfo", "type": "std_msgs/UInt16" }
+]

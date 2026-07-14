@@ -1,0 +1,6 @@
+{
+  "name": "python_zenoh_raspberry_pi_endpoint",
+  "pdu_def_path": "pdudef.json",
+  "cache": "cache/buffer.json",
+  "comm": "comm/raspberry_pi_zenoh_comm.json"
+}

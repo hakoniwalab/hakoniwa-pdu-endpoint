@@ -1,0 +1,26 @@
+{
+  "protocol": "zenoh",
+  "name": "python_zenoh_mac",
+  "direction": "inout",
+  "zenoh": {
+    "config_path": "zenoh/mac_client.json5",
+    "key_prefix": "hakoniwa",
+    "io": {
+      "robots": [
+        {
+          "name": "demo",
+          "pdu": [
+            {
+              "name": "command",
+              "notify_on_recv": true
+            },
+            {
+              "name": "debuginfo",
+              "notify_on_recv": true
+            }
+          ]
+        }
+      ]
+    }
+  }
+}

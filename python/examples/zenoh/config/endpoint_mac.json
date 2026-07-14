@@ -1,0 +1,6 @@
+{
+  "name": "python_zenoh_mac_endpoint",
+  "pdu_def_path": "pdudef.json",
+  "cache": "cache/buffer.json",
+  "comm": "comm/mac_zenoh_comm.json"
+}
