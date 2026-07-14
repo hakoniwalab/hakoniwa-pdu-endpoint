@@ -6,6 +6,8 @@
 #include <iostream>
 #include <filesystem>
 #include <fstream>
+#include <regex>
+#include <sstream>
 #include <nlohmann/json.hpp>
 namespace hakoniwa {
 namespace pdu {
@@ -13,6 +15,56 @@ namespace comm {
 
 namespace {
 using NotifyKey = std::pair<std::string, HakoPduChannelIdType>;
+
+std::string summarize_zenoh_config_for_error(const std::string& config_path)
+{
+    std::ifstream ifs(config_path);
+    if (!ifs.is_open()) {
+        return "zenoh_config=missing";
+    }
+    std::ostringstream buffer;
+    buffer << ifs.rdbuf();
+    const std::string text = buffer.str();
+
+    std::vector<std::string> parts;
+    std::smatch match;
+    const std::regex mode_regex(R"(\bmode\s*:\s*["']([^"']+)["'])");
+    if (std::regex_search(text, match, mode_regex) && match.size() > 1) {
+        parts.push_back("mode=" + match[1].str());
+    }
+
+    std::vector<std::string> endpoints;
+    const std::regex endpoint_regex(R"(["'](tcp/[^"']+)["'])");
+    for (auto it = std::sregex_iterator(text.begin(), text.end(), endpoint_regex);
+         it != std::sregex_iterator();
+         ++it) {
+        endpoints.push_back((*it)[1].str());
+    }
+    if (!endpoints.empty()) {
+        std::ostringstream endpoint_stream;
+        endpoint_stream << "endpoints=";
+        for (size_t i = 0; i < endpoints.size(); ++i) {
+            if (i > 0) {
+                endpoint_stream << ",";
+            }
+            endpoint_stream << endpoints[i];
+        }
+        parts.push_back(endpoint_stream.str());
+    }
+
+    if (parts.empty()) {
+        return "zenoh_config=no mode/endpoints found";
+    }
+
+    std::ostringstream summary;
+    for (size_t i = 0; i < parts.size(); ++i) {
+        if (i > 0) {
+            summary << "; ";
+        }
+        summary << parts[i];
+    }
+    return summary.str();
+}
 } // namespace
 
 ZenohComm::~ZenohComm()
@@ -178,11 +230,17 @@ HakoPduErrorType ZenohComm::open_session_()
 {
     auto* owned_session = new z_owned_session_t{};
     if (zc_config_from_file(&config_, zenoh_config_path_.c_str()) < 0) {
+        std::cerr << "ZenohComm Error: failed to load zenoh config: "
+                  << zenoh_config_path_ << "; "
+                  << summarize_zenoh_config_for_error(zenoh_config_path_) << std::endl;
         delete owned_session;
         return HAKO_PDU_ERR_FILE_NOT_FOUND;
     }
 
     if (z_open(owned_session, z_move(config_), nullptr) < 0) {
+        std::cerr << "ZenohComm Error: failed to open zenoh session: config="
+                  << zenoh_config_path_ << "; "
+                  << summarize_zenoh_config_for_error(zenoh_config_path_) << std::endl;
         delete owned_session;
         return HAKO_PDU_ERR_IO_ERROR;
     }

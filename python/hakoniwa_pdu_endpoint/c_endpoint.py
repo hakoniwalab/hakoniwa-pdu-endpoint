@@ -1,9 +1,11 @@
 from dataclasses import dataclass
+import json
 from pathlib import Path
 import ctypes
 import importlib.util
 import os
 from queue import Empty, Queue
+import re
 import sys
 import threading
 from typing import Callable, Dict, List, Optional, Tuple
@@ -13,6 +15,24 @@ _ENV_SHARED_LIB = "HAKO_PDU_ENDPOINT_SHARED_LIB"
 _ENV_LIB_DIR = "HAKO_PDU_ENDPOINT_LIB_DIR"
 _repo_root = Path(__file__).resolve().parents[2]
 _package_dir = Path(__file__).resolve().parent
+
+_ERROR_NAMES = {
+    0: "HAKO_PDU_ERR_OK",
+    1: "HAKO_PDU_ERR_INVALID_ARGUMENT",
+    2: "HAKO_PDU_ERR_OUT_OF_MEMORY",
+    3: "HAKO_PDU_ERR_IO_ERROR",
+    4: "HAKO_PDU_ERR_NO_SPACE",
+    5: "HAKO_PDU_ERR_BUSY",
+    6: "HAKO_PDU_ERR_TIMEOUT",
+    7: "HAKO_PDU_ERR_NO_ENTRY",
+    8: "HAKO_PDU_ERR_FILE_NOT_FOUND",
+    9: "HAKO_PDU_ERR_INVALID_JSON",
+    10: "HAKO_PDU_ERR_INVALID_CONFIG",
+    11: "HAKO_PDU_ERR_NOT_RUNNING",
+    12: "HAKO_PDU_ERR_UNSUPPORTED",
+    13: "HAKO_PDU_ERR_INVALID_PDU_KEY",
+    14: "HAKO_PDU_ERR_NOT_OWNER",
+}
 
 
 def _candidate_native_lib_names() -> List[str]:
@@ -162,10 +182,16 @@ except ModuleNotFoundError:
 
 
 class EndpointError(RuntimeError):
-    def __init__(self, err_code: int, func_name: str):
-        super().__init__(f"{func_name} failed: err={err_code}")
+    def __init__(self, err_code: int, func_name: str, detail: Optional[str] = None):
+        err_name = _ERROR_NAMES.get(err_code, "UNKNOWN")
+        message = f"{func_name} failed: err={err_code} ({err_name})"
+        if detail:
+            message = f"{message}: {detail}"
+        super().__init__(message)
         self.err_code = err_code
+        self.err_name = err_name
         self.func_name = func_name
+        self.detail = detail
 
 
 @dataclass
@@ -193,9 +219,74 @@ class PduEvent:
     payload: bytes
 
 
-def _check(err: int, func_name: str) -> None:
+def _check(err: int, func_name: str, detail: Optional[str] = None) -> None:
     if err != 0:
-        raise EndpointError(err, func_name)
+        raise EndpointError(err, func_name, detail)
+
+
+def _path_status(path: Path) -> str:
+    try:
+        resolved = path.expanduser().resolve()
+    except OSError:
+        resolved = path.expanduser()
+    return f"{resolved} ({'exists' if resolved.exists() else 'missing'})"
+
+
+def _endpoint_open_detail(config_path: Path) -> str:
+    details = [
+        f"config={_path_status(config_path)}",
+        f"cwd={Path.cwd()}",
+    ]
+    try:
+        base_dir = config_path.expanduser().resolve().parent
+        with config_path.expanduser().open(encoding="utf-8") as fp:
+            config = json.load(fp)
+    except Exception as err:
+        details.append(f"config_inspect_error={err}")
+        return "; ".join(details)
+
+    for key in ("pdu_def_path", "cache", "comm"):
+        value = config.get(key)
+        if isinstance(value, str) and value:
+            details.append(f"{key}={_path_status(base_dir / value)}")
+
+    comm_value = config.get("comm")
+    if isinstance(comm_value, str) and comm_value:
+        comm_path = base_dir / comm_value
+        try:
+            with comm_path.open(encoding="utf-8") as fp:
+                comm_config = json.load(fp)
+            zenoh_config_path = comm_config.get("zenoh", {}).get("config_path")
+            if isinstance(zenoh_config_path, str) and zenoh_config_path:
+                resolved_zenoh_path = comm_path.parent / zenoh_config_path
+                details.append(f"zenoh.config_path={_path_status(resolved_zenoh_path)}")
+                zenoh_detail = _zenoh_config_detail(resolved_zenoh_path)
+                if zenoh_detail:
+                    details.append(zenoh_detail)
+        except Exception as err:
+            details.append(f"comm_inspect_error={err}")
+
+    return "; ".join(details)
+
+
+def _zenoh_config_detail(path: Path) -> str:
+    try:
+        text = path.expanduser().read_text(encoding="utf-8")
+    except Exception as err:
+        return f"zenoh_config_inspect_error={err}"
+
+    fields: List[str] = []
+    mode_match = re.search(r"\bmode\s*:\s*[\"']([^\"']+)[\"']", text)
+    if mode_match:
+        fields.append(f"mode={mode_match.group(1)}")
+
+    endpoints = re.findall(r"[\"'](tcp/[^\"']+)[\"']", text)
+    if endpoints:
+        fields.append(f"endpoints={','.join(endpoints)}")
+
+    if not fields:
+        return ""
+    return f"zenoh.config({'; '.join(fields)})"
 
 
 def _to_c_key(key: PduResolvedKey):
@@ -270,15 +361,21 @@ class Endpoint:
             self._handle = ffi.NULL
 
     def open(self, config_path: str, asset_name: Optional[str] = None) -> None:
-        config = str(Path(config_path)).encode("utf-8")
+        config_path_obj = Path(config_path)
+        config = str(config_path_obj).encode("utf-8")
         if asset_name is None:
-            _check(lib.hako_pdu_endpoint_open(self._handle, config), "open")
+            _check(
+                lib.hako_pdu_endpoint_open(self._handle, config),
+                "open",
+                _endpoint_open_detail(config_path_obj),
+            )
             return
         if asset_name == "":
             raise ValueError("asset_name must not be empty")
         _check(
             lib.hako_pdu_endpoint_open_with_asset(self._handle, config, asset_name.encode("utf-8")),
             "open_with_asset",
+            f"asset_name={asset_name}; {_endpoint_open_detail(config_path_obj)}",
         )
 
     def create_pdu_lchannels(self, config_path: str) -> None:

@@ -258,3 +258,13 @@ python3 python/examples/zenoh/command_sub.py --duration 120 --offset 1000
 
 - `--duration`: 実行時間
 - `--offset`: `debuginfo` として返すときに加算する値
+
+## トラブルシュート
+
+`open failed: err=3 (HAKO_PDU_ERR_IO_ERROR)` が出た場合は、Zenoh session の
+open に失敗しています。エラーメッセージに表示される
+`zenoh.config(mode=...; endpoints=...)` を確認してください。
+
+Raspberry Pi から Mac 側の router に接続する場合、`endpoints` には Mac の実IPアドレスを
+指定します。存在しないIPアドレスや、Raspberry Pi 自身の `127.0.0.1` を指定すると
+接続できません。
