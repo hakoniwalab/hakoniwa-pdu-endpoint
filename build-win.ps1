@@ -1,3 +1,26 @@
+<#
+.SYNOPSIS
+Build hakoniwa-pdu-endpoint on Windows.
+
+.DESCRIPTION
+Hakoniwa Core integration is disabled by default on Windows. The default build
+supports transports that do not require Hakoniwa Core, such as TCP and UDP.
+
+If a downstream application uses an endpoint whose communication protocol is
+"shm", build with both -EnableHakoniwaCore and -HakoniwaCoreRoot.
+
+.EXAMPLE
+.\build-win.ps1
+
+Build without Hakoniwa Core / SHM support.
+
+.EXAMPLE
+.\build-win.ps1 -EnableHakoniwaCore -HakoniwaCoreRoot C:\path\to\hakoniwa-core-pro\install-win
+
+Build with Hakoniwa Core integration so protocol "shm" and Hakoniwa time-source
+support are available.
+#>
+
 param(
     [ValidateSet("Debug", "Release", "RelWithDebInfo", "MinSizeRel")]
     [string]$Configuration = "Release",
@@ -98,6 +121,20 @@ if ([string]::IsNullOrWhiteSpace($ResolvedVcpkgTriplet) -and -not [string]::IsNu
 $ResolvedPlatform = $Platform
 if ([string]::IsNullOrWhiteSpace($ResolvedPlatform) -and -not [string]::IsNullOrWhiteSpace($ResolvedToolchainFile)) {
     $ResolvedPlatform = "x64"
+}
+
+if ($EnableHakoniwaCore.IsPresent) {
+    Say "Hakoniwa Core/SHM support: ENABLED"
+    if ([string]::IsNullOrWhiteSpace($HakoniwaCoreRoot)) {
+        Say "WARNING: -HakoniwaCoreRoot was not specified. If CMake cannot locate Hakoniwa Core, provide the install prefix explicitly."
+    }
+    else {
+        Say "Hakoniwa Core root: $HakoniwaCoreRoot"
+    }
+}
+else {
+    Say "Hakoniwa Core/SHM support: DISABLED (Windows default)"
+    Say "NOTE: protocol 'shm' requires -EnableHakoniwaCore -HakoniwaCoreRoot <hakoniwa-core-pro install prefix>."
 }
 
 $ConfigureArgs = @(
