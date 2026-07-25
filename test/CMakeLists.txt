@@ -32,5 +32,17 @@ endif()
 
 add_test(NAME endpoint_test COMMAND endpoint_test)
 
+add_executable(cache_config_test
+  cache_config_test.cpp
+)
+
+target_link_libraries(cache_config_test
+  PRIVATE
+    hakoniwa_pdu_endpoint
+    GTest::gtest_main
+)
+
+add_test(NAME cache_config_test COMMAND cache_config_test)
+
 # Set the working directory to the project root so tests can find the config files
 set_tests_properties(endpoint_test PROPERTIES WORKING_DIRECTORY "${PROJECT_SOURCE_DIR}")
