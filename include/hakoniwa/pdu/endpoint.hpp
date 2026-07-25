@@ -3,6 +3,7 @@
 #include "hakoniwa/pdu/endpoint_types.hpp"
 #include "hakoniwa/pdu/pdu_definition.hpp" // Added
 #include "hakoniwa/pdu/cache/cache.hpp"
+#include "hakoniwa/pdu/cache/cache_config_json.hpp"
 #include "hakoniwa/pdu/comm/comm.hpp"
 #include "hakoniwa/pdu/pdu_factory.hpp"
 #include <nlohmann/json.hpp>
@@ -144,7 +145,8 @@ public:
                 return err;
             }
 
-            // Cache is mandatory
+            // Cache is mandatory. The file is consumed only at the endpoint boundary;
+            // the cache runtime receives the typed in-memory CacheConfig.
             if (!config.contains("cache") || config["cache"].is_null()) {
                 std::cerr << "PDU Cache configuration is missing." << std::endl;
                 return HAKO_PDU_ERR_INVALID_CONFIG;
@@ -152,15 +154,16 @@ public:
             std::string cache_config_path = config["cache"].get<std::string>();
             auto resolved_cache_config_path = resolve_under_base(base_dir, cache_config_path);
 
-            cache_ = create_pdu_cache(resolved_cache_config_path.string());
-            if (!cache_) {
-                std::cerr << "Failed to create PDU Cache module: " << resolved_cache_config_path << std::endl;
-                return HAKO_PDU_ERR_INVALID_CONFIG;
-            }
-            err = cache_->open(resolved_cache_config_path.string());
+            CacheConfig cache_config;
+            err = load_cache_config(resolved_cache_config_path.string(), cache_config);
             if (err != HAKO_PDU_ERR_OK) {
-                std::cerr << "Failed to open PDU Cache: " << static_cast<int>(err) << std::endl;
+                std::cerr << "Failed to load PDU Cache configuration: " << static_cast<int>(err) << std::endl;
                 return err;
+            }
+            cache_ = create_pdu_cache(cache_config);
+            if (!cache_) {
+                std::cerr << "Failed to create PDU Cache module from in-memory configuration." << std::endl;
+                return HAKO_PDU_ERR_INVALID_CONFIG;
             }
             // Comm is optional
             if (config.contains("comm") && !config["comm"].is_null()) {
