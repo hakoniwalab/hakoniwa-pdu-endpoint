@@ -31,11 +31,17 @@ Env:
   PREFIX_DIR=$HOME/.local/lib/hakoniwa-pdu-endpoint
   HAKO_PDU_ENDPOINT_VERSION=v1.0.0
   HAKO_PDU_ENDPOINT_RUNTIME_URL=https://...
+  HAKO_PDU_ENDPOINT_ARCHIVE_BASENAME=...
   RUN_SMOKE_TEST=1
 
 Examples:
   bash install-python.bash
   MODE=use-existing PREFIX_DIR=$HOME/.local/lib/hakoniwa-pdu-endpoint bash install-python.bash
+
+Linux ARM64 / aarch64:
+  Prebuilt runtime bundles are not published yet. Use the manifest-driven
+  source build (`python tools/hako.py doctor`, then `python tools/hako.py build`)
+  and `install-python-runtime.bash` instead of bootstrap mode.
 EOF
 }
 
@@ -46,12 +52,26 @@ fi
 
 case "$(uname -s)" in
   Linux)
-    if [[ -z "${ARCHIVE_BASENAME}" ]]; then
-      ARCHIVE_BASENAME="hakoniwa-pdu-endpoint-linux-x86_64-cp312.zip"
+    if [[ -z "${ARCHIVE_BASENAME}" && -z "${RUNTIME_URL}" ]]; then
+      case "$(uname -m)" in
+        x86_64|amd64)
+          ARCHIVE_BASENAME="hakoniwa-pdu-endpoint-linux-x86_64-cp312.zip"
+          ;;
+        aarch64|arm64)
+          if [[ "${MODE}" == "bootstrap" ]]; then
+            die "No prebuilt Linux ARM64 runtime bundle is published. Use the manifest-driven source build: 'python tools/hako.py doctor' then 'python tools/hako.py build', followed by 'bash install-python-runtime.bash'."
+          fi
+          ;;
+        *)
+          if [[ "${MODE}" == "bootstrap" ]]; then
+            die "Unsupported Linux architecture for prebuilt runtime bundle: $(uname -m). Set HAKO_PDU_ENDPOINT_RUNTIME_URL/HAKO_PDU_ENDPOINT_ARCHIVE_BASENAME or use the manifest-driven source build."
+          fi
+          ;;
+      esac
     fi
     ;;
   Darwin)
-    if [[ -z "${ARCHIVE_BASENAME}" ]]; then
+    if [[ -z "${ARCHIVE_BASENAME}" && -z "${RUNTIME_URL}" ]]; then
       case "$(uname -m)" in
         arm64) ARCHIVE_BASENAME="hakoniwa-pdu-endpoint-macos-arm64-cp312.zip" ;;
         x86_64) ARCHIVE_BASENAME="hakoniwa-pdu-endpoint-macos-x86_64-cp312.zip" ;;
@@ -64,7 +84,11 @@ case "$(uname -s)" in
     ;;
 esac
 
-if [[ -z "${RUNTIME_URL}" ]]; then
+if [[ -z "${ARCHIVE_BASENAME}" && -n "${RUNTIME_URL}" ]]; then
+  ARCHIVE_BASENAME="${RUNTIME_URL##*/}"
+fi
+
+if [[ -z "${RUNTIME_URL}" && -n "${ARCHIVE_BASENAME}" ]]; then
   RUNTIME_URL="https://github.com/hakoniwalab/hakoniwa-pdu-endpoint/releases/download/${VERSION}/${ARCHIVE_BASENAME}"
 fi
 
@@ -75,6 +99,8 @@ install_python_packages() {
 }
 
 download_runtime_bundle() {
+  [[ -n "${ARCHIVE_BASENAME}" ]] || die "Runtime archive basename is empty"
+  [[ -n "${RUNTIME_URL}" ]] || die "Runtime URL is empty"
   local archive_path="${PREFIX_DIR}/${ARCHIVE_BASENAME}"
   mkdir -p "${PREFIX_DIR}"
   say "Downloading runtime bundle..."
@@ -87,7 +113,7 @@ download_runtime_bundle() {
 say "MODE=${MODE}"
 say "PYTHON_CMD=${PYTHON_CMD}"
 say "PREFIX_DIR=${PREFIX_DIR}"
-say "RUNTIME_URL=${RUNTIME_URL}"
+say "RUNTIME_URL=${RUNTIME_URL:-<none>}"
 
 case "${MODE}" in
   bootstrap)
@@ -106,5 +132,4 @@ say "Downloaded runtime bundle into: ${PREFIX_DIR}"
 say "Next step: overlay runtime files into the installed Python package:"
 say "  bash install-python-runtime.bash"
 say "If the target Python package directory is system-owned, run only that overlay step with sudo."
-
 say "Done."
