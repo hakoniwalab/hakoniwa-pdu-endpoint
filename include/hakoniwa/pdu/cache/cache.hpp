@@ -1,5 +1,6 @@
 #pragma once
 
+#include "hakoniwa/pdu/cache/cache_config.hpp"
 #include "hakoniwa/pdu/endpoint_types.hpp"
 #include <cstddef>
 #include <cstdint>
@@ -16,13 +17,13 @@ class PduCache
 public:
     PduCache() = default;
     virtual ~PduCache() = default;
-    // コピー・ムーブ禁止（ポリモーフィックな基底クラス）
     PduCache(const PduCache&) = delete;
     PduCache(PduCache&&) = delete;
     PduCache& operator=(const PduCache&) = delete;
     PduCache& operator=(PduCache&&) = delete;
 
     virtual HakoPduErrorType open(const std::string& config_path) = 0;
+    virtual HakoPduErrorType configure(const CacheConfig& config) noexcept = 0;
     virtual HakoPduErrorType close() noexcept = 0;
     virtual HakoPduErrorType start() noexcept = 0;
     virtual HakoPduErrorType stop() noexcept = 0;
@@ -45,7 +46,6 @@ public:
         (void)out;
         return HAKO_PDU_ERR_UNSUPPORTED;
     }
-
 };
 } // namespace pdu
 } // namespace hakoniwa
