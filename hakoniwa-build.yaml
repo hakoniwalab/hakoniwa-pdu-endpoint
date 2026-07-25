@@ -19,10 +19,13 @@ features:
   zenoh: false
   mqtt: false
 
+# Keep the default path small: native shared library + Python binding + import smoke.
+# Opt into extra build targets only when they are needed.
 validation:
   tests: false
   examples: false
-  tools: true
+  tools: false
+  benchmarks: false
   python_import: true
 
 # Empty strings mean auto-detect from the environment/default locations.
