@@ -3,6 +3,7 @@
 
 build
 build/python
+.hako/
 dist/
 release-assets/
 rmw-config/
