@@ -29,12 +29,12 @@ inline HakoPduErrorType cache_config_to_json(
     }
 
     out = {
-        {"name", config.name},
         {"type", "buffer"},
-        {"mode", cache_mode_to_string(config.mode)},
+        {"name", config.name},
+        {"store", {{"mode", cache_mode_to_string(config.mode)}}},
     };
     if (config.mode == CacheMode::Queue) {
-        out["depth"] = config.depth;
+        out["store"]["depth"] = config.depth;
     }
     return HAKO_PDU_ERR_OK;
 }
@@ -48,21 +48,22 @@ inline HakoPduErrorType cache_config_from_json(
             !input.contains("name") || !input["name"].is_string() ||
             !input.contains("type") || !input["type"].is_string() ||
             input["type"].get<std::string>() != "buffer" ||
-            !input.contains("mode") || !input["mode"].is_string()) {
+            !input.contains("store") || !input["store"].is_object() ||
+            !input["store"].contains("mode") || !input["store"]["mode"].is_string()) {
             return HAKO_PDU_ERR_INVALID_CONFIG;
         }
 
         const auto name = input["name"].get<std::string>();
-        const auto mode = input["mode"].get<std::string>();
+        const auto mode = input["store"]["mode"].get<std::string>();
         CacheConfig config;
         if (mode == "latest") {
             config = make_latest_cache(name);
         }
         else if (mode == "queue") {
-            if (!input.contains("depth") || !input["depth"].is_number_unsigned()) {
+            if (!input["store"].contains("depth") || !input["store"]["depth"].is_number_unsigned()) {
                 return HAKO_PDU_ERR_INVALID_CONFIG;
             }
-            config = make_queue_cache(name, input["depth"].get<std::size_t>());
+            config = make_queue_cache(name, input["store"]["depth"].get<std::size_t>());
         }
         else {
             return HAKO_PDU_ERR_INVALID_CONFIG;
@@ -103,13 +104,16 @@ inline HakoPduErrorType load_cache_config(
 {
     std::ifstream ifs(path);
     if (!ifs.is_open()) {
-        return HAKO_PDU_ERR_INVALID_CONFIG;
+        return HAKO_PDU_ERR_FILE_NOT_FOUND;
     }
 
     try {
         nlohmann::json json;
         ifs >> json;
         return cache_config_from_json(json, out);
+    }
+    catch (const nlohmann::json::parse_error&) {
+        return HAKO_PDU_ERR_INVALID_JSON;
     }
     catch (...) {
         return HAKO_PDU_ERR_INVALID_CONFIG;
