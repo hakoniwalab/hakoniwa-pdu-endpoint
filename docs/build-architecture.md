@@ -8,7 +8,7 @@
 - Hakoniwa Core integration for SHM/time-source support
 - Zenoh transport
 - MQTT transport
-- tests, examples, and tools
+- tests, examples, tools, and benchmarks
 - platform/toolchain details such as MSVC and vcpkg on Windows
 
 Historically these dimensions were exposed directly through CMake flags and separate
@@ -114,13 +114,18 @@ features:
 validation:
   tests: false
   examples: false
-  tools: true
+  tools: false
+  benchmarks: false
   python_import: true
 
 paths:
   hakoniwa_core_root: ""
   vcpkg_root: ""
 ```
+
+The default path intentionally builds only the native shared library plus the Python
+binding and enables the import smoke. Tests, examples, tools, and benchmarks are explicit
+opt-ins so an unrelated CMake default cannot silently enlarge the user-requested build.
 
 ### `build.shared`
 
