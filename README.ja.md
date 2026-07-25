@@ -71,62 +71,59 @@ Hakoniwa PDU endpoint path 全体の測定です。
 
 詳細は英語版 README の Requirements を参照してください。
 
-## クイックスタート: ビルドとインストール
+## クイックスタート: Manifest駆動ビルド
 
-このガイドは、C++ライブラリとPythonバインディングをビルドし、お使いのシステムにインストールするための最短手順です。
+推奨する開発者向けビルドフローは Windows / macOS / Linux で共通です。最初に `hakoniwa-build.yaml` へ必要な機能を宣言し、configureツールにCMakeオプションとOS固有の前提条件を解決させます。
 
-### 前提条件
+デフォルトmanifestでは Python/cffi binding を有効にし、Hakoniwa Core / Zenoh / MQTT は無効です。これらは独立した機能軸なので、必要なものだけを有効にします。
 
-- C++20互換コンパイラ (例: GCC, Clang, MSVC)
-- CMake (3.16以上)
-- Python 3
-- Python FFI (C言語連携) に必要な `cffi` パッケージ。仮想環境の利用を推奨します。
+### 1. 共通の前提条件
 
-    ```bash
-    # 仮想環境の作成と有効化 (任意ですが推奨)
-    python3 -m venv .venv
-    source .venv/bin/activate
-
-    # 必要なPythonパッケージのインストール
-    python -m pip install --upgrade pip setuptools wheel cffi
-    ```
-
-### ビルドとインストール
-
-リポジトリに含まれるヘルパースクリプトが、ビルドとインストールのプロセスを自動化します。
-
-1.  **リポジトリをクローンし、ディレクトリに移動します:**
-    ```bash
-    git clone https://github.com/hakoniwalab/hakoniwa-pdu-endpoint.git
-    cd hakoniwa-pdu-endpoint
-    ```
-
-2.  **ビルドスクリプトを実行します:**
-    このスクリプトは、C++共有ライブラリ (`libhakoniwa_pdu_endpoint.dylib` on macOS) とPython FFI拡張モジュールの両方をビルドします。
-    ```bash
-    bash build.bash
-    ```
-
-3.  **インストールスクリプトを実行します:**
-    このスクリプトは、全てのコンポーネント (ライブラリ、ヘッダ、Pythonパッケージ) をデフォルトで `/usr/local/hakoniwa` にインストールします。管理者権限が必要な場合があります。
-    ```bash
-    sudo bash install.bash
-    ```
-
-### Python連携の確認
-
-インストール後、`PYTHONPATH` を設定し、簡単なインポートテストを実行してPythonバインディングが正しく動作するかを確認します。
+C++20 compiler、CMake、Python 3 を用意します。`bindings.python: true` の場合はPython build依存も入れます。
 
 ```bash
-# インストールされたパッケージをPYTHONPATHに追加
-export PYTHONPATH=/usr/local/hakoniwa/share/hakoniwa-pdu-endpoint/python:$PYTHONPATH
-
-# インポートテストを実行
-python3 -c "from hakoniwa_pdu_endpoint.c_endpoint import Endpoint; print(Endpoint)"
+python -m pip install --upgrade pip setuptools cffi
 ```
 
-成功すると、`<class 'hakoniwa_pdu_endpoint.c_endpoint.Endpoint'>` と表示されます。これで、インストールは完了です。
-注意: このPythonパッケージは、ネイティブの共有ライブラリとCFFI拡張を必要とするため、`pip`だけでインストールすることはできません。
+WindowsではBoost.Asio / Boost.Beastをvcpkgで用意する構成を推奨します。configureツールは `VCPKG_ROOT` / `VCPKG_INSTALLATION_ROOT` を検出します。
+
+### 2. `hakoniwa-build.yaml` で機能を選ぶ
+
+デフォルトは次です。
+
+```yaml
+bindings:
+  python: true
+
+features:
+  hakoniwa_core: false
+  zenoh: false
+  mqtt: false
+```
+
+代表的な変更:
+
+- C++だけ使う: `bindings.python: false`
+- SHM / Hakoniwa time sourceを使う: `features.hakoniwa_core: true` とし、`paths.hakoniwa_core_root`（または `HAKONIWA_CORE_ROOT`）を設定
+- Zenohを使う: `features.zenoh: true`
+- MQTTを使う: `features.mqtt: true`
+
+Python/cffiは言語bindingであり、Hakoniwa Coreとは独立です。TCP/UDP/WebSocket/StorageやZenohだけならHakoniwa Coreは不要です。
+
+### 3. 設定確認とビルド
+
+```bash
+python tools/hako.py doctor
+python tools/hako.py configure --dry-run
+python tools/hako.py build
+python tools/hako.py test
+```
+
+resolverは `.hako/resolved-build.yaml` と `.hako/cmake-args.txt` を出力します。ビルド問題を報告する場合は、これらを添えることで解決済みfeatureやpathを再現できます。
+
+依存関係モデル、manifest schema、移行方針は [Build Architecture](docs/build-architecture.md) を参照してください。
+
+既存の `build.bash`、`build-win.ps1`、`build-python.bash`、`build-python-win.ps1`、直接CMakeを使う方法も、互換・高度な開発者向け経路として引き続き利用できます。
 
 ## 開発者向けガイド
 

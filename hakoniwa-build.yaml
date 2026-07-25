@@ -1,0 +1,34 @@
+# User-facing build intent for hakoniwa-pdu-endpoint.
+# See docs/build-architecture.md for the resolution model.
+version: 1
+
+build:
+  type: Release
+  dir: build
+  shared: auto
+  parallel: 0
+
+# Python/cffi is a language binding, independent from transport selection.
+bindings:
+  python: true
+
+# Optional native capabilities. Hakoniwa Core is needed for SHM/time-source use,
+# but not for TCP/UDP/WebSocket/Storage or Zenoh/MQTT by themselves.
+features:
+  hakoniwa_core: false
+  zenoh: false
+  mqtt: false
+
+# Keep the default path small: native shared library + Python binding + import smoke.
+# Opt into extra build targets only when they are needed.
+validation:
+  tests: false
+  examples: false
+  tools: false
+  benchmarks: false
+  python_import: true
+
+# Empty strings mean auto-detect from the environment/default locations.
+paths:
+  hakoniwa_core_root: ""
+  vcpkg_root: ""
