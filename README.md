@@ -117,61 +117,59 @@ This design is intentionally biased toward large, multi-asset simulations: it fa
     -   Core root override: `-DHAKO_PDU_ENDPOINT_HAKONIWA_CORE_ROOT=<path>`
     -   Default: `ON` on macOS/Linux, `OFF` on Windows
 
-## Quick Start: Build and Install
+## Quick Start: Manifest-driven build
 
-This guide provides the fastest path to build the core C++ library and Python bindings, and install them on your system.
+The recommended developer flow is the same on Windows, macOS, and Linux. Start by declaring the capabilities you want in `hakoniwa-build.yaml`, then let the configurator resolve CMake options and platform-specific prerequisites.
 
-### Prerequisites
+The default manifest builds the Python/cffi binding and keeps Hakoniwa Core, Zenoh, and MQTT disabled. These capabilities are independent: enable only what your application needs.
 
-- A C++20 compatible compiler (e.g., GCC, Clang, or MSVC).
-- CMake (version 3.16 or later).
-- Python 3.
-- Python `cffi` package for FFI bindings. It is recommended to use a virtual environment.
+### 1. Install the common prerequisites
 
-    ```bash
-    # Create and activate a virtual environment (optional but recommended)
-    python3 -m venv .venv
-    source .venv/bin/activate
-
-    # Install required Python packages
-    python -m pip install --upgrade pip setuptools wheel cffi
-    ```
-
-### Build and Install
-
-The provided helper scripts automate the build and installation process.
-
-1.  **Clone the repository and navigate into it:**
-    ```bash
-    git clone https://github.com/hakoniwalab/hakoniwa-pdu-endpoint.git
-    cd hakoniwa-pdu-endpoint
-    ```
-
-2.  **Run the build script:**
-    This script builds the C++ shared library (`libhakoniwa_pdu_endpoint.dylib` on macOS) and the Python FFI extension module.
-    ```bash
-    bash build.bash
-    ```
-
-3.  **Run the install script:**
-    This script installs all components (libraries, headers, Python package) to `/usr/local/hakoniwa` by default. It may require administrator privileges.
-    ```bash
-    sudo bash install.bash
-    ```
-
-### Verify Python Integration
-
-After installation, set your `PYTHONPATH` and run a simple import test to verify that the Python bindings are working correctly.
+Install a C++20 compiler, CMake, and Python 3. When `bindings.python: true`, install the Python build prerequisites:
 
 ```bash
-# Set the PYTHONPATH to include the installed package
-export PYTHONPATH=/usr/local/hakoniwa/share/hakoniwa-pdu-endpoint/python:$PYTHONPATH
-
-# Run the import test
-python3 -c "from hakoniwa_pdu_endpoint.c_endpoint import Endpoint; print(Endpoint)"
+python -m pip install --upgrade pip setuptools cffi
 ```
 
-If successful, this will print `<class 'hakoniwa_pdu_endpoint.c_endpoint.Endpoint'>`. Your installation is ready to use. Note that the Python package requires the native shared library and CFFI extension; it cannot be installed with `pip` alone.
+On Windows, Boost.Asio/Boost.Beast are commonly provided through vcpkg. The configurator detects `VCPKG_ROOT` / `VCPKG_INSTALLATION_ROOT` when available.
+
+### 2. Select capabilities in `hakoniwa-build.yaml`
+
+The default is:
+
+```yaml
+bindings:
+  python: true
+
+features:
+  hakoniwa_core: false
+  zenoh: false
+  mqtt: false
+```
+
+Common changes:
+
+- C++ only: set `bindings.python: false`
+- SHM or Hakoniwa time source: set `features.hakoniwa_core: true` and provide `paths.hakoniwa_core_root` (or `HAKONIWA_CORE_ROOT`)
+- Zenoh: set `features.zenoh: true`
+- MQTT: set `features.mqtt: true`
+
+Python/cffi is a language binding; it does not imply Hakoniwa Core. TCP/UDP/WebSocket/Storage and Zenoh can be used without Hakoniwa Core.
+
+### 3. Inspect and build
+
+```bash
+python tools/hako.py doctor
+python tools/hako.py configure --dry-run
+python tools/hako.py build
+python tools/hako.py test
+```
+
+The resolver writes `.hako/resolved-build.yaml` and `.hako/cmake-args.txt`. Include these when reporting a build/configuration problem so the resolved feature set is reproducible.
+
+For the dependency model, manifest schema, and migration strategy, see [Build Architecture](docs/build-architecture.md).
+
+Existing `build.bash`, `build-win.ps1`, `build-python.bash`, `build-python-win.ps1`, and direct CMake commands remain supported as compatibility/advanced developer paths while the manifest flow is adopted.
 
 ## For Developers and Advanced Users
 
