@@ -350,11 +350,31 @@ def doctor(ctx: BuildContext) -> tuple[list[str], list[str]]:
             errors.append("Python package 'setuptools' is missing (install with: python -m pip install setuptools)")
         if ctx.platform_name == "windows" and not (_find_vswhere() or shutil.which("cl.exe")):
             errors.append("Visual Studio C++ tools were not found (vswhere.exe/cl.exe unavailable)")
-    if ctx.platform_name == "windows" and not ctx.vcpkg_root:
-        warnings.append(
-            "vcpkg root was not found; set paths.vcpkg_root or VCPKG_ROOT "
-            "if Boost.Asio/Boost.Beast are not otherwise discoverable"
-        )
+    if ctx.platform_name == "windows":
+        if not ctx.vcpkg_root:
+            warnings.append(
+                "vcpkg root was not found; set paths.vcpkg_root or VCPKG_ROOT "
+                "if Boost.Asio/Boost.Beast are not otherwise discoverable"
+            )
+        else:
+            include_root = ctx.vcpkg_root / "installed" / ctx.vcpkg_triplet / "include"
+            required_boost_headers = {
+                "Boost.Asio": include_root / "boost" / "asio.hpp",
+                "Boost.Beast": include_root / "boost" / "beast.hpp",
+            }
+            missing = [name for name, header in required_boost_headers.items() if not header.exists()]
+            if missing:
+                packages: list[str] = []
+                if "Boost.Asio" in missing:
+                    packages.append(f"boost-asio:{ctx.vcpkg_triplet}")
+                if "Boost.Beast" in missing:
+                    packages.append(f"boost-beast:{ctx.vcpkg_triplet}")
+                errors.append(
+                    "missing Windows Boost dependency: "
+                    + ", ".join(missing)
+                    + "; install with: vcpkg install "
+                    + " ".join(packages)
+                )
     return errors, warnings
 
 
