@@ -4,7 +4,35 @@ on:
   push:
   pull_request:
 
+permissions:
+  contents: write
+
 jobs:
+  migrate-readme-once:
+    if: github.event_name == 'pull_request' && github.event.pull_request.head.ref == 'agent/add-build-manifest-configure-flow'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout PR branch
+        uses: actions/checkout@v4
+        with:
+          ref: agent/add-build-manifest-configure-flow
+          fetch-depth: 2
+
+      - name: Apply README quick-start migration
+        run: python tools/migrate_readme_once.py
+
+      - name: Remove temporary migration machinery and commit
+        shell: bash
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git show HEAD^:.github/workflows/ci.yml > .github/workflows/ci.yml
+          git rm .github/workflows/one-shot-build-readme.yml
+          git rm tools/migrate_readme_once.py
+          git add README.md README.ja.md .github/workflows/ci.yml
+          git commit -m "Document manifest-driven build flow"
+          git push origin HEAD:agent/add-build-manifest-configure-flow
+
   build-manifest:
     strategy:
       matrix:
