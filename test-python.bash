@@ -6,6 +6,7 @@ BUILD_FIRST=${BUILD_FIRST:-ON}
 PYTHON_CMD=${PYTHON_CMD:-python3}
 
 PYTHON_TESTS=(
+  "${PROJECT_ROOT}/python/test/test_config_json_roundtrip.py"
   "${PROJECT_ROOT}/python/test/test_c_endpoint_smoke.py"
   "${PROJECT_ROOT}/python/test/test_c_endpoint_callback_smoke.py"
   "${PROJECT_ROOT}/python/test/test_c_endpoint_ros_style_smoke.py"
