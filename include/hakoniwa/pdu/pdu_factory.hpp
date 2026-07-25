@@ -1,12 +1,20 @@
 #pragma once
 
 #include "hakoniwa/pdu/cache/cache.hpp"
+#include "hakoniwa/pdu/cache/cache_config.hpp"
 #include "hakoniwa/pdu/comm/comm.hpp"
 #include <memory>
 #include <string>
 
 namespace hakoniwa {
 namespace pdu {
+
+/**
+ * @brief Creates a PDU cache instance from an in-memory cache configuration.
+ * @param config Typed cache configuration.
+ * @return A unique_ptr to the created PduCache, or nullptr on failure.
+ */
+std::unique_ptr<PduCache> create_pdu_cache(const CacheConfig& config);
 
 /**
  * @brief Creates a PDU cache instance based on the provided configuration file.
