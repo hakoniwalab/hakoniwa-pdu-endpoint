@@ -1,6 +1,7 @@
 #include "hakoniwa/pdu/pdu_factory.hpp"
 #include "hakoniwa/pdu/cache/cache_buffer.hpp"
 #include "hakoniwa/pdu/cache/cache_queue.hpp"
+#include "hakoniwa/pdu/cache/cache_config_json.hpp"
 #include "hakoniwa/pdu/comm/comm_tcp.hpp"
 #include "hakoniwa/pdu/comm/comm_udp.hpp"
 #ifdef HAKO_PDU_ENDPOINT_HAS_HAKONIWA_CORE
@@ -22,31 +23,35 @@
 namespace hakoniwa {
 namespace pdu {
 
+std::unique_ptr<PduCache> create_pdu_cache(const CacheConfig& config) {
+    if (validate_cache_config(config) != HAKO_PDU_ERR_OK) {
+        return nullptr;
+    }
+
+    std::unique_ptr<PduCache> cache;
+    switch (config.mode) {
+    case CacheMode::Latest:
+        cache = std::make_unique<PduLatestBuffer>();
+        break;
+    case CacheMode::Queue:
+        cache = std::make_unique<PduLatestQueue>();
+        break;
+    }
+
+    if (!cache || cache->configure(config) != HAKO_PDU_ERR_OK) {
+        return nullptr;
+    }
+    return cache;
+}
+
 std::unique_ptr<PduCache> create_pdu_cache(const std::string& config_path) {
-    std::ifstream ifs(config_path);
-    if (!ifs.is_open()) {
-        // Simple error logging, a more robust logging mechanism should be used in a real application.
-        std::cerr << "PduCache Factory Error: Failed to open config file: " << config_path << std::endl;
+    CacheConfig config;
+    const auto result = load_cache_config(config_path, config);
+    if (result != HAKO_PDU_ERR_OK) {
+        std::cerr << "PduCache Factory Error: Failed to load config file: " << config_path << std::endl;
         return nullptr;
     }
-
-    nlohmann::json config;
-    try {
-        ifs >> config;
-        std::string mode = config.at("store").at("mode").get<std::string>();
-
-        if (mode == "latest") {
-            return std::make_unique<PduLatestBuffer>();
-        } else if (mode == "queue") {
-            return std::make_unique<PduLatestQueue>();
-        } else {
-            std::cerr << "PduCache Factory Error: Unknown cache mode '" << mode << "' in " << config_path << std::endl;
-            return nullptr;
-        }
-    } catch (const nlohmann::json::exception& e) {
-        std::cerr << "PduCache Factory Error: JSON parsing/access failed for " << config_path << ". Details: " << e.what() << std::endl;
-        return nullptr;
-    }
+    return create_pdu_cache(config);
 }
 
 std::shared_ptr<PduComm> create_pdu_comm(const std::string& config_path) {
