@@ -25,6 +25,14 @@ class ConfigTests(unittest.TestCase):
         self.assertTrue(cfg["build"]["shared_resolved"])
         self.assertFalse(cfg["features"]["hakoniwa_core"])
 
+    def test_default_keeps_optional_targets_off(self):
+        cfg = self.parse("version: 1\n")
+        self.assertFalse(cfg["validation"]["tests"])
+        self.assertFalse(cfg["validation"]["examples"])
+        self.assertFalse(cfg["validation"]["tools"])
+        self.assertFalse(cfg["validation"]["benchmarks"])
+        self.assertTrue(cfg["validation"]["python_import"])
+
     def test_cpp_only_can_be_static(self):
         cfg = self.parse("version: 1\nbindings:\n  python: false\n")
         self.assertFalse(cfg["build"]["shared_resolved"])
