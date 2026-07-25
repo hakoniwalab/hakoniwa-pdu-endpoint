@@ -4,58 +4,7 @@ on:
   push:
   pull_request:
 
-permissions:
-  contents: write
-
 jobs:
-  migrate-readme-once:
-    if: github.event_name == 'pull_request' && github.event.pull_request.head.ref == 'agent/add-build-manifest-configure-flow'
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout PR branch
-        uses: actions/checkout@v4
-        with:
-          ref: agent/add-build-manifest-configure-flow
-          fetch-depth: 0
-
-      - name: Restore and refine build configurator
-        shell: bash
-        run: |
-          git show 401bc0192cae3da5a637f9d011822470927f7f82:tools/hako.py > tools/hako.py
-          python - <<'PY'
-          from pathlib import Path
-          path = Path('tools/hako.py')
-          text = path.read_text(encoding='utf-8')
-          text = text.replace(
-              '        "tools": True,\n        "python_import": True,',
-              '        "tools": False,\n        "benchmarks": False,\n        "python_import": True,',
-          )
-          text = text.replace(
-              '        "validation": ["tests", "examples", "tools", "python_import"],',
-              '        "validation": ["tests", "examples", "tools", "benchmarks", "python_import"],',
-          )
-          text = text.replace(
-              '            f"-DHAKO_PDU_ENDPOINT_BUILD_TOOLS={\'ON\' if cfg[\'validation\'][\'tools\'] else \'OFF\'}",\n',
-              '            f"-DHAKO_PDU_ENDPOINT_BUILD_TOOLS={\'ON\' if cfg[\'validation\'][\'tools\'] else \'OFF\'}",\n'
-              '            f"-DHAKO_PDU_ENDPOINT_BUILD_BENCHMARKS={\'ON\' if cfg[\'validation\'][\'benchmarks\'] else \'OFF\'}",\n',
-          )
-          path.write_text(text, encoding='utf-8')
-          PY
-          python -m py_compile tools/hako.py
-          python tools/test_hako.py
-
-      - name: Apply README quick-start migration
-        run: python tools/migrate_readme_once.py
-
-      - name: Commit README and configurator
-        shell: bash
-        run: |
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add README.md README.ja.md tools/hako.py
-          git commit -m "Document manifest-driven build flow"
-          git push origin HEAD:agent/add-build-manifest-configure-flow
-
   build-manifest:
     strategy:
       matrix:
