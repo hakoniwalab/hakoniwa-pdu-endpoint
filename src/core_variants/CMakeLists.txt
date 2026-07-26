@@ -38,13 +38,45 @@ if(HAKO_PDU_ENDPOINT_ENABLE_MQTT)
   list(APPEND HAKO_ENDPOINT_VARIANT_COMMON_SRC ../comm_mqtt.cpp)
 endif()
 
-# Reuse the exact Boost dependency already resolved by src/CMakeLists.txt.
-# The legacy resolver may expose Boost::headers/Boost::boost, or it may create a
-# local fallback target and store that target name in HAKO_PDU_ENDPOINT_BOOST_TARGET.
-if(NOT DEFINED HAKO_PDU_ENDPOINT_BOOST_TARGET OR HAKO_PDU_ENDPOINT_BOOST_TARGET STREQUAL "")
-  message(FATAL_ERROR "Hakoniwa Core endpoint variants require the Boost dependency resolved by src/CMakeLists.txt")
+# Resolve Boost independently here because imported package targets and ordinary
+# CMake variables created in src/CMakeLists.txt are directory-scoped. Keeping
+# this resolver local also avoids changing the legacy endpoint target.
+find_package(Boost 1.70 CONFIG QUIET)
+if(TARGET Boost::headers)
+  set(HAKO_ENDPOINT_VARIANT_BOOST_TARGET Boost::headers)
+elseif(TARGET Boost::boost)
+  set(HAKO_ENDPOINT_VARIANT_BOOST_TARGET Boost::boost)
+else()
+  set(HAKO_ENDPOINT_VARIANT_BOOST_INCLUDE_CANDIDATES "")
+  if(DEFINED VCPKG_INSTALLED_DIR AND DEFINED VCPKG_TARGET_TRIPLET)
+    list(APPEND HAKO_ENDPOINT_VARIANT_BOOST_INCLUDE_CANDIDATES
+      "${VCPKG_INSTALLED_DIR}/${VCPKG_TARGET_TRIPLET}/include"
+    )
+  endif()
+  if(DEFINED CMAKE_TOOLCHAIN_FILE)
+    get_filename_component(HAKO_ENDPOINT_VARIANT_VCPKG_TOOLCHAIN_DIR "${CMAKE_TOOLCHAIN_FILE}" DIRECTORY)
+    get_filename_component(HAKO_ENDPOINT_VARIANT_VCPKG_SCRIPTS_DIR "${HAKO_ENDPOINT_VARIANT_VCPKG_TOOLCHAIN_DIR}" DIRECTORY)
+    get_filename_component(HAKO_ENDPOINT_VARIANT_VCPKG_ROOT "${HAKO_ENDPOINT_VARIANT_VCPKG_SCRIPTS_DIR}" DIRECTORY)
+    if(DEFINED VCPKG_TARGET_TRIPLET)
+      list(APPEND HAKO_ENDPOINT_VARIANT_BOOST_INCLUDE_CANDIDATES
+        "${HAKO_ENDPOINT_VARIANT_VCPKG_ROOT}/installed/${VCPKG_TARGET_TRIPLET}/include"
+      )
+    endif()
+  endif()
+
+  find_path(HAKO_ENDPOINT_VARIANT_BOOST_INCLUDE_DIR boost/asio.hpp
+    HINTS ${HAKO_ENDPOINT_VARIANT_BOOST_INCLUDE_CANDIDATES}
+  )
+  if(NOT HAKO_ENDPOINT_VARIANT_BOOST_INCLUDE_DIR)
+    message(FATAL_ERROR
+      "Boost headers were not found for Hakoniwa Core endpoint variants. Checked hints: ${HAKO_ENDPOINT_VARIANT_BOOST_INCLUDE_CANDIDATES}")
+  endif()
+  add_library(hako_pdu_endpoint_core_variant_boost_headers INTERFACE)
+  target_include_directories(hako_pdu_endpoint_core_variant_boost_headers INTERFACE
+    "${HAKO_ENDPOINT_VARIANT_BOOST_INCLUDE_DIR}"
+  )
+  set(HAKO_ENDPOINT_VARIANT_BOOST_TARGET hako_pdu_endpoint_core_variant_boost_headers)
 endif()
-set(HAKO_ENDPOINT_VARIANT_BOOST_TARGET ${HAKO_PDU_ENDPOINT_BOOST_TARGET})
 
 if(NOT TARGET nlohmann_json::nlohmann_json)
   message(FATAL_ERROR "Hakoniwa Core endpoint variants require nlohmann_json::nlohmann_json")
