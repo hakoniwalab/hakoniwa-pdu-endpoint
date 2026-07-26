@@ -23,13 +23,11 @@ set(HAKO_PDU_ENDPOINT_HAKONIWA_CORE_ROOT "" CACHE PATH "Hakoniwa core install ro
 include(GNUInstallDirs)
 include(CMakePackageConfigHelpers)
 
-# add_subdirectory を使って src と test ディレクトリの CMakeLists.txt を含める
-add_subdirectory(src)
-
-# The legacy target historically resolves an installed Hakoniwa Core with raw
-# include/library paths. Keep that build behavior for compatibility, but make
-# its exported usage requirements relocatable by expressing the public Core
-# dependency through the installed Core package targets.
+# When Endpoint is configured against an installed Hakoniwa Core and its targets
+# will be exported, resolve the Core package before entering src/. Imported
+# targets are directory-scoped in CMake, so creating them here first makes them
+# visible to src/ and its core_variants child during generate-time validation.
+set(_hako_endpoint_external_core_package FALSE)
 if(HAKO_PDU_ENDPOINT_ENABLE_HAKONIWA_CORE AND HAKO_PDU_ENDPOINT_INSTALL AND
    NOT (TARGET assets AND TARGET shakoc))
   set(_hako_endpoint_core_root "${HAKO_PDU_ENDPOINT_HAKONIWA_CORE_ROOT}")
@@ -47,7 +45,17 @@ if(HAKO_PDU_ENDPOINT_ENABLE_HAKONIWA_CORE AND HAKO_PDU_ENDPOINT_INSTALL AND
     PATHS "${_hako_endpoint_core_root}"
     NO_DEFAULT_PATH
   )
+  set(_hako_endpoint_external_core_package TRUE)
+endif()
 
+# add_subdirectory を使って src と test ディレクトリの CMakeLists.txt を含める
+add_subdirectory(src)
+
+# The legacy target historically resolves an installed Hakoniwa Core with raw
+# include/library paths. Keep that build behavior for compatibility, but make
+# its exported usage requirements relocatable by expressing the public Core
+# dependency through the installed Core package targets.
+if(_hako_endpoint_external_core_package)
   get_target_property(_hako_endpoint_interface_includes
     hakoniwa_pdu_endpoint INTERFACE_INCLUDE_DIRECTORIES)
   if(_hako_endpoint_interface_includes)
