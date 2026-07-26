@@ -21,4 +21,8 @@ if(NOT TARGET nlohmann_json::nlohmann_json)
   endif()
 endif()
 
+if(@HAKO_PDU_ENDPOINT_PACKAGE_HAS_HAKONIWA_CORE@)
+  find_dependency(hakoniwa-core CONFIG)
+endif()
+
 include("${CMAKE_CURRENT_LIST_DIR}/hakoniwa_pdu_endpointTargets.cmake")
