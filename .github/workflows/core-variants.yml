@@ -107,7 +107,9 @@ jobs:
         shell: pwsh
         run: |
           git clone --recursive https://github.com/hakoniwalab/hakoniwa-core-pro.git
+          $coreOptions = "$env:GITHUB_WORKSPACE/hakoniwa-core-pro/cmake-options/win-cmake-options.cmake"
           cmake -S hakoniwa-core-pro -B hakoniwa-core-pro/build -A x64 `
+            -DHAKO_CLIENT_OPTION_FILEPATH="$coreOptions" `
             -DCMAKE_INSTALL_PREFIX="$env:GITHUB_WORKSPACE/core-install" `
             -DHAKO_CORE_CONFIG_INSTALL_DIR=etc/hakoniwa `
             -DHAKO_CORE_PRO_BUILD_COMMAND=OFF `
