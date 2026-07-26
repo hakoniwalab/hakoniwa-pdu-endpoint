@@ -23,6 +23,7 @@ jobs:
           cmake -S hakoniwa-core-pro -B hakoniwa-core-pro/build \
             -DCMAKE_BUILD_TYPE=Release \
             -DCMAKE_INSTALL_PREFIX="${GITHUB_WORKSPACE}/core-install" \
+            -DHAKO_CORE_CONFIG_INSTALL_DIR=etc/hakoniwa \
             -DHAKO_CORE_PRO_BUILD_COMMAND=OFF \
             -DHAKO_CORE_PRO_BUILD_EXAMPLES=OFF \
             -DHAKO_CORE_PRO_BUILD_PYTHON_BINDINGS=OFF \
@@ -64,12 +65,13 @@ jobs:
           cmake -S hakoniwa-core-pro -B hakoniwa-core-pro/build \
             -DCMAKE_BUILD_TYPE=Release \
             -DCMAKE_INSTALL_PREFIX="${GITHUB_WORKSPACE}/core-install" \
+            -DHAKO_CORE_CONFIG_INSTALL_DIR=etc/hakoniwa \
             -DHAKO_CORE_PRO_BUILD_COMMAND=OFF \
             -DHAKO_CORE_PRO_BUILD_EXAMPLES=OFF \
             -DHAKO_CORE_PRO_BUILD_PYTHON_BINDINGS=OFF \
             -DHAKO_ENABLE_GTEST=OFF
           cmake --build hakoniwa-core-pro/build --config Release
-          sudo cmake --install hakoniwa-core-pro/build --config Release --prefix "${GITHUB_WORKSPACE}/core-install"
+          cmake --install hakoniwa-core-pro/build --config Release --prefix "${GITHUB_WORKSPACE}/core-install"
 
       - name: Configure endpoint with Hakoniwa Core
         run: |
@@ -107,6 +109,7 @@ jobs:
           git clone --recursive https://github.com/hakoniwalab/hakoniwa-core-pro.git
           cmake -S hakoniwa-core-pro -B hakoniwa-core-pro/build -A x64 `
             -DCMAKE_INSTALL_PREFIX="$env:GITHUB_WORKSPACE/core-install" `
+            -DHAKO_CORE_CONFIG_INSTALL_DIR=etc/hakoniwa `
             -DHAKO_CORE_PRO_BUILD_COMMAND=OFF `
             -DHAKO_CORE_PRO_BUILD_EXAMPLES=OFF `
             -DHAKO_CORE_PRO_BUILD_PYTHON_BINDINGS=OFF `
