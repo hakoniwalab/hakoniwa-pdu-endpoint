@@ -40,7 +40,7 @@ Two workflows cover different contracts:
 - `ci`: normal builds, tests, bindings, manifest resolution, and transport combinations
 - `core-variants`: Hakoniwa Core package integration and external CMake consumer linkage
 
-`core-variants` continuously validates this flow on Ubuntu x64, macOS, and Windows x64:
+`core-variants` continuously validates this flow on Ubuntu x64, Linux ARM64 (`aarch64`), macOS, and Windows x64:
 
 ```text
 build/install hakoniwa-core-pro
@@ -54,7 +54,7 @@ find_package(hakoniwa_pdu_endpoint CONFIG REQUIRED)
 link core_callback and core_polling consumers
 ```
 
-Linux ARM64 (`aarch64`) uses the same source-build and manifest model. Native ARM64 CI is being added to the `core-variants` workflow; until that job is confirmed, this README does not claim ARM64 as CI-verified.
+Linux ARM64 is CI-verified on a native ARM64 GitHub Actions runner. This validates the Hakoniwa Core build/install path used by Endpoint, the exported `assets` / `shakoc` package targets, the Endpoint Core variants, and downstream external-consumer linkage on ARM64.
 
 Documentation-only changes do not trigger the heavy build workflows.
 
