@@ -12,8 +12,15 @@ build:
 bindings:
   python: true
 
-# Optional native capabilities. Hakoniwa Core is needed for SHM/time-source use,
-# but not for TCP/UDP/WebSocket/Storage or Zenoh/MQTT by themselves.
+# Optional native capabilities.
+#
+# hakoniwa_core is a build capability, not a callback/polling selector:
+#   false -> build the legacy hakoniwa_pdu_endpoint target without Core support
+#   true  -> build the legacy Core-enabled target plus the explicit
+#            core_callback (assets) and core_polling (shakoc) variants
+#
+# Consumers choose callback vs polling through the installed CMake target.
+# Hakoniwa Core is not needed for TCP/UDP/WebSocket/Storage or Zenoh/MQTT alone.
 features:
   hakoniwa_core: false
   zenoh: false
