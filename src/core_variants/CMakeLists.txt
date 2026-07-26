@@ -48,11 +48,16 @@ if(NOT TARGET nlohmann_json::nlohmann_json)
 endif()
 
 # Resolve the two mutually-exclusive Core frontend link targets. In an in-tree
-# build, use the native Core targets. For an installed Core, consume its CMake
-# package instead of reconstructing include/library paths manually.
+# build, use the native Core targets. When the parent already resolved an
+# installed Core package, reuse its imported targets. Only fall back to a local
+# find_package call for standalone configurations that did not resolve Core in
+# the parent directory.
 if(TARGET assets AND TARGET shakoc)
   set(HAKO_ENDPOINT_CALLBACK_CORE_TARGET assets)
   set(HAKO_ENDPOINT_POLLING_CORE_TARGET shakoc)
+elseif(TARGET hakoniwa-core::assets AND TARGET hakoniwa-core::shakoc)
+  set(HAKO_ENDPOINT_CALLBACK_CORE_TARGET hakoniwa-core::assets)
+  set(HAKO_ENDPOINT_POLLING_CORE_TARGET hakoniwa-core::shakoc)
 else()
   set(HAKO_ENDPOINT_VARIANT_CORE_ROOT "${HAKO_PDU_ENDPOINT_HAKONIWA_CORE_ROOT}")
   if(HAKO_ENDPOINT_VARIANT_CORE_ROOT STREQUAL "")
