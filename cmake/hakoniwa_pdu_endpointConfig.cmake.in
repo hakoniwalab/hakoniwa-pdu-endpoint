@@ -26,3 +26,20 @@ if(@HAKO_PDU_ENDPOINT_PACKAGE_HAS_HAKONIWA_CORE@)
 endif()
 
 include("${CMAKE_CURRENT_LIST_DIR}/hakoniwa_pdu_endpointTargets.cmake")
+
+# Older Core-enabled Endpoint exports may carry the historical Linux fallback
+# /usr/include/hakoniwa in their public include interface even when that path
+# does not exist. Imported targets treat a missing interface include directory
+# as a configure-time error in downstream consumers. Keep the fallback only on
+# hosts where it is actually present; normal installed Core headers are already
+# provided through the package prefix / hakoniwa-core dependency.
+if(TARGET hakoniwa_pdu_endpoint::hakoniwa_pdu_endpoint
+   AND NOT EXISTS "/usr/include/hakoniwa")
+  get_target_property(_hakoniwa_endpoint_includes
+    hakoniwa_pdu_endpoint::hakoniwa_pdu_endpoint INTERFACE_INCLUDE_DIRECTORIES)
+  if(_hakoniwa_endpoint_includes)
+    list(REMOVE_ITEM _hakoniwa_endpoint_includes "/usr/include/hakoniwa")
+    set_target_properties(hakoniwa_pdu_endpoint::hakoniwa_pdu_endpoint PROPERTIES
+      INTERFACE_INCLUDE_DIRECTORIES "${_hakoniwa_endpoint_includes}")
+  endif()
+endif()
