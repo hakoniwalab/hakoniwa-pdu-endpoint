@@ -41,12 +41,20 @@ jobs:
             -DHAKO_PDU_ENDPOINT_BUILD_EXAMPLES=OFF \
             -DHAKO_PDU_ENDPOINT_BUILD_TOOLS=OFF \
             -DHAKO_PDU_ENDPOINT_BUILD_BENCHMARKS=OFF \
-            -DHAKO_PDU_ENDPOINT_INSTALL=OFF
+            -DHAKO_PDU_ENDPOINT_INSTALL=ON
 
-      - name: Build callback and polling variants
+      - name: Build and install endpoint package
         run: |
           cmake --build build-core-variants --config Release --target hakoniwa_pdu_endpoint_core_callback
           cmake --build build-core-variants --config Release --target hakoniwa_pdu_endpoint_core_polling
+          cmake --install build-core-variants --config Release --prefix "${GITHUB_WORKSPACE}/endpoint-install"
+
+      - name: Build external package consumers
+        run: |
+          cmake -S test/package_consumer -B build-package-consumer \
+            -DCMAKE_BUILD_TYPE=Release \
+            -DCMAKE_PREFIX_PATH="${GITHUB_WORKSPACE}/endpoint-install;${GITHUB_WORKSPACE}/core-install"
+          cmake --build build-package-consumer --config Release
 
   macos-core-variants:
     runs-on: macos-latest
@@ -83,12 +91,20 @@ jobs:
             -DHAKO_PDU_ENDPOINT_BUILD_EXAMPLES=OFF \
             -DHAKO_PDU_ENDPOINT_BUILD_TOOLS=OFF \
             -DHAKO_PDU_ENDPOINT_BUILD_BENCHMARKS=OFF \
-            -DHAKO_PDU_ENDPOINT_INSTALL=OFF
+            -DHAKO_PDU_ENDPOINT_INSTALL=ON
 
-      - name: Build callback and polling variants
+      - name: Build and install endpoint package
         run: |
           cmake --build build-core-variants --config Release --target hakoniwa_pdu_endpoint_core_callback
           cmake --build build-core-variants --config Release --target hakoniwa_pdu_endpoint_core_polling
+          cmake --install build-core-variants --config Release --prefix "${GITHUB_WORKSPACE}/endpoint-install"
+
+      - name: Build external package consumers
+        run: |
+          cmake -S test/package_consumer -B build-package-consumer \
+            -DCMAKE_BUILD_TYPE=Release \
+            -DCMAKE_PREFIX_PATH="${GITHUB_WORKSPACE}/endpoint-install;${GITHUB_WORKSPACE}/core-install"
+          cmake --build build-package-consumer --config Release
 
   windows-core-variants:
     runs-on: windows-latest
@@ -131,10 +147,21 @@ jobs:
             -DHAKO_PDU_ENDPOINT_BUILD_EXAMPLES=OFF `
             -DHAKO_PDU_ENDPOINT_BUILD_TOOLS=OFF `
             -DHAKO_PDU_ENDPOINT_BUILD_BENCHMARKS=OFF `
-            -DHAKO_PDU_ENDPOINT_INSTALL=OFF
+            -DHAKO_PDU_ENDPOINT_INSTALL=ON
 
-      - name: Build callback and polling variants
+      - name: Build and install endpoint package
         shell: pwsh
         run: |
           cmake --build build-core-variants --config Release --target hakoniwa_pdu_endpoint_core_callback
           cmake --build build-core-variants --config Release --target hakoniwa_pdu_endpoint_core_polling
+          cmake --install build-core-variants --config Release --prefix "$env:GITHUB_WORKSPACE/endpoint-install"
+
+      - name: Build external package consumers
+        shell: pwsh
+        run: |
+          $prefixPath = "$env:GITHUB_WORKSPACE/endpoint-install;$env:GITHUB_WORKSPACE/core-install"
+          cmake -S test/package_consumer -B build-package-consumer -A x64 `
+            -DCMAKE_TOOLCHAIN_FILE=C:\vcpkg\scripts\buildsystems\vcpkg.cmake `
+            -DVCPKG_TARGET_TRIPLET=x64-windows `
+            -DCMAKE_PREFIX_PATH="$prefixPath"
+          cmake --build build-package-consumer --config Release
