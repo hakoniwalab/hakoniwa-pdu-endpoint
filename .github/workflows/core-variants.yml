@@ -69,7 +69,7 @@ jobs:
             -DHAKO_CORE_PRO_BUILD_PYTHON_BINDINGS=OFF \
             -DHAKO_ENABLE_GTEST=OFF
           cmake --build hakoniwa-core-pro/build --config Release
-          cmake --install hakoniwa-core-pro/build --config Release --prefix "${GITHUB_WORKSPACE}/core-install"
+          sudo cmake --install hakoniwa-core-pro/build --config Release --prefix "${GITHUB_WORKSPACE}/core-install"
 
       - name: Configure endpoint with Hakoniwa Core
         run: |
