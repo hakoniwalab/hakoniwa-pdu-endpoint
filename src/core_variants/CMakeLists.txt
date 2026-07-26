@@ -38,14 +38,13 @@ if(HAKO_PDU_ENDPOINT_ENABLE_MQTT)
   list(APPEND HAKO_ENDPOINT_VARIANT_COMMON_SRC ../comm_mqtt.cpp)
 endif()
 
-# Resolve the header-only dependencies already used by the legacy target.
-if(TARGET Boost::headers)
-  set(HAKO_ENDPOINT_VARIANT_BOOST_TARGET Boost::headers)
-elseif(TARGET Boost::boost)
-  set(HAKO_ENDPOINT_VARIANT_BOOST_TARGET Boost::boost)
-else()
-  message(FATAL_ERROR "Hakoniwa Core endpoint variants require the Boost target resolved by src/CMakeLists.txt")
+# Reuse the exact Boost dependency already resolved by src/CMakeLists.txt.
+# The legacy resolver may expose Boost::headers/Boost::boost, or it may create a
+# local fallback target and store that target name in HAKO_PDU_ENDPOINT_BOOST_TARGET.
+if(NOT DEFINED HAKO_PDU_ENDPOINT_BOOST_TARGET OR HAKO_PDU_ENDPOINT_BOOST_TARGET STREQUAL "")
+  message(FATAL_ERROR "Hakoniwa Core endpoint variants require the Boost dependency resolved by src/CMakeLists.txt")
 endif()
+set(HAKO_ENDPOINT_VARIANT_BOOST_TARGET ${HAKO_PDU_ENDPOINT_BOOST_TARGET})
 
 if(NOT TARGET nlohmann_json::nlohmann_json)
   message(FATAL_ERROR "Hakoniwa Core endpoint variants require nlohmann_json::nlohmann_json")
