@@ -2,10 +2,61 @@ name: core-variants
 
 on:
   push:
+    paths-ignore:
+      - "**/*.md"
+      - "docs/**"
+      - "LICENSE*"
   pull_request:
+    paths-ignore:
+      - "**/*.md"
+      - "docs/**"
+      - "LICENSE*"
 
 jobs:
+  changes:
+    runs-on: ubuntu-latest
+    outputs:
+      build: ${{ steps.check.outputs.build }}
+    steps:
+      - name: Checkout current head
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          fetch-depth: 2
+
+      - name: Check whether the latest update affects build inputs
+        id: check
+        shell: bash
+        run: |
+          if [[ "${{ github.event_name }}" == "pull_request" && "${{ github.event.action }}" != "synchronize" ]]; then
+            echo "build=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          BEFORE="${{ github.event.before }}"
+          AFTER="${{ github.event.pull_request.head.sha || github.sha }}"
+
+          if [[ -z "$BEFORE" || "$BEFORE" =~ ^0+$ ]]; then
+            BEFORE="$(git rev-parse HEAD^ 2>/dev/null || true)"
+          fi
+
+          if [[ -z "$BEFORE" ]]; then
+            echo "build=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          if git diff --quiet "$BEFORE" "$AFTER" -- . \
+            ':(exclude)**/*.md' \
+            ':(exclude)docs/**' \
+            ':(exclude)LICENSE*'; then
+            echo "build=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "build=true" >> "$GITHUB_OUTPUT"
+          fi
+
   ubuntu-core-variants:
+    needs: changes
+    if: needs.changes.outputs.build == 'true'
     runs-on: ubuntu-latest
     steps:
       - name: Checkout endpoint
@@ -41,14 +92,84 @@ jobs:
             -DHAKO_PDU_ENDPOINT_BUILD_EXAMPLES=OFF \
             -DHAKO_PDU_ENDPOINT_BUILD_TOOLS=OFF \
             -DHAKO_PDU_ENDPOINT_BUILD_BENCHMARKS=OFF \
-            -DHAKO_PDU_ENDPOINT_INSTALL=OFF
+            -DHAKO_PDU_ENDPOINT_INSTALL=ON
 
-      - name: Build callback and polling variants
+      - name: Build and install endpoint package
         run: |
+          cmake --build build-core-variants --config Release --target hakoniwa_pdu_endpoint
           cmake --build build-core-variants --config Release --target hakoniwa_pdu_endpoint_core_callback
           cmake --build build-core-variants --config Release --target hakoniwa_pdu_endpoint_core_polling
+          cmake --install build-core-variants --config Release --prefix "${GITHUB_WORKSPACE}/endpoint-install"
+
+      - name: Build external package consumers
+        run: |
+          cmake -S test/package_consumer -B build-package-consumer \
+            -DCMAKE_BUILD_TYPE=Release \
+            -DCMAKE_PREFIX_PATH="${GITHUB_WORKSPACE}/endpoint-install;${GITHUB_WORKSPACE}/core-install"
+          cmake --build build-package-consumer --config Release
+
+  ubuntu-arm64-core-variants:
+    needs: changes
+    if: needs.changes.outputs.build == 'true'
+    runs-on: ubuntu-24.04-arm
+    steps:
+      - name: Checkout endpoint
+        uses: actions/checkout@v4
+
+      - name: Confirm ARM64 runner
+        run: |
+          uname -a
+          test "$(uname -m)" = "aarch64"
+
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y g++-12 cmake libboost-dev
+          sudo update-alternatives --install /usr/bin/g++ g++ /usr/bin/g++-12 12
+
+      - name: Build and install hakoniwa-core-pro
+        run: |
+          git clone --recursive https://github.com/hakoniwalab/hakoniwa-core-pro.git
+          cmake -S hakoniwa-core-pro -B hakoniwa-core-pro/build \
+            -DCMAKE_BUILD_TYPE=Release \
+            -DCMAKE_INSTALL_PREFIX="${GITHUB_WORKSPACE}/core-install" \
+            -DHAKO_CORE_CONFIG_INSTALL_DIR=etc/hakoniwa \
+            -DHAKO_CORE_PRO_BUILD_COMMAND=OFF \
+            -DHAKO_CORE_PRO_BUILD_EXAMPLES=OFF \
+            -DHAKO_CORE_PRO_BUILD_PYTHON_BINDINGS=OFF \
+            -DHAKO_ENABLE_GTEST=OFF
+          cmake --build hakoniwa-core-pro/build --config Release
+          cmake --install hakoniwa-core-pro/build --config Release --prefix "${GITHUB_WORKSPACE}/core-install"
+
+      - name: Configure endpoint with Hakoniwa Core
+        run: |
+          cmake -S . -B build-core-variants \
+            -DCMAKE_BUILD_TYPE=Release \
+            -DHAKO_PDU_ENDPOINT_ENABLE_HAKONIWA_CORE=ON \
+            -DHAKO_PDU_ENDPOINT_HAKONIWA_CORE_ROOT="${GITHUB_WORKSPACE}/core-install" \
+            -DHAKO_PDU_ENDPOINT_BUILD_TESTS=OFF \
+            -DHAKO_PDU_ENDPOINT_BUILD_EXAMPLES=OFF \
+            -DHAKO_PDU_ENDPOINT_BUILD_TOOLS=OFF \
+            -DHAKO_PDU_ENDPOINT_BUILD_BENCHMARKS=OFF \
+            -DHAKO_PDU_ENDPOINT_INSTALL=ON
+
+      - name: Build and install endpoint package
+        run: |
+          cmake --build build-core-variants --config Release --target hakoniwa_pdu_endpoint
+          cmake --build build-core-variants --config Release --target hakoniwa_pdu_endpoint_core_callback
+          cmake --build build-core-variants --config Release --target hakoniwa_pdu_endpoint_core_polling
+          cmake --install build-core-variants --config Release --prefix "${GITHUB_WORKSPACE}/endpoint-install"
+
+      - name: Build external package consumers
+        run: |
+          cmake -S test/package_consumer -B build-package-consumer \
+            -DCMAKE_BUILD_TYPE=Release \
+            -DCMAKE_PREFIX_PATH="${GITHUB_WORKSPACE}/endpoint-install;${GITHUB_WORKSPACE}/core-install"
+          cmake --build build-package-consumer --config Release
 
   macos-core-variants:
+    needs: changes
+    if: needs.changes.outputs.build == 'true'
     runs-on: macos-latest
     steps:
       - name: Checkout endpoint
@@ -83,14 +204,25 @@ jobs:
             -DHAKO_PDU_ENDPOINT_BUILD_EXAMPLES=OFF \
             -DHAKO_PDU_ENDPOINT_BUILD_TOOLS=OFF \
             -DHAKO_PDU_ENDPOINT_BUILD_BENCHMARKS=OFF \
-            -DHAKO_PDU_ENDPOINT_INSTALL=OFF
+            -DHAKO_PDU_ENDPOINT_INSTALL=ON
 
-      - name: Build callback and polling variants
+      - name: Build and install endpoint package
         run: |
+          cmake --build build-core-variants --config Release --target hakoniwa_pdu_endpoint
           cmake --build build-core-variants --config Release --target hakoniwa_pdu_endpoint_core_callback
           cmake --build build-core-variants --config Release --target hakoniwa_pdu_endpoint_core_polling
+          cmake --install build-core-variants --config Release --prefix "${GITHUB_WORKSPACE}/endpoint-install"
+
+      - name: Build external package consumers
+        run: |
+          cmake -S test/package_consumer -B build-package-consumer \
+            -DCMAKE_BUILD_TYPE=Release \
+            -DCMAKE_PREFIX_PATH="${GITHUB_WORKSPACE}/endpoint-install;${GITHUB_WORKSPACE}/core-install"
+          cmake --build build-package-consumer --config Release
 
   windows-core-variants:
+    needs: changes
+    if: needs.changes.outputs.build == 'true'
     runs-on: windows-latest
     steps:
       - name: Checkout endpoint
@@ -131,10 +263,22 @@ jobs:
             -DHAKO_PDU_ENDPOINT_BUILD_EXAMPLES=OFF `
             -DHAKO_PDU_ENDPOINT_BUILD_TOOLS=OFF `
             -DHAKO_PDU_ENDPOINT_BUILD_BENCHMARKS=OFF `
-            -DHAKO_PDU_ENDPOINT_INSTALL=OFF
+            -DHAKO_PDU_ENDPOINT_INSTALL=ON
 
-      - name: Build callback and polling variants
+      - name: Build and install endpoint package
         shell: pwsh
         run: |
+          cmake --build build-core-variants --config Release --target hakoniwa_pdu_endpoint
           cmake --build build-core-variants --config Release --target hakoniwa_pdu_endpoint_core_callback
           cmake --build build-core-variants --config Release --target hakoniwa_pdu_endpoint_core_polling
+          cmake --install build-core-variants --config Release --prefix "$env:GITHUB_WORKSPACE/endpoint-install"
+
+      - name: Build external package consumers
+        shell: pwsh
+        run: |
+          $prefixPath = "$env:GITHUB_WORKSPACE/endpoint-install;$env:GITHUB_WORKSPACE/core-install"
+          cmake -S test/package_consumer -B build-package-consumer -A x64 `
+            -DCMAKE_TOOLCHAIN_FILE=C:\vcpkg\scripts\buildsystems\vcpkg.cmake `
+            -DVCPKG_TARGET_TRIPLET=x64-windows `
+            -DCMAKE_PREFIX_PATH="$prefixPath"
+          cmake --build build-package-consumer --config Release

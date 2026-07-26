@@ -1,141 +1,70 @@
+[![CI](https://github.com/hakoniwalab/hakoniwa-pdu-endpoint/actions/workflows/ci.yml/badge.svg)](https://github.com/hakoniwalab/hakoniwa-pdu-endpoint/actions/workflows/ci.yml)
+[![Core Variants](https://github.com/hakoniwalab/hakoniwa-pdu-endpoint/actions/workflows/core-variants.yml/badge.svg)](https://github.com/hakoniwalab/hakoniwa-pdu-endpoint/actions/workflows/core-variants.yml)
 [![Ask DeepWiki](https://deepwiki.com/badge.svg)](https://deepwiki.com/hakoniwalab/hakoniwa-pdu-endpoint)
 
 # hakoniwa-pdu-endpoint
 
 [English](README.md) | [日本語](README.ja.md)
 
-`hakoniwa-pdu-endpoint` is a core infrastructure component for Hakoniwa distributed simulation. It is not “just a messaging library”: an Endpoint defines the causality boundary between simulation participants and makes semantics explicit. The design intentionally separates `Cache`, `Communication`, and optional `PDU Definition` so that lifetime, delivery, and meaning are never implicit.
-For visual summaries, see `docs/diagrams/README.md`.
-This component targets teams building multi-asset simulations that require explicit semantics and auditability; it is intentionally heavier than a minimal messaging library. If you want a simple API with implicit defaults, this is not the right tool.
-For a consolidated statement of intent, see `docs/design_philosophy.md`.
+`hakoniwa-pdu-endpoint` is the Endpoint infrastructure used by Hakoniwa distributed simulations.
 
-## Performance and Benchmarks
+It is more than a transport wrapper. Endpoint separates three semantic concerns:
 
-If you are choosing between TCP and SHM(callback), start with the performance
-overview:
+- `cache`: lifetime, overwrite, and queueing semantics
+- `comm`: delivery, persistence, and transport semantics
+- `pdu_def`: optional meaning for PDU names, channel IDs, and sizes
 
-- [Performance characteristics and design rationale](benchmarks/PERFORMANCE.md)
-- [Detailed benchmark report](benchmarks/report.md)
-- [Benchmark runner documentation](benchmarks/README.md)
+This separation lets applications change transport or storage behavior without changing the Endpoint API.
 
-The benchmark results compare endpoint-level TCP and SHM(callback) behavior
-across macOS, Ubuntu/WSL2, and native Windows. They measure the full Hakoniwa
-PDU endpoint path, not raw transport bandwidth.
+For the design rationale, see [docs/design_philosophy.md](docs/design_philosophy.md).
 
-## What This Is Good At
+## Supported capabilities
 
-This project is strongest when you need all of the following at once:
+- TCP / UDP / WebSocket
+- Hakoniwa Shared Memory
+- Storage
+- Zenoh
+- MQTT
+- `latest` / `queue` caches
+- PDU name resolution
+- C facade
+- Python/cffi binding
+- C# binding
 
-- explicit simulation semantics
-- transport independence
-- replayable and inspectable communication
-- configuration-driven composition
+For TCP vs. SHM(callback) performance characteristics, see [benchmarks/PERFORMANCE.md](benchmarks/PERFORMANCE.md).
 
-In practice, that means:
+## CI and supported platforms
 
-- use `cache` to decide in-memory lifetime and overwrite behavior
-- use `comm` to decide delivery or persistence behavior
-- use `pdu_def` to make bytes semantically meaningful
+Two workflows cover different contracts:
 
-The recent `StorageComm` work pushes this further:
+- `ci`: normal builds, tests, bindings, manifest resolution, and transport combinations
+- `core-variants`: Hakoniwa Core package integration and external CMake consumer linkage
 
-- `storage.mode: "latest"` gives you a fixed-slot snapshot file, one current packet per key
-- `storage.mode: "queue"` gives you an append-only log in receive order
-- `recv(key, ...)` and `recv_next(...)` let the API reflect those two different semantics
-- `hako_pdu_storage_debug` lets you inspect either file format from the command line
-- `--json` output makes Python-side post-processing and custom parsers straightforward
+`core-variants` continuously validates this flow on Ubuntu x64, macOS, and Windows x64:
 
-The recent `ZenohComm` work extends the same endpoint model into dynamic pub/sub:
-
-- peer-to-peer pub/sub is available without changing the endpoint API
-- `PduResolvedKey` maps directly onto Zenoh key expressions
-- loosely coupled assets can exchange PDU data without fixed TCP-style role wiring
-- router-based deployment is still possible by changing the Zenoh native config, not the endpoint API
-
-The recent `MqttComm` work extends the same endpoint model into broker-based pub/sub:
-
-- cloud and IoT tooling that already speaks MQTT can exchange PDU data with Hakoniwa assets
-- `PduResolvedKey` maps directly onto MQTT topics
-- broker topology stays in comm config instead of leaking into the endpoint API
-- callback-driven delivery remains consistent with the rest of the endpoint model
-
-## Why Endpoint?
-
-Hakoniwa systems often require many communication links (TCP/UDP/SHM/WebSocket) across multiple assets.
-Without a common abstraction, each protocol tends to introduce its own lifecycle, configuration, and error handling.
-The `Endpoint` abstraction provides one uniform API and configuration model that:
-- decouples cache and transport concerns,
-- makes protocol swaps a config change instead of a code change,
-- and allows higher-level systems (like bridge orchestrators) to manage many links consistently.
-It also enables network-free testing: you can set `comm: null` and use only the internal cache to simplify unit and integration tests.
-Explicit configuration is a feature here: `cache` defines data lifetime and overwrite semantics; `comm` defines delivery guarantees and failure modes; `pdu_def` defines shared meaning of bytes (name → channel_id/size). Implicit behavior is rejected because it hides simulation semantics.
-This design is intentionally biased toward large, multi-asset simulations: it favors long-term auditability and extensibility over a minimal first-run experience. Some APIs (e.g., SHM poll with `process_recv_events()`) expose integration control to fit external event loops, which is a deliberate trade-off rather than an accident.
-
-## Features
-
--   **Modular Endpoint Design**: An `Endpoint` is composed of a `Cache` module (for data storage) and a `Communication` module (for network I/O). This allows for flexible combinations.
--   **PDU Name Resolution (Optional)**: By providing a PDU definition file, the library can automatically resolve PDU names (strings) to their corresponding channel IDs and sizes, enabling a simpler, high-level API.
--   **JSON-based Configuration**: A hierarchical JSON configuration allows you to define an endpoint by linking to specific cache, communication, and optional PDU definition settings.
--   **Multiple Cache Strategies**:
-    -   **`latest` mode**: A state cache that stores only the most recent PDU for each channel.
-    -   **`queue` mode**: An event queue that stores PDUs in a FIFO manner up to a configurable depth.
--   **Multiple Communication Protocols**:
-    -   **TCP**: Client and Server roles for reliable, stream-based communication.
-    -   **UDP**: Unicast, Broadcast, and Multicast for connectionless communication.
-    -   **Shared Memory (SHM)**: Event-driven communication for high-performance, local IPC with Hakoniwa assets. See [benchmarks/PERFORMANCE.md](benchmarks/PERFORMANCE.md) for TCP/SHM(callback) trade-offs.
-    -   **WebSocket**: Client and Server roles for stream-based communication over WebSocket.
-    -   **Storage (File)**: Persistent communication backend for audit/replay use cases.
-        - `mode: queue` stores every send as an append-only framed log and is consumed primarily with `recv_next(...)`.
-        - `mode: latest` stores only the latest packet per `(robot, channel_id)` and is consumed primarily with `recv(key, ...)`.
-        - both modes are self-describing via `StorageHeader`
-        - both modes can be inspected with the C++ debug tool
--   **Replay / Inspection Tooling**:
-        - `build/tools/hako_pdu_storage_debug` prints human-readable summaries of storage files
-        - `--json` exposes offsets, sizes, keys, and timestamps for external tooling
--   **Zenoh Communication Support**:
-        - `zenoh-c` can be fetched by CMake when Zenoh support is enabled
-        - the requested version is controlled by `ZENOH_VERSION.txt`
-        - peer-to-peer pub/sub is available through `ZenohComm`
-        - `PduResolvedKey` maps directly to `<key_prefix>/<robot>/<channel_id>`
--   **MQTT Communication Support**:
-        - Eclipse Paho MQTT C++ can be fetched by CMake when MQTT support is enabled
-        - the requested version is controlled by `MQTT_VERSION.txt`
-        - broker-based pub/sub is available through `MqttComm`
-        - `PduResolvedKey` maps directly to `<topic_prefix>/<robot>/<channel_id>`
--   **Cross-platform**: Built with standard C++20 and CMake, making it portable across different operating systems.
-
-## Requirements
-
--   C++20 compatible compiler (e.g., GCC, Clang, MSVC)
--   CMake (version 3.16 or later)
--   Boost headers (header-only usage)
-    -   On Windows, the recommended path is `vcpkg` (`boost-asio:x64-windows` and `boost-beast:x64-windows`) and passing its toolchain file to CMake.
--   GoogleTest (for running tests, provided by your system package)
--   (Optional) Hakoniwa Core Library, if using Shared Memory (`comm_shm`) communication or Hakoniwa time sources.
-    -   Expected install prefix: `/usr/local/hakoniwa` (headers in `/usr/local/hakoniwa/include`, libs in `/usr/local/hakoniwa/lib`)
-    -   CMake option: `-DHAKO_PDU_ENDPOINT_ENABLE_HAKONIWA_CORE=ON|OFF`
-    -   Core root override: `-DHAKO_PDU_ENDPOINT_HAKONIWA_CORE_ROOT=<path>`
-    -   Default: `ON` on macOS/Linux, `OFF` on Windows
-
-## Quick Start: Manifest-driven build
-
-The recommended developer flow is the same on Windows, macOS, and Linux. Start by declaring the capabilities you want in `hakoniwa-build.yaml`, then let the configurator resolve CMake options and platform-specific prerequisites.
-
-The default manifest builds the Python/cffi binding and keeps Hakoniwa Core, Zenoh, and MQTT disabled. These capabilities are independent: enable only what your application needs.
-
-### 1. Install the common prerequisites
-
-Install a C++20 compiler, CMake, and Python 3. When `bindings.python: true`, install the Python build prerequisites:
-
-```bash
-python -m pip install --upgrade pip setuptools cffi
+```text
+build/install hakoniwa-core-pro
+        ↓
+build/install hakoniwa-pdu-endpoint with Core enabled
+        ↓
+configure a separate consumer project
+        ↓
+find_package(hakoniwa_pdu_endpoint CONFIG REQUIRED)
+        ↓
+link core_callback and core_polling consumers
 ```
 
-On Windows, Boost.Asio/Boost.Beast are commonly provided through vcpkg. The configurator detects `VCPKG_ROOT` / `VCPKG_INSTALLATION_ROOT` when available.
+Linux ARM64 (`aarch64`) uses the same source-build and manifest model. Native ARM64 CI is being added to the `core-variants` workflow; until that job is confirmed, this README does not claim ARM64 as CI-verified.
 
-### 2. Select capabilities in `hakoniwa-build.yaml`
+Documentation-only changes do not trigger the heavy build workflows.
 
-The default is:
+## Recommended build flow: manifest driven
+
+The recommended developer workflow is the same on Windows, macOS, and Linux.
+
+Declare the capabilities you need in `hakoniwa-build.yaml`, then let `tools/hako.py` resolve platform-specific CMake arguments and prerequisites.
+
+Default manifest:
 
 ```yaml
 bindings:
@@ -147,16 +76,16 @@ features:
   mqtt: false
 ```
 
-Common changes:
+Typical changes:
 
-- C++ only: set `bindings.python: false`
-- SHM or Hakoniwa time source: set `features.hakoniwa_core: true` and provide `paths.hakoniwa_core_root` (or `HAKONIWA_CORE_ROOT`)
-- Zenoh: set `features.zenoh: true`
-- MQTT: set `features.mqtt: true`
+- C++ only: `bindings.python: false`
+- SHM / Hakoniwa time source: `features.hakoniwa_core: true`
+- Zenoh: `features.zenoh: true`
+- MQTT: `features.mqtt: true`
 
-Python/cffi is a language binding; it does not imply Hakoniwa Core. TCP/UDP/WebSocket/Storage and Zenoh can be used without Hakoniwa Core.
+Python/cffi is a language binding and is independent from Hakoniwa Core. TCP, UDP, WebSocket, Storage, Zenoh, and MQTT can be used without Core.
 
-### 3. Inspect and build
+Inspect and build:
 
 ```bash
 python tools/hako.py doctor
@@ -165,1328 +94,260 @@ python tools/hako.py build
 python tools/hako.py test
 ```
 
-The resolver writes `.hako/resolved-build.yaml` and `.hako/cmake-args.txt`. Include these when reporting a build/configuration problem so the resolved feature set is reproducible.
-
-For the dependency model, manifest schema, and migration strategy, see [Build Architecture](docs/build-architecture.md).
-
-Existing `build.bash`, `build-win.ps1`, `build-python.bash`, `build-python-win.ps1`, and direct CMake commands remain supported as compatibility/advanced developer paths while the manifest flow is adopted.
-
-## For Developers and Advanced Users
-
-This section provides information for those who wish to contribute to the project, run tests, or use advanced build configurations.
-
-### Development Environment (without Installing)
-
-If you want to test local changes without installing the library to system directories, you can run your Python scripts by temporarily setting environment variables.
-
-**On macOS:**
-```bash
-# Set variables to point to the build output
-export PYTHONPATH=$(pwd)/python:$(pwd)/build/python
-export DYLD_LIBRARY_PATH=$(pwd)/build/src
-
-# Now you can run scripts directly
-python3 python/test/test_c_endpoint_smoke.py
-```
-
-**On Linux:**
-```bash
-# Set variables to point to the build output
-export PYTHONPATH=$(pwd)/python:$(pwd)/build/python
-export LD_LIBRARY_PATH=$(pwd)/build/src
-
-# Now you can run scripts directly
-python3 python/test/test_c_endpoint_smoke.py
-```
-
-### Running Tests
-
-The project includes a C++ test suite using GoogleTest. After a successful build using `bash build.bash`, run the tests from the `build` directory:
-
-```bash
-ctest --test-dir build --output-on-failure
-```
-The repository also includes Python and C# smoke tests. See the `test-python.bash` and `test-csharp.bash` helper scripts for usage.
-
-### Manual CMake Build
-
-For full control over the build process, you can run CMake directly. The `build.bash` script is a wrapper around this process.
-
-```bash
-# Configure the project
-cmake -S . -B build
-
-# Build all targets
-cmake --build build
-```
-To pass specific options, use the `-D` flag. For example, to disable Zenoh support (which is off by default anyway):
-```bash
-cmake -S . -B build -DHAKO_PDU_ENDPOINT_ENABLE_ZENOH=OFF
-```
-
-## Quick Start For Storage
-
-If you want to try the new persistence and replay-oriented features first, start here.
-
-1. Build the project.
-
-```bash
-cmake -S . -B build
-cmake --build build
-```
-
-2. Use one of the sample storage comm configs:
-
-- `config/sample/comm/storage_latest_out_comm.json`
-- `config/sample/comm/storage_queue_out_comm.json`
-
-3. Write packets through an endpoint that uses `protocol: "storage"`.
-
-4. Inspect the resulting file:
-
-```bash
-build/tools/hako_pdu_storage_debug path/to/storage_latest.bin
-build/tools/hako_pdu_storage_debug path/to/storage_queue.bin
-```
-
-5. If you want offsets and metadata for Python-side tooling:
-
-```bash
-build/tools/hako_pdu_storage_debug path/to/storage_queue.bin --json > queue_index.json
-build/tools/hako_pdu_storage_debug path/to/storage_latest.bin --json > latest_index.json
-```
-
-Choose the mode by purpose:
-
-- `latest`: state snapshot, one current packet per key
-- `queue`: replay log, append-only receive order
-
-For the full storage format and API model, see `docs/storage_comm.md`.
-For runnable storage examples, see `examples/README.md`.
-For future work and design backlog, see `issue.md`.
-
-## Quick Start For Zenoh
-
-If you want to try dynamic pub/sub between endpoints without wiring TCP/UDP roles by hand, start here.
-
-Why Zenoh in this project:
-
-- choose it when you want pub/sub semantics instead of fixed client/server wiring
-- choose it when assets should stay loosely coupled and discoverable through key expressions
-- choose it when network topology may evolve and you do not want the application API to change
-- choose it when peer-to-peer startup is more natural than introducing a dedicated router for the first run
-
-1. Build with Zenoh enabled. The fetched `zenoh-c` version is pinned by `ZENOH_VERSION.txt`.
-
-```bash
-cmake -S . -B build-zenoh \
-  -DHAKO_PDU_ENDPOINT_ENABLE_ZENOH=ON \
-  -DHAKO_PDU_ENDPOINT_BUILD_EXAMPLES=ON
-cmake --build build-zenoh -j4
-```
-
-2. Use the sample peer-to-peer configs.
-
-- subscriber listens as peer: `config/sample/comm/zenoh/peer_listen.json5`
-- publisher connects as peer: `config/sample/comm/zenoh/peer_connect.json5`
-- router sample is also available: `config/sample/comm/zenoh/router.json5`
-
-3. Start the subscriber endpoint.
-
-```bash
-./build-zenoh/examples/endpoint_zenoh_sub
-```
-
-4. Start the publisher endpoint in another terminal.
-
-```bash
-./build-zenoh/examples/endpoint_zenoh_pub
-```
-
-5. Confirm callback-driven delivery.
-
-You should see the subscriber print `sample_state` updates as they arrive. This callback-driven delivery is controlled by `notify_on_recv` in the comm config (`zenoh.io.robots[].pdu[].notify_on_recv`). Set it to `true` for a key to have incoming Zenoh publications trigger the endpoint receive callback; omit it or set it to `false` to suppress callbacks for that key.
-
-Example output:
+The resolver writes:
 
 ```text
-Waiting for Zenoh samples...
-received sample_state=1
-received sample_state=2
-received sample_state=3
+.hako/resolved-build.yaml
+.hako/cmake-args.txt
 ```
 
-6. Run the integration test if you want a reproducible check.
+Include these files when reporting build problems so the resolved feature set and CMake inputs are reproducible.
 
-```bash
-./build-zenoh/test/endpoint_test \
-  --gtest_filter=EndpointTest.ZenohCommPeerToPeerPubSubDeliversPayloadToCallback \
-  --gtest_color=no
+For the full model, see [docs/build-architecture.md](docs/build-architecture.md).
+
+## Hakoniwa Core artifacts
+
+`features.hakoniwa_core` is a **build capability switch**, not a callback/polling selector.
+
+The manifest decides which artifacts exist. The downstream CMake target decides which Hakoniwa Core frontend the application depends on.
+
+### Core disabled
+
+```yaml
+features:
+  hakoniwa_core: false
 ```
 
-For runnable examples, see `examples/README.md`.
-For schema details, see `config/schema/comm_schema.json`.
-
-## Quick Start For MQTT
-
-If you want broker-based pub/sub with a widely deployed transport, start here.
-
-Why MQTT in this project:
-
-- choose it when you want a broker-centric pub/sub topology instead of fixed client/server wiring
-- choose it when cloud or IoT tooling already speaks MQTT and you want Hakoniwa endpoints to fit into that environment
-- choose it when topic-based routing is enough and you do not need Zenoh key-expression features
-- choose it when the application should keep the same endpoint API while the broker handles fan-out and retention
-
-1. Build with MQTT enabled. The fetched `paho.mqtt.cpp` version is pinned by `MQTT_VERSION.txt`.
-
-```bash
-cmake -S . -B build-mqtt \
-  -DHAKO_PDU_ENDPOINT_ENABLE_MQTT=ON \
-  -DHAKO_PDU_ENDPOINT_BUILD_EXAMPLES=ON
-cmake --build build-mqtt -j4
-```
-
-2. Start a local broker. The sample pair assumes `mosquitto` on `127.0.0.1:1883`.
-
-```bash
-mosquitto -p 1883
-```
-
-3. Start the subscriber endpoint in another terminal.
-
-```bash
-./build-mqtt/examples/endpoint_mqtt_sub
-```
-
-4. Start the publisher endpoint in a third terminal.
-
-```bash
-./build-mqtt/examples/endpoint_mqtt_pub
-```
-
-5. Confirm callback-driven delivery.
-
-You should see the subscriber print `sample_state` updates as they arrive. MQTT receive delivery is callback-driven in the same way as Zenoh, but the routing unit is an MQTT topic derived from `<topic_prefix>/<robot>/<channel_id>`.
-
-Example output:
+Primary build target:
 
 ```text
-Waiting for MQTT samples...
-received sample_state=1
-received sample_state=2
-received sample_state=3
+hakoniwa_pdu_endpoint
 ```
 
-6. Run the integration test if you want a reproducible check. It starts a temporary `mosquitto` broker when the executable is available in `PATH`.
-
-```bash
-./build-mqtt/test/endpoint_test \
-  --gtest_filter=EndpointTest.MqttCommPubSubDeliversPayloadToCallback \
-  --gtest_color=no
-```
-
-For runnable examples, see `examples/README.md`.
-For schema details, see `config/schema/comm_schema.json`.
-
-## Using from Python
-
-The recommended way to use the Python bindings is to follow the `Quick Start` guide, which builds and installs the necessary native components. The Python package is installed to `/usr/local/hakoniwa/share/hakoniwa-pdu-endpoint/python` by default.
-
-To use it in your project, ensure the path is added to your `PYTHONPATH`:
-```bash
-export PYTHONPATH=/usr/local/hakoniwa/share/hakoniwa-pdu-endpoint/python:$PYTHONPATH
-```
-
-The main entry points are:
-- `hakoniwa_pdu_endpoint.c_endpoint`: A thin, CFFI-based wrapper around the C facade.
-- `hakoniwa_pdu_endpoint.endpoint_container`: A pure-Python container for managing multiple endpoints.
-
-Runnable examples are available in the `python/examples/` directory.
-
-## Quick Start For C#
-
-If you want to use `Endpoint` from C# through the C facade boundary, start here.
-
-Why this matters in this project:
-
-- the native runtime stays language-neutral
-- C# can use the same `Endpoint` model as C++ and Python
-- Unity/Godot-oriented integration is possible without adding engine-specific code to the native layer
-- runtime `recv_next(...)` is available for internal cache semantics as well as storage-backed use cases
-
-1. Build the shared native library and C# projects.
-
-```bash
-bash build.bash
-bash build-csharp.bash
-```
-
-2. Run the C# smoke tests.
-
-```bash
-bash test-csharp.bash
-```
-
-3. Inspect the binding-level examples.
-
-- `csharp/examples/MinimalExample/`
-- `csharp/examples/ManualPumpExample/`
-- `csharp/examples/RecvNextExample/`
-
-4. For Unity/Godot-oriented setup and lifecycle guidance, see:
-
-- `docs/csharp_engine_integration.md`
-
-## Install / Uninstall
-
-The `install.bash` script, described in the Quick Start, installs the project components to a prefix (default: `/usr/local/hakoniwa`).
-
-**Installed Components:**
-- **Headers**: C++ headers in `<prefix>/include`
-- **Shared Library**: The core C++ library (`libhakoniwa_pdu_endpoint.dylib` or `.so`) in `<prefix>/lib`
-- **CMake Config**: CMake package files in `<prefix>/lib/cmake`
-- **Python Package**: The complete Python package, including the CFFI extension and its required native library, in `<prefix>/share/hakoniwa-pdu-endpoint/python`
-
-**To Uninstall:**
-The repository provides a script to remove the installed files from the prefix.
-```bash
-sudo bash uninstall.bash
-```
-This will remove the files listed above from the default `/usr/local/hakoniwa` prefix.
-
-### Build Example (CMake)
+Installed CMake target:
 
 ```cmake
-target_include_directories(app PRIVATE /usr/local/hakoniwa/include)
-target_link_directories(app PRIVATE /usr/local/hakoniwa/lib)
-target_link_libraries(app PRIVATE hakoniwa_pdu_endpoint)
+hakoniwa_pdu_endpoint::hakoniwa_pdu_endpoint
 ```
 
-### C Facade
+Use this for Core-free TCP / UDP / WebSocket / Storage / Zenoh / MQTT applications.
 
-The repository now includes a portable C facade for the `Endpoint` runtime:
+### Core enabled
 
-- header: `include/hakoniwa/pdu/c_endpoint.h`
-- implementation: `src/c_endpoint.cpp`
+```yaml
+features:
+  hakoniwa_core: true
+```
 
-This is intended to become the stable ABI boundary for foreign-language access.
-The current surface is:
+Three native targets are generated:
 
-- `create/destroy`
-- `create_pdu_lchannels`
-- `open/start/post_start/stop/close`
-- `is_running`
-- `process_recv_events`
-- `send`
-- `send_by_name`
-- `subscribe_on_recv_callback`
-- `subscribe_on_recv_callback_by_name`
-- `recv`
-- `recv_by_name`
-- `recv_next`
-- `get_pdu_size`
-- `get_pdu_channel_id`
-- `get_pdu_name`
+| Build target | Installed CMake target | Core dependency | Intended use |
+|---|---|---|---|
+| `hakoniwa_pdu_endpoint` | `hakoniwa_pdu_endpoint::hakoniwa_pdu_endpoint` | callback + polling | legacy compatibility |
+| `hakoniwa_pdu_endpoint_core_callback` | `hakoniwa_pdu_endpoint::core_callback` | `hakoniwa-core::assets` | preferred for new callback / asset integrations |
+| `hakoniwa_pdu_endpoint_core_polling` | `hakoniwa_pdu_endpoint::core_polling` | `hakoniwa-core::shakoc` | preferred for new polling integrations |
 
-Current design constraints:
+The legacy `hakoniwa_pdu_endpoint` target intentionally remains compatible with existing applications. When Core is enabled, it contains both callback and polling SHM/time-source implementations.
 
-- opaque handle based
-- caller-owned buffers for `recv` and `recv_next`
-- resolved-key-first API, with name-based helpers available when `pdu_def` is loaded
-- callback payload pointers are borrowed for the duration of the callback only
-- Python wrappers should copy callback payload bytes before returning from the callback
+For new Core-aware applications, prefer an explicit variant:
 
-For the C# binding design intended for Unity/Godot-style main-thread dispatch,
-see `docs/csharp_binding.md`.
+```text
+Core-free application
+  -> hakoniwa_pdu_endpoint::hakoniwa_pdu_endpoint
 
-For Unity/Godot-oriented C# setup and lifecycle guidance, see
-`docs/csharp_engine_integration.md`.
+Hakoniwa callback/assets integration
+  -> hakoniwa_pdu_endpoint::core_callback
 
-The repository currently stops at the binding layer and examples.
-Unity-specific or Godot-specific lifecycle adapters are intentionally left to application-side integration.
+Hakoniwa polling/shakoc integration
+  -> hakoniwa_pdu_endpoint::core_polling
+```
 
-For the current Python binding design and callback model, see
-`docs/python_binding.md`.
+The distinction is deliberate:
 
-For the core runtime receive model across transports and cache modes, see
-`docs/receive_semantics.md`.
+```text
+manifest
+  decides which capabilities and artifacts are built
 
-That avoids running user Python logic directly on transport-facing callback
-threads.
+consumer CMake target
+  decides which Core frontend is linked
+```
 
-Current verification in this repository:
+There is therefore no callback/polling selector in the manifest.
 
-- C facade gtests:
-  - `EndpointTest.CEndpointInternalCacheSendRecvWorks`
-  - `EndpointTest.CEndpointStorageQueueRecvNextWorks`
-  - `EndpointTest.CEndpointRecvReturnsNoSpaceWhenBufferTooSmall`
-  - `EndpointTest.CEndpointRecvNextReturnsNoSpaceWhenBufferTooSmall`
-  - `EndpointTest.CEndpointNameBasedApiWorks`
-  - `EndpointTest.CEndpointResolvedKeyCallbackWorks`
-- Python smoke test:
-- Python smoke tests:
-  - `python/test/test_c_endpoint_smoke.py`
-  - `python/test/test_c_endpoint_callback_smoke.py`
-  - `python/test/test_c_endpoint_ros_style_smoke.py`
-  - `python/test/test_c_endpoint_recv_next_smoke.py`
-  - `python/test/test_c_endpoint_pending_smoke.py`
-  - `python/test/test_endpoint_container_smoke.py`
-- C# smoke tests:
-  - `csharp/tests/SmokeTests/`
+## Consuming the installed CMake package
 
-### Python cffi Wrapper
+Consumers should use exported CMake targets rather than reconstructing include and library paths manually.
 
-A first `cffi` API-mode wrapper is provided under:
+Callback/assets integration:
 
-- `python/hakoniwa_pdu_endpoint/build_c_endpoint_ffi.py`
-- `python/hakoniwa_pdu_endpoint/c_endpoint.py`
+```cmake
+find_package(hakoniwa_pdu_endpoint CONFIG REQUIRED)
 
-Typical flow:
+target_link_libraries(my_app PRIVATE
+  hakoniwa_pdu_endpoint::core_callback
+)
+```
+
+Polling/shakoc integration:
+
+```cmake
+find_package(hakoniwa_pdu_endpoint CONFIG REQUIRED)
+
+target_link_libraries(my_app PRIVATE
+  hakoniwa_pdu_endpoint::core_polling
+)
+```
+
+A Core-enabled Endpoint package resolves `hakoniwa-core` transitively. Consumers should not need to `find_library()` `assets`, `shakoc`, or `hako`, nor hard-code the Core install layout.
+
+The `core-variants` workflow validates this installed-package contract with a separate external consumer project.
+
+## Requirements
+
+- C++20 compiler
+- CMake 3.16 or newer
+- Boost headers
+- GoogleTest when building tests
+- Hakoniwa Core when using SHM or Hakoniwa time sources
+- Python 3 + `cffi` / `setuptools` when `bindings.python: true`
+
+On Windows, Boost.Asio / Boost.Beast through vcpkg is the recommended setup.
+
+## Direct CMake build
+
+Direct CMake remains available as a compatibility and advanced-developer path.
 
 ```bash
-python python/hakoniwa_pdu_endpoint/build_c_endpoint_ffi.py
-python python/test/test_c_endpoint_smoke.py
-python python/test/test_c_endpoint_callback_smoke.py
-```
-
-This assumes the core library has already been built and is available in the
-repository build tree.
-
-`c_endpoint.py` is the only Python binding entry point. It exposes the C facade
-almost directly, while also carrying optional callback convenience helpers such
-as `on_recv(...)`, `start_dispatch()`, and `stop_dispatch()`.
-
-`cffi` was chosen instead of direct `Python.h` embedding or a `ctypes`-first
-approach because:
-
-- the runtime boundary stays a plain C ABI
-- callback support can be added without pulling Python-specific logic into the
-  core C++ library
-- API/out-of-line mode keeps type checking tied to the C header owned by this
-  project
-- callback-heavy usage is safer to evolve than with a `ctypes`-only path
-
-The repository includes callback and pull-model smoke tests:
-
-- `python/test/test_c_endpoint_smoke.py`
-- `python/test/test_c_endpoint_callback_smoke.py`
-- `python/test/test_c_endpoint_ros_style_smoke.py`
-- `python/test/test_c_endpoint_recv_next_smoke.py`
-- `python/test/test_c_endpoint_pending_smoke.py`
-- `python/test/test_endpoint_container_smoke.py`
-
-### Python EndpointContainer
-
-The repository also includes a pure-Python `EndpointContainer`:
-
-- `python/hakoniwa_pdu_endpoint/endpoint_container.py`
-
-This is intentionally implemented in Python rather than through a new C facade.
-The existing C++ `EndpointContainer` is mostly lifecycle/config orchestration,
-so Python can reproduce the same value cleanly by composing wrapped `Endpoint`
-instances.
-
-Current Python container responsibilities:
-
-- load container config and select entries by `nodeId`
-- resolve relative `config_path` values against the container file location
-- `initialize`
-- `create_pdu_lchannels`
-- `start_all`
-- `post_start_all`
-- `stop_all`
-- per-endpoint `start/post_start/stop/ref`
-
-### Python Runtime View
-
-The Python-facing structure is intentionally layered above the C facade instead
-of reaching directly into C++:
-
-```mermaid
-classDiagram
-    class Endpoint
-    class CFacade
-    class PyEndpoint
-    class PyEndpointContainer
-
-    Endpoint <.. CFacade : wraps
-    CFacade <.. PyEndpoint : cffi API mode
-    PyEndpoint <.. PyEndpointContainer : composed
-```
-
-### Python Scope Boundary
-
-`EndpointCommMultiplexer` is intentionally not exposed to Python yet.
-
-Reason:
-
-- unlike `EndpointContainer`, it depends on lower-level session-accept logic
-  that is not exposed through the current C facade
-- reproducing it faithfully in Python would require new C APIs around mux
-  session handoff
-- it is more specialized than the current Python runtime access goal
-
-## Zenoh Communication Support
-
-Zenoh support is enabled by build option, but it is a first-class transport rather than an experimental side path.
-
-Version source:
-
-- `ZENOH_VERSION.txt`
-
-Enable fetch/build:
-
-```bash
-cmake -S . -B build -DHAKO_PDU_ENDPOINT_ENABLE_ZENOH=ON
+cmake -S . -B build
 cmake --build build
 ```
 
-Current behavior:
+Core-enabled example:
 
-- CMake fetches `zenoh-c` from the version in `ZENOH_VERSION.txt`
-- the project builds `ZenohComm`
-- current scope is peer-to-peer pub/sub using `PduResolvedKey -> <key_prefix>/<robot>/<channel_id>`
-- runnable examples:
-  - `examples/endpoint_zenoh_pub.cpp`
-  - `examples/endpoint_zenoh_sub.cpp`
-  - `config/sample/endpoint_zenoh_pub.json`
-  - `config/sample/endpoint_zenoh_sub.json`
-- runnable test:
-  - `EndpointTest.ZenohCommPeerToPeerPubSubDeliversPayloadToCallback`
+```bash
+cmake -S . -B build-core \
+  -DHAKO_PDU_ENDPOINT_ENABLE_HAKONIWA_CORE=ON \
+  -DHAKO_PDU_ENDPOINT_HAKONIWA_CORE_ROOT=/path/to/hakoniwa-core-install
+cmake --build build-core
+```
 
-Minimal config shape:
+The legacy raw-CMake defaults may differ from the manifest defaults. Use the manifest flow when reproducibility is more important than preserving historical build behavior.
+
+## Endpoint configuration
+
+An Endpoint configuration is composed of up to four parts:
+
+- Endpoint config
+- Cache config
+- Communication (`comm`) config
+- optional PDU Definition (`pdu_def`) config
+
+Relative paths are resolved from the file that declares them.
+
+Schemas are under `config/schema/`.
+
+A typical endpoint config:
 
 ```json
 {
-  "protocol": "zenoh",
-  "direction": "inout",
-  "zenoh": {
-    "config_path": "zenoh/peer_connect.json5",
-    "key_prefix": "hakoniwa"
-  }
+  "name": "my_endpoint",
+  "pdu_def_path": "comm/hakoniwa/pdudef.json",
+  "cache": "cache/queue.json",
+  "comm": "comm/hakoniwa/shm_comm.json"
 }
 ```
 
-Design split:
-
-- Zenoh-native transport/session details live in the Zenoh config file referenced by `config_path`
-- Hakoniwa-specific semantics stay in the endpoint comm config
-- per-key receive notifications are configured under `zenoh.io.robots[].pdu[].notify_on_recv`
-- sample pub/sub layout uses peer-to-peer config without `zenohd`
-- subscriber listens as peer: `config/sample/comm/zenoh/peer_listen.json5`
-- publisher connects as peer: `config/sample/comm/zenoh/peer_connect.json5`
-- a router sample config is also provided at `config/sample/comm/zenoh/router.json5`
-
-Current intent:
-
-- today the documented happy path is peer-to-peer pub/sub because it is the smallest useful setup
-- router-based deployment is still supported by supplying a Zenoh router config through `config_path`
-- the Hakoniwa side remains stable because transport topology stays outside the endpoint API
-
-## MQTT Communication Support
-
-MQTT support is enabled by build option, but it is a first-class transport rather than an experimental side path.
-
-Version source:
-
-- `MQTT_VERSION.txt`
-
-Enable fetch/build:
-
-```bash
-cmake -S . -B build-mqtt -DHAKO_PDU_ENDPOINT_ENABLE_MQTT=ON
-cmake --build build-mqtt -j4
-```
-
-Current behavior:
-
-- CMake fetches `paho.mqtt.cpp` from the version in `MQTT_VERSION.txt`
-- the project builds `MqttComm`
-- current scope is broker-based pub/sub using `PduResolvedKey -> <topic_prefix>/<robot>/<channel_id>`
-- runnable examples:
-  - `examples/endpoint_mqtt_pub.cpp`
-  - `examples/endpoint_mqtt_sub.cpp`
-  - `config/sample/endpoint_mqtt_pub.json`
-  - `config/sample/endpoint_mqtt_sub.json`
-- runnable test:
-  - `EndpointTest.MqttCommPubSubDeliversPayloadToCallback`
-- `recv(key, ...)` is still unsupported because MQTT is modeled as a push transport
-
-Minimal config shape:
+An internal cache-only Endpoint uses:
 
 ```json
 {
-  "protocol": "mqtt",
-  "direction": "inout",
-  "mqtt": {
-    "broker": "tcp://127.0.0.1:1883",
-    "topic_prefix": "hakoniwa"
-  }
+  "name": "my_internal_buffer",
+  "cache": "cache/buffer.json",
+  "comm": null
 }
 ```
 
-Design intent:
+For configuration semantics and validation, see:
 
-- MQTT belongs at the same transport/pub-sub layer as Zenoh
-- broker topology should stay in comm config, not in the endpoint API
-- `PduResolvedKey` should map directly to MQTT topics
-- incoming publications should reach the endpoint through the receive callback path
+- [docs/tutorials/endpoint.md](docs/tutorials/endpoint.md)
+- [docs/receive_semantics.md](docs/receive_semantics.md)
+- [docs/storage_comm.md](docs/storage_comm.md)
+- `config/schema/`
 
-Current intent:
+## Transport notes
 
-- today the documented happy path is a local broker with one publisher and one subscriber because it is the smallest useful setup
-- broker-side concerns such as authentication, retained messages, and deployment topology stay outside the endpoint API
-- the Hakoniwa side remains stable because transport topology is expressed only in comm config
+### Storage
 
-## How to Run Tests
+- `latest`: one current value per key; primary API is `recv(key, ...)`
+- `queue`: append/receive-order semantics; primary API is `recv_next(...)`
 
-The project includes a test suite built with GoogleTest. After a successful build, run the tests from the `build` directory:
+Use `hako_pdu_storage_debug` to inspect generated storage files.
 
-```bash
-ctest --test-dir build --output-on-failure
+### Zenoh
+
+Enable with:
+
+```yaml
+features:
+  zenoh: true
 ```
 
-You should see output indicating that all tests have passed.
+Zenoh is modeled as a first-class pub/sub transport. Native Zenoh topology stays in its Zenoh config; Hakoniwa Endpoint semantics remain in the Endpoint comm config.
 
-## Configuration
+### MQTT
 
-The endpoint configuration is modular, consisting of up to four parts: the main **Endpoint** config, a **Cache** config, a **Communication** (`comm`) config, and an optional **PDU Definition** (`pdu_def`) config.
+Enable with:
 
-### Why so many configuration files?
-
-Each file represents a separate semantic decision: storage lifetime/overwrite behavior (cache), delivery guarantees and failure modes (comm), and shared meaning of bytes (pdu_def). Keeping these decisions explicit avoids ambiguity and makes distributed-simulation causality auditable. Validators are provided to enforce this semantic clarity.
-
-The schemas for these can be found in `config/schema/`:
-- `endpoint_schema.json`
-- `endpoint_container_schema.json`
-- `cache_schema.json`
-- `comm_schema.json`
-- `pdu_def_schema.json`
-- `pdudef.schema.json` (legacy or compact)
-- `pdutypes.schema.json` (compact PDU list)
-
-### Configuration Workflow
-
-1. Create a cache config (e.g., `config/sample/cache/buffer.json` or `config/sample/cache/queue.json`).
-2. Create a comm config (e.g., `config/sample/comm/tcp_server_inout_comm.json`).
-3. Create a single endpoint config (e.g., `config/sample/endpoint.json`) that references the cache and comm files.
-4. Optional: create a container config (e.g., `config/sample/endpoint_container.json`) to manage multiple endpoints under a `nodeId`.
-
-Relative paths are resolved from the config file that contains the path:
-
-- `endpoint.cache`, `endpoint.comm`, and `endpoint.pdu_def_path` are resolved from the endpoint config directory.
-- `container.endpoints[].config_path` is resolved from the container config directory.
-- Protocol-specific paths inside a comm config, such as `zenoh.config_path`, `rmw_zenoh.config_path`, or `storage.path`, are resolved from the comm config directory.
-
-For example, if `config/generated/endpoint_rmw_zenoh_pub.json` contains
-`"comm": "rmw_zenoh_pub_comm.json"`, the comm file is
-`config/generated/rmw_zenoh_pub_comm.json`. If that comm file contains
-`"config_path": "zenoh_client_pub.json5"`, the Zenoh config is
-`config/generated/zenoh_client_pub.json5`.
-
-You can validate configs with the JSON schema checker (after install, set `PYTHONPATH`):
-```bash
-export PYTHONPATH="/usr/local/hakoniwa/share/hakoniwa-pdu-endpoint/python:$PYTHONPATH"
-python -m hakoniwa_pdu_endpoint.validate_json --schema config/schema/endpoint_schema.json --check-paths config/sample/endpoint.json
-python -m hakoniwa_pdu_endpoint.validate_json --schema config/schema/endpoint_container_schema.json --check-paths config/sample/endpoint_container.json
-python -m hakoniwa_pdu_endpoint.validate_pdudef config/sample/comm/hakoniwa
+```yaml
+features:
+  mqtt: true
 ```
 
-Typical validation flow after generation:
+MQTT is modeled as broker-based pub/sub while preserving the same Endpoint API.
 
-```bash
-python -m hakoniwa_pdu_endpoint.validate_json --schema config/schema/endpoint_schema.json --check-paths config/generated/endpoint_storage_demo.json
-python -m hakoniwa_pdu_endpoint.validate_json --schema config/schema/endpoint_schema.json --check-paths config/generated/endpoint_zenoh_sub_demo.json
-python -m hakoniwa_pdu_endpoint.validate_json --schema config/schema/endpoint_container_schema.json --check-paths config/generated/endpoint_container_demo.json
-python -m hakoniwa_pdu_endpoint.validate_pdudef config/sample/comm/storage_example
-```
+### Shared Memory
 
-Python dependency for validators:
-- `jsonschema` (install with `pip install jsonschema`)
+SHM requires Hakoniwa Core. Runtime configuration can still select callback or polling behavior for the legacy target, but new CMake consumers should normally choose the corresponding explicit build variant described above.
 
-Tutorials:
-- `docs/tutorials/endpoint.md`
+## Language bindings
 
+### Python
 
-### 1. Endpoint Configuration
+The Python binding is layered over the C facade with `cffi`.
 
-This is the main entry point. It defines an endpoint and links to the desired cache, communication, and (optionally) PDU definition configurations.
+Main modules:
 
-**Example with PDU Definition (for high-level API):**
-```json
-{
-    "name": "my_shm_endpoint",
-    "pdu_def_path": "config/sample/comm/hakoniwa/pdudef.json",
-    "cache": "config/sample/cache/queue.json",
-    "comm": "config/sample/comm/hakoniwa/shm_comm.json"
-}
-```
+- `python/hakoniwa_pdu_endpoint/c_endpoint.py`
+- `python/hakoniwa_pdu_endpoint/endpoint_container.py`
 
-**Example without PDU Definition (for low-level API):**
-```json
-{
-    "name": "my_tcp_endpoint",
-    "cache": "config/sample/cache/queue.json",
-    "comm": "config/sample/comm/tcp_server_inout_comm.json"
-}
-```
+See [docs/python_binding.md](docs/python_binding.md).
 
-An endpoint for internal use (without a network component) can be defined by setting `comm` to `null`.
-```json
-{
-    "name": "my_internal_buffer",
-    "cache": "config/sample/cache/buffer.json",
-    "comm": null
-}
-```
+### C#
 
-Additional endpoint examples are collected in `config/sample/endpoint_examples.json`.
+The C# binding also uses the C facade as the native ABI boundary.
 
-### 1b. Endpoint Container Configuration
+See:
 
-`EndpointContainer` uses a container file to map a `nodeId` to a list of endpoints.
+- [docs/csharp_binding.md](docs/csharp_binding.md)
+- [docs/csharp_engine_integration.md](docs/csharp_engine_integration.md)
 
-**Example:**
-```json
-[
-  {
-    "nodeId": "node_1",
-    "endpoints": [
-      { "id": "ep_tcp_server", "config_path": "config/sample/endpoint_tcp_server.json" },
-      { "id": "ep_udp_inout", "config_path": "config/sample/endpoint_udp_inout.json" }
-    ]
-  }
-]
-```
+## Examples and tools
 
-### 2. Cache Configuration
+Runnable examples are under `examples/` and `python/examples/`.
 
-These files define the in-memory storage strategy (e.g., `latest` mode or `queue` mode). See `config/sample/cache/` for examples.
+Useful entry points:
 
-### 3. Communication (Comm) Configuration
+- [examples/README.md](examples/README.md)
+- [benchmarks/README.md](benchmarks/README.md)
+- [docs/diagrams/README.md](docs/diagrams/README.md)
+- [FAQ.md](FAQ.md)
 
-These files define the network protocol and parameters. See `config/sample/comm/` for examples for TCP, UDP, SHM, WebSocket, and Storage.
+## Maintainer rule
 
-#### Storage comm (file backend)
+When adding a new optional transport, binding, or runtime capability:
 
-Storage comm can be used for persistence-oriented pipelines.
-
-- `protocol: "storage"`
-- `storage.backend: "file"`
-- `storage.mode: "queue" | "latest"`
-- `storage.path`: output/input file path (resolved relative to comm config)
-
-Recommended mental model:
-
-- `latest`
-  - state snapshot
-  - one slot per `(robot, channel_id)`
-  - fixed file size after `open()`
-  - primary read API: `recv(key, ...)`
-- `queue`
-  - replay log
-  - append-only receive-order frames
-  - primary read API: `recv_next(...)`
-
-Current file formats:
-
-- `queue` stores a `StorageHeader` followed by repeated binary frames
-- `latest` stores a `StorageHeader`, a fixed `StorageEntry[]` table, and a packet area
-
-Sample configs:
-
-- `config/sample/comm/storage_queue_out_comm.json`
-- `config/sample/comm/storage_latest_out_comm.json`
-
-Formal storage format and API notes:
-
-- `docs/storage_comm.md`
-
-This document covers:
-
-- `latest` fixed-slot layout
-- current `queue` framed-log layout
-- `recv(key, ...)` vs `recv_next(...)`
-- storage metadata design direction
-
-Debug tool:
-
-- `build/tools/hako_pdu_storage_debug <storage-file>`
-- optional flags: `--limit N`, `--json`, `--verbose`
-- prints a human-readable summary of `latest` and `queue` files
-- `--json` prints a machine-readable index suitable for Python or replay tooling
-
-Typical usage:
-
-```bash
-build/tools/hako_pdu_storage_debug path/to/storage_latest.bin
-build/tools/hako_pdu_storage_debug path/to/storage_queue.bin --limit 20
-build/tools/hako_pdu_storage_debug path/to/storage_queue.bin --json > queue_index.json
-```
-
-Future considerations for Storage and related extensions are tracked in `issue.md`.
-
-Runnable examples:
-
-- `config/sample/endpoint_storage_queue.json`
-- `config/sample/endpoint_storage_latest.json`
-- `examples/endpoint_storage_queue.cpp`
-- `examples/endpoint_storage_latest.cpp`
-- `examples/README.md`
-
-Example commands:
-
-```bash
-./build/examples/endpoint_storage_queue
-./build/examples/endpoint_storage_latest
-```
-
-#### Optional: host name resolver for TCP/UDP
-
-For TCP/UDP comm configs, you can resolve host names (e.g. `srv-01`) via a local map file:
-
-```json
-{
-  "protocol": "tcp",
-  "direction": "out",
-  "role": "client",
-  "name_resolver": {
-    "type": "file",
-    "path": "../node-ip-map.json",
-    "strict": false
-  },
-  "remote": {
-    "address": "srv-01",
-    "port": 64011
-  }
-}
-```
-
-Map file example:
-
-```json
-{
-  "srv-01": "192.168.10.20",
-  "cli-01": "192.168.10.21"
-}
-```
-
-Notes:
-- `path` is resolved relative to the comm config file.
-- IP literals are used as-is and do not require mapping.
-- `strict=true` makes unresolved host names a config error.
-
-### 4. PDU Definition File (Optional)
-
-This file maps human-readable PDU names to their channel IDs, sizes, and types. Providing this file in the endpoint configuration enables the high-level, name-based API.
-When using SHM communication, a PDU definition file is required so the shared-memory channel IDs can be resolved.
-
-**Legacy `pdudef.json` (Excerpt):**
-```json
-{
-    "robots": [
-        {
-            "name": "Drone",
-            "shm_pdu_readers": [
-                {
-                    "type": "geometry_msgs/Twist",
-                    "org_name": "pos",
-                    "name": "Drone_pos",
-                    "channel_id": 1,
-                    "pdu_size": 72,
-                    "method_type": "SHM"
-                }
-            ]
-        }
-    ]
-}
-```
-
-**Compact format (recommended for new configs):**
-
-This splits shared PDU definitions into a separate file and references them by ID, which avoids duplication when you have many robots with the same PDU set.
-The schema treats a file as compact when it contains the `paths` field; otherwise it is validated as legacy.
-
-`config/sample/comm/hakoniwa/new-pdudef.json`:
-```json
-{
-  "paths": [
-    { "id": "default", "path": "new-pdutypes.json" }
-  ],
-  "robots": [
-    { "name": "Drone", "pdutypes_id": "default" },
-    { "name": "Drone2", "pdutypes_id": "default" }
-  ]
-}
-```
-
-`config/sample/comm/hakoniwa/new-pdutypes.json`:
-```json
-[
-  { "channel_id": 0, "pdu_size": 112, "name": "motor", "type": "hako_mavlink_msgs/HakoHilActuatorControls" },
-  { "channel_id": 1, "pdu_size": 72, "name": "pos", "type": "geometry_msgs/Twist" }
-]
-```
-
-We recommend using the compact format for new configurations to keep large robot fleets manageable.
-
-### 5. Time Source Types
-
-`create_time_source(type, delta_time_step_usec)` accepts the following `type` strings:
-
-- `real`: Wall-clock time with `sleep_for` based on `delta_time_step_usec`.
-- `virtual`: Manually advanced time.
-- `hakoniwa`: Hakoniwa time source (defaults to poll behavior).
-- `hakoniwa_poll`: Explicit poll implementation.
-- `hakoniwa_callback`: Explicit callback implementation.
-
-## Basic Usage
-
-The library offers two API levels depending on whether a PDU definition file is provided.
-
-### High-Level API (Name-based)
-
-This is the recommended approach when interacting with complex systems like Hakoniwa. By providing a `pdu_def_path` in your endpoint config, you can use string names for PDUs and let the library handle channel IDs and sizes automatically.
-
-```cpp
-#include "hakoniwa/pdu/endpoint.hpp"
-#include <iostream>
-#include <vector>
-
-int main() {
-    hakoniwa::pdu::Endpoint endpoint("my_endpoint", HAKO_PDU_ENDPOINT_DIRECTION_INOUT);
-
-    // Open the endpoint with a config that includes "pdu_def_path"
-    if (endpoint.open("path/to/my_shm_endpoint.json") != HAKO_PDU_ERR_OK) {
-        std::cerr << "Failed to open endpoint." << std::endl;
-        return -1;
-    }
-
-    // ... start the endpoint ...
-
-    // Use the name-based PduKey
-    hakoniwa::pdu::PduKey key;
-    key.robot = "Drone";
-    key.pdu = "pos"; // Use the string name from pdudef.json
-
-    // The library knows the PDU size, so you can receive into a properly-sized buffer.
-    std::vector<std::byte> recv_buffer(100); // Buffer must be large enough
-    size_t received_size = 0;
-
-    if (endpoint.recv(key, recv_buffer, received_size) == HAKO_PDU_ERR_OK) {
-        std::cout << "Received " << received_size << " bytes for PDU 'pos'." << std::endl;
-    }
-
-    // ... stop and close ...
-    return 0;
-}
-```
-
-## Examples
-
-Example programs live in `examples/`. Build with `-DHAKO_PDU_ENDPOINT_BUILD_EXAMPLES=ON`.
-See `examples/README.md` for usage.
-These are minimal executable reference configurations (not tutorials). Use them as starting points, and validate any edits with the JSON schema tools described below.
-See `FAQ.md` for design rationale and common questions.
-See `docs/design_notes.md` for a concise summary of design trade-offs.
-If you want “preset-style” configurations, see `config/sample/endpoint_examples.json` as a curated set of working combinations.
-For a smooth first-run path, use: generator → validator → examples. Treat generator + validator as the default workflow.
-For a deeper discussion of configuration trade-offs (multi-file JSON vs single-file vs code-based), see `docs/design_tradeoffs.md`.
-For the current ROS 2 `rmw_zenoh` interoperability design notes, see `docs/rmw_zenoh_integration.md`.
-
-## Config Generator
-
-A minimal generator is available for producing endpoint/comm config skeletons:
-
-```bash
-python -m hakoniwa_pdu_endpoint.gen_endpoint_config --protocol tcp --direction inout --role server --name demo --out-dir config/generated
-```
-
-Why this exists: it reduces boilerplate without hiding semantics. The generator never guesses semantic choices. The generator fills in protocol-specific basics and prints notes for any semantic decisions that should be chosen by the user (timeouts, pdu_def_path, transport-native config, etc.).
-
-Preset mode (explicit, no inference):
-```bash
-python -m hakoniwa_pdu_endpoint.gen_endpoint_config --preset tcp_basic_server --name demo --out-dir config/generated
-```
-
-SHM example:
-```bash
-python -m hakoniwa_pdu_endpoint.gen_endpoint_config --protocol shm --direction inout --name shm_demo --shm-impl poll --shm-asset-name Asset --shm-pdu Pdu --out-dir config/generated
-```
-
-Storage example:
-```bash
-python -m hakoniwa_pdu_endpoint.gen_endpoint_config --protocol storage --direction out --name storage_demo --storage-mode queue --storage-path config/runtime/storage_demo.bin --out-dir config/generated
-```
-
-Zenoh example:
-```bash
-python -m hakoniwa_pdu_endpoint.gen_endpoint_config --protocol zenoh --direction in --name zenoh_sub_demo --zenoh-config-path config/sample/comm/zenoh/peer_listen.json5 --zenoh-pdu sample_state --robot StorageDemo --zenoh-notify-on-recv --pdu-def-path config/sample/comm/storage_example/pdudef.json --out-dir config/generated
-```
-
-MQTT example:
-```bash
-python -m hakoniwa_pdu_endpoint.gen_endpoint_config --protocol mqtt --direction in --name mqtt_sub_demo --mqtt-broker tcp://127.0.0.1:1883 --out-dir config/generated
-```
-
-Container example:
-```bash
-python -m hakoniwa_pdu_endpoint.gen_endpoint_config --protocol tcp --direction inout --role server --name demo --out-dir config/generated --generate-container --container-node-id node_demo
-```
-
-Supported generator targets:
-
-- `tcp`
-- `udp`
-- `websocket`
-- `shm`
-- `storage`
-- `zenoh`
-- `mqtt`
-- `internal_cache`
-- `tcp_mux`
-
-If `--generate-container` is set, the generator also writes a minimal `endpoint_container_*.json` that points to the generated endpoint config.
-
-TCP (inout) examples:
-- `examples/endpoint_tcp_server.cpp` uses `config/sample/endpoint_tcp_server.json`
-- `examples/endpoint_tcp_client.cpp` uses `config/sample/endpoint_tcp_client.json`
-
-UDP (one-way) examples:
-- `examples/endpoint_udp_server.cpp` uses `config/tutorial/endpoint_udp_server.json`
-- `examples/endpoint_udp_client.cpp` uses `config/tutorial/endpoint_udp_client.json`
-
-WebSocket (inout) examples:
-- `examples/endpoint_ws_server.cpp` uses `config/sample/endpoint_websocket_server.json`
-- `examples/endpoint_ws_client.cpp` uses `config/sample/endpoint_websocket_client.json`
-
-TCP mux example:
-- `examples/endpoint_tcp_mux.cpp` uses `config/sample/endpoint_mux.json`
-
-### Low-Level API (ID-based)
-
-If you do not provide a `pdu_def_path`, you can still use the library by manually specifying the integer channel ID. This is suitable for simpler setups where you manage channel mappings yourself.
-
-```cpp
-#include "hakoniwa/pdu/endpoint.hpp"
-#include <iostream>
-#include <vector>
-
-int main() {
-    hakoniwa::pdu::Endpoint endpoint("my_endpoint", HAKO_PDU_ENDPOINT_DIRECTION_INOUT);
-
-    // Open with a config that does NOT include "pdu_def_path"
-    if (endpoint.open("path/to/my_tcp_endpoint.json") != HAKO_PDU_ERR_OK) {
-        std::cerr << "Failed to open endpoint." << std::endl;
-        return -1;
-    }
-    
-    // ... start endpoint ...
-
-    // Use the ID-based PduResolvedKey
-    hakoniwa::pdu::PduResolvedKey key;
-    key.robot = "my_robot";
-    key.channel_id = 42; // Manually specify the channel ID
-
-    std::vector<std::byte> send_data = { std::byte(0x01), std::byte(0x02) };
-    endpoint.send(key, send_data);
-
-    // ... stop and close ...
-    return 0;
-}
-```
-
-## Endpoint Comm Multiplexer (TCP Mux)
-
-When you want a single server endpoint to accept multiple bridge connections, use the comm multiplexer.
-This keeps the Endpoint API unchanged and reduces configuration declarations.
-
-Key behavior:
-- `take_endpoints()` is non-blocking; if no new connections are ready, it returns an empty vector.
-- Returned endpoints are already `open()` and `start()`-ed and can be used immediately.
-- Readiness is determined by `expected_clients` in the comm mux config.
-- Endpoint names are generated as `<mux_name>_<seq>` (sequence starts at 1).
-- `options` in the mux comm config follow the same keys as the standard TCP server comm config.
-- In mux mode, `local` and `expected_clients` are used for accepting connections; session endpoints only use `direction`, `comm_raw_version`, and `options`.
-- The JSON schema allows TCP mux configs via `expected_clients`.
-
-### Example
-
-`config/sample/endpoint_mux.json`:
-```json
-{
-    "name": "tcp_mux",
-    "cache": "cache/buffer.json",
-    "comm": "comm/tcp_mux.json"
-}
-```
-
-`config/sample/comm/tcp_mux.json`:
-```json
-{
-  "protocol": "tcp",
-  "name": "tcp_mux",
-  "direction": "inout",
-  "local": {
-    "address": "0.0.0.0",
-    "port": 54001
-  },
-  "expected_clients": 2,
-  "options": {
-    "read_timeout_ms": 1000,
-    "write_timeout_ms": 1000
-  }
-}
-```
-
-```cpp
-#include "hakoniwa/pdu/endpoint_comm_multiplexer.hpp"
-
-int main() {
-    hakoniwa::pdu::EndpointCommMultiplexer mux("tcp_mux", HAKO_PDU_ENDPOINT_DIRECTION_INOUT);
-    if (mux.open("config/sample/endpoint_mux.json") != HAKO_PDU_ERR_OK) return -1;
-    if (mux.start() != HAKO_PDU_ERR_OK) return -1;
-
-    while (true) {
-        auto endpoints = mux.take_endpoints();
-        for (auto& ep : endpoints) {
-            // ep is ready to use (open/start already called)
-        }
-        // ... do other work ...
-    }
-}
-```
-
-## Architectural Design
-
-The library is built on a modular, layered architecture that emphasizes a strong separation of concerns. This design provides excellent versatility and extensibility.
-
-### Key Classes and Lifecycle
-
--   **`EndpointContainer`**: Loads a container config (list of endpoints) for a given `nodeId`, opens each endpoint, and manages lifecycle in bulk.
-    -   Typical flow: `create_pdu_lchannels()` (optional) → `initialize()` → `start_all()` → `post_start_all()` → `stop_all()`.
--   **`Endpoint` lifecycle**: `open()` configures cache/comm and loads optional PDU definitions.
-    -   `create_pdu_lchannels()` pre-creates SHM channels when required by the comm implementation.
-    -   `post_start()` is a post-start hook (used by SHM to register recv events).
-    -   `process_recv_events()` is only meaningful for SHM poll implementations (others are no-op).
-
-### API Notes
-
--   Name-based API (`send/recv(PduKey)`) requires `pdu_def_path`. Without it, these calls return `HAKO_PDU_ERR_UNSUPPORTED`.
--   ID-based API (`send/recv(PduResolvedKey)`) works without PDU definitions.
--   For `comm_shm` with `impl_type: "poll"`, you must call `Endpoint::process_recv_events()` periodically to dispatch receive callbacks.
-
-### Class Diagram
-
-```mermaid
-classDiagram
-    direction LR
-
-    class Endpoint {
-        +create_pdu_lchannels(config_path)
-        +open(config_path)
-        +post_start()
-        +process_recv_events()
-        +send(PduKey, data)
-        +recv(PduKey, buffer, len)
-        +send(PduResolvedKey, data)
-        +recv(PduResolvedKey, buffer, len)
-    }
-    class EndpointContainer {
-        +create_pdu_lchannels()
-        +initialize()
-        +start_all()
-        +post_start_all()
-        +stop_all()
-    }
-
-    class PduDefinition {
-        +load(pdudef_path)
-        +resolve(name, out_def)
-        +resolve(id, out_def)
-    }
-
-    class PduCache {
-        <<Interface>>
-        +write(key, data)
-        +read(key, buffer, len)
-    }
-
-    class PduComm {
-        <<Interface>>
-        +send(key, data)
-        +set_pdu_definition(pdu_def)
-    }
-    class PduCommRaw {
-        <<Abstract>>
-        +raw_open(config_path)
-        +raw_send(data)
-        +on_raw_data_received(data)
-    }
-
-    class PduCommShm
-    class TcpComm
-    class UdpComm
-    class WebSocketComm
-    class ZenohComm
-    class MqttComm
-
-    Endpoint "1" o-- "0..1" PduDefinition : owns
-    Endpoint "1" o-- "1" PduCache : owns
-    Endpoint "1" o-- "0..1" PduComm : owns
-    EndpointContainer "1" o-- "1..*" Endpoint : owns
-    Endpoint ..> PduDefinition : uses
-
-    PduComm <|-- PduCommRaw
-    PduComm <|-- PduCommShm
-    PduComm <|-- ZenohComm
-    PduComm <|-- MqttComm
-    PduCommRaw <|-- TcpComm
-    PduCommRaw <|-- UdpComm
-    PduCommRaw <|-- WebSocketComm
-    
-    note for PduComm "Concrete implementations split into direct transports (PduCommShm, ZenohComm, MqttComm) and framed/raw transports through PduCommRaw"
-
-```
-
-### Design Principles
-
-1.  **Separation of Concerns**: Each component has a single, well-defined responsibility.
-    -   **`Endpoint`**: The user-facing orchestrator. It composes the other modules and provides two API levels (name-based and ID-based).
-    -   **`PduDefinition`**: (Optional) Manages the mapping between PDU string names and their technical details (channel ID, size), loaded from a JSON file.
-    -   **`PduCache`**: An interface for in-memory data storage. Concrete implementations provide different caching strategies.
-    -   **`PduComm`**: An interface for communication modules. Some transports implement it directly (`PduCommShm`, `ZenohComm`, `MqttComm`).
-    -   **`PduCommRaw`**: A framed/raw transport adapter that sits between `PduComm` and byte-stream protocols. `TcpComm`, `UdpComm`, and `WebSocketComm` inherit from it so packet framing and `DataPacket` encode/decode logic stay shared.
-
-2.  **Extensibility**: The design makes it easy to add new functionality without modifying existing core logic.
-    -   **Adding a new protocol**: You would either inherit from `PduComm` directly (`ZenohComm`, `MqttComm`) or from `PduCommRaw` when the transport carries framed raw packets (`TcpComm`, `UdpComm`, `WebSocketComm`). The `Endpoint` class would not need any changes.
-    -   **Adding a new cache strategy**: You can create a new class that inherits from `PduCache`. This new strategy can then be used by any endpoint, just by updating the JSON configuration.
-
-3.  **Versatility through Composition**: By composing different cache, communication, and PDU definition modules via JSON configuration, you can create a wide variety of endpoint types without writing new C++ code.
-    -   **High-Level SHM Endpoint**: Use `PduCommShm` with a `PduDefinition` file for easy, name-based access to Hakoniwa shared memory.
-    -   **Low-Level TCP Synchronizer**: Use a `TcpComm` with no `PduDefinition` to sync data between two endpoints using manually managed channel IDs.
-    -   **In-Memory Message Bus**: Use a `PduLatestQueue` with the `comm` module set to `null`.
-
-## Maintainer Release Flow
-
-For maintainers, the current release model is:
-
-- GitHub Releases distribute native shared libraries (`.dll`, `.so`, `.dylib`)
-- PyPI distributes the Python package metadata and wrapper
-- native shared libraries are still external prerequisites for Python users
-
-Suggested release order for version `1.0.0`-style releases:
-
-1. Update the version in:
-   - `pyproject.toml`
-   - `CMakeLists.txt`
-2. Build native shared libraries for each target platform.
-3. Create and push the Git tag (`v1.0.0` style).
-4. Create the GitHub Release and upload native assets.
-5. Build Python distributions and upload them to PyPI.
-
-Typical native build commands:
-
-Linux:
-
-```bash
-cmake -S . -B build-shared -DBUILD_SHARED_LIBS=ON
-cmake --build build-shared --target hakoniwa_pdu_endpoint
-```
-
-Artifact:
-
-```bash
-build-shared/src/libhakoniwa_pdu_endpoint.so
-```
-
-macOS:
-
-```bash
-cmake -S . -B build-shared -DBUILD_SHARED_LIBS=ON
-cmake --build build-shared --target hakoniwa_pdu_endpoint
-```
-
-Artifact:
-
-```bash
-build-shared/src/libhakoniwa_pdu_endpoint.dylib
-```
-
-Windows:
-
-```powershell
-.\build-win.ps1 -BuildShared -BuildDirName build-win -Configuration Release -ToolchainFile C:\project\vcpkg\scripts\buildsystems\vcpkg.cmake -VcpkgTriplet x64-windows -Platform x64
-```
-
-Artifacts:
-
-```powershell
-.\build-win\src\Release\hakoniwa_pdu_endpoint.dll
-.\build-win\src\Release\hakoniwa_pdu_endpoint.lib
-```
-
-Suggested GitHub Release bundle names:
-
-- `hakoniwa-pdu-endpoint-linux-x86_64-cp312.zip`
-- `hakoniwa-pdu-endpoint-macos-x86_64-cp312.zip` or `hakoniwa-pdu-endpoint-macos-arm64-cp312.zip`
-- `hakoniwa-pdu-endpoint-windows-x64-cp312.zip`
-
-Each zip contains:
-
-- the native shared library
-- the built `cffi` extension module
-- a small `README.txt`
-
-After the native shared library is built for that platform, the release tool can build the
-matching `cffi` extension and create the zipped bundle in one step:
-
-```bash
-python tools/prepare_release_assets.py --platform linux --arch x86_64 --python-tag cp312 --build-dir build-shared
-python tools/prepare_release_assets.py --platform macos --arch arm64 --python-tag cp312 --build-dir build-shared
-python tools/prepare_release_assets.py --platform windows --arch x64 --python-tag cp312 --build-dir build-win
-```
-
-This creates zipped bundles under `release-assets/` with the suggested GitHub Release names.
-
-Bundle build commands by platform:
-
-Linux:
-
-```bash
-cmake -S . -B build-shared -DBUILD_SHARED_LIBS=ON
-cmake --build build-shared --target hakoniwa_pdu_endpoint
-python tools/prepare_release_assets.py --platform linux --arch x86_64 --python-tag cp312 --build-dir build-shared
-```
-
-Windows:
-
-```powershell
-.\build-win.ps1 -BuildShared -BuildDirName build-win -Configuration Release -ToolchainFile C:\project\vcpkg\scripts\buildsystems\vcpkg.cmake -VcpkgTriplet x64-windows -Platform x64
-python tools/prepare_release_assets.py --platform windows --arch x64 --python-tag cp312 --build-dir build-win
-```
-
-macOS:
-
-```bash
-cmake -S . -B build-shared -DBUILD_SHARED_LIBS=ON
-cmake --build build-shared --target hakoniwa_pdu_endpoint
-python tools/prepare_release_assets.py --platform macos --arch arm64 --python-tag cp312 --build-dir build-shared
-```
-
-Typical PyPI publish commands:
-
-```bash
-rm -rf dist python/hakoniwa_pdu_endpoint.egg-info
-python -m build
-python -m twine check dist/*
-python -m twine upload dist/*
-```
-
-Typical Git tag / release start:
-
-```bash
-git tag v1.0.0
-git push origin v1.0.0
-```
+1. decide which independent manifest axis owns it;
+2. keep OS-specific resolution below the configurator;
+3. expose dependencies through CMake targets, not absolute include/library paths;
+4. add a smoke test for the resulting capability combination;
+5. validate installed-package consumption when the capability is public to downstream CMake users.

@@ -2,10 +2,61 @@ name: ci
 
 on:
   push:
+    paths-ignore:
+      - "**/*.md"
+      - "docs/**"
+      - "LICENSE*"
   pull_request:
+    paths-ignore:
+      - "**/*.md"
+      - "docs/**"
+      - "LICENSE*"
 
 jobs:
+  changes:
+    runs-on: ubuntu-latest
+    outputs:
+      build: ${{ steps.check.outputs.build }}
+    steps:
+      - name: Checkout current head
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          fetch-depth: 2
+
+      - name: Check whether the latest update affects build inputs
+        id: check
+        shell: bash
+        run: |
+          if [[ "${{ github.event_name }}" == "pull_request" && "${{ github.event.action }}" != "synchronize" ]]; then
+            echo "build=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          BEFORE="${{ github.event.before }}"
+          AFTER="${{ github.event.pull_request.head.sha || github.sha }}"
+
+          if [[ -z "$BEFORE" || "$BEFORE" =~ ^0+$ ]]; then
+            BEFORE="$(git rev-parse HEAD^ 2>/dev/null || true)"
+          fi
+
+          if [[ -z "$BEFORE" ]]; then
+            echo "build=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          if git diff --quiet "$BEFORE" "$AFTER" -- . \
+            ':(exclude)**/*.md' \
+            ':(exclude)docs/**' \
+            ':(exclude)LICENSE*'; then
+            echo "build=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "build=true" >> "$GITHUB_OUTPUT"
+          fi
+
   build-manifest:
+    needs: changes
+    if: needs.changes.outputs.build == 'true'
     strategy:
       matrix:
         os:
@@ -32,6 +83,8 @@ jobs:
         run: python tools/hako.py configure --dry-run
 
   linux-native:
+    needs: changes
+    if: needs.changes.outputs.build == 'true'
     runs-on: ubuntu-latest
     steps:
       - name: Install Dependencies
@@ -68,6 +121,8 @@ jobs:
         run: ctest --test-dir build --rerun-failed --output-on-failure
 
   linux-python:
+    needs: changes
+    if: needs.changes.outputs.build == 'true'
     runs-on: ubuntu-latest
     steps:
       - name: Install Dependencies
@@ -105,6 +160,8 @@ jobs:
           python3 python/test/test_endpoint_container_smoke.py
 
   linux-zenoh-shared:
+    needs: changes
+    if: needs.changes.outputs.build == 'true'
     runs-on: ubuntu-latest
     steps:
       - name: Install Dependencies
@@ -146,6 +203,8 @@ jobs:
           readelf -d build-zenoh/src/libhakoniwa_pdu_endpoint.so | grep NEEDED || true
 
   macos-python:
+    needs: changes
+    if: needs.changes.outputs.build == 'true'
     runs-on: macos-latest
     steps:
       - name: Install Dependencies
@@ -184,6 +243,8 @@ jobs:
           python python/test/test_endpoint_container_smoke.py
 
   windows-python:
+    needs: changes
+    if: needs.changes.outputs.build == 'true'
     runs-on: windows-latest
     steps:
       - name: Checkout

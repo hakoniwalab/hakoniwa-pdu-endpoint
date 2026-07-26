@@ -1,95 +1,69 @@
+[![CI](https://github.com/hakoniwalab/hakoniwa-pdu-endpoint/actions/workflows/ci.yml/badge.svg)](https://github.com/hakoniwalab/hakoniwa-pdu-endpoint/actions/workflows/ci.yml)
+[![Core Variants](https://github.com/hakoniwalab/hakoniwa-pdu-endpoint/actions/workflows/core-variants.yml/badge.svg)](https://github.com/hakoniwalab/hakoniwa-pdu-endpoint/actions/workflows/core-variants.yml)
+
 # hakoniwa-pdu-endpoint
 
 [English](README.md) | [日本語](README.ja.md)
 
-`hakoniwa-pdu-endpoint` は、箱庭の分散シミュレーション向け `Endpoint` 基盤です。単なるメッセージングライブラリではなく、シミュレーション参加者間の因果境界を定義し、`cache`、`comm`、`pdu_def` を分離して意味論を明示することを重視しています。
+`hakoniwa-pdu-endpoint` は、箱庭の分散シミュレーション向け `Endpoint` 基盤です。
 
-この日本語版は、英語版 README と対応づく章構成で要点を整理したものです。詳細な例や補足は必要に応じて英語版も参照してください。
+単なるtransport wrapperではなく、次の意味論を分離して扱います。
 
-## Performance and Benchmarks
+- `cache`: データ寿命、上書き、queueing
+- `comm`: 配送、永続化、transport
+- `pdu_def`: 任意のPDU名、channel ID、sizeの意味づけ
 
-TCP と SHM(callback) の使い分けを知りたい場合は、まず性能概要を参照してください。
+この分離により、Endpoint APIを変えずにtransportや保存方式を差し替えられます。
 
-- [性能特性と設計意図](benchmarks/PERFORMANCE.ja.md)
-- [詳細 benchmark report](benchmarks/report.md)
-- [benchmark runner documentation](benchmarks/README.md)
+設計意図は [docs/design_philosophy.md](docs/design_philosophy.md) を参照してください。
 
-benchmark 結果は、macOS、Ubuntu/WSL2、native Windows における endpoint-level の
-TCP / SHM(callback) 挙動を比較しています。これは raw transport bandwidth ではなく、
-Hakoniwa PDU endpoint path 全体の測定です。
+## 主な対応機能
 
-## What This Is Good At
+- TCP / UDP / WebSocket
+- Hakoniwa Shared Memory
+- Storage
+- Zenoh
+- MQTT
+- `latest` / `queue` cache
+- PDU name resolution
+- C facade
+- Python/cffi binding
+- C# binding
 
-このプロジェクトが特に向いているのは、次を同時に満たしたい場合です。
+TCPとSHM(callback)の性能特性は [benchmarks/PERFORMANCE.ja.md](benchmarks/PERFORMANCE.ja.md) を参照してください。
 
-- 明示的なシミュレーション意味論
-- transport 非依存な API
-- 監査・再現しやすい通信
-- 設定駆動の組み立て
+## CI / 対応環境
 
-実務的には、
+CIは役割を分けています。
 
-- `cache` で寿命・上書き規則を決める
-- `comm` で配送・永続化・失敗モデルを決める
-- `pdu_def` でバイト列の意味を決める
+- `ci`: 通常build、tests、bindings、manifest resolution、transport combinations
+- `core-variants`: Hakoniwa Core package統合と外部CMake consumerのlink契約
 
-という分離が中核です。
+`core-variants` では Ubuntu x64、macOS、Windows x64 で次を継続検証します。
 
-## Why Endpoint?
-
-箱庭系の分散シミュレーションでは、TCP/UDP/SHM/WebSocket など複数の通信手段が混在しがちです。`Endpoint` はそれらを統一 API と統一設定モデルで扱うための抽象です。
-
-狙いは次です。
-
-- protocol 差し替えをコード変更ではなく設定変更にする
-- `cache` と `comm` の責務を分ける
-- higher-level system から多数の通信リンクを同じ方法で扱えるようにする
-
-`comm: null` を使えば、ネットワーク無しの内部 cache 専用 endpoint としてテストにも使えます。
-
-## Features
-
-主な機能:
-
-- modular な `Endpoint` 構成
-- PDU 定義による name-based API
-- JSON ベースの設定
-- `latest` / `queue` の cache 戦略
-- TCP / UDP / SHM / WebSocket / Storage / Zenoh / MQTT
-  - TCP / SHM(callback) の性能上の使い分けは [benchmarks/PERFORMANCE.ja.md](benchmarks/PERFORMANCE.ja.md) を参照してください。
-- C facade を介した Python / C# バインディング
-
-## Requirements
-
-主な要件:
-
-- C++20 compiler
-- CMake 3.16 以上
-- Boost headers
-- GoogleTest
-- SHM / Hakoniwa time source を使う場合は Hakoniwa Core
-
-詳細は英語版 README の Requirements を参照してください。
-
-## クイックスタート: Manifest駆動ビルド
-
-推奨する開発者向けビルドフローは Windows / macOS / Linux で共通です。最初に `hakoniwa-build.yaml` へ必要な機能を宣言し、configureツールにCMakeオプションとOS固有の前提条件を解決させます。
-
-デフォルトmanifestでは Python/cffi binding を有効にし、Hakoniwa Core / Zenoh / MQTT は無効です。これらは独立した機能軸なので、必要なものだけを有効にします。
-
-### 1. 共通の前提条件
-
-C++20 compiler、CMake、Python 3 を用意します。`bindings.python: true` の場合はPython build依存も入れます。
-
-```bash
-python -m pip install --upgrade pip setuptools cffi
+```text
+hakoniwa-core-pro をbuild/install
+        ↓
+Core有効のhakoniwa-pdu-endpointをbuild/install
+        ↓
+別CMake projectをconfigure
+        ↓
+find_package(hakoniwa_pdu_endpoint CONFIG REQUIRED)
+        ↓
+core_callback / core_polling consumerを実リンク
 ```
 
-WindowsではBoost.Asio / Boost.Beastをvcpkgで用意する構成を推奨します。configureツールは `VCPKG_ROOT` / `VCPKG_INSTALLATION_ROOT` を検出します。
+Linux ARM64 (`aarch64`) も同じsource-build / manifestモデルで扱います。現在 `core-variants` にnative ARM64 jobを追加して検証中です。成功確認前なので、このREADMEではまだARM64をCI verifiedとは断言していません。
 
-### 2. `hakoniwa-build.yaml` で機能を選ぶ
+READMEや `docs/**` だけの変更では、重いbuild workflowは起動しません。
 
-デフォルトは次です。
+## 推奨ビルド: manifest駆動
+
+Windows / macOS / Linuxで同じ開発者向けフローを使います。
+
+`hakoniwa-build.yaml` に必要なcapabilityを宣言し、`tools/hako.py` がOS固有のCMake引数や前提条件を解決します。
+
+デフォルトmanifest:
 
 ```yaml
 bindings:
@@ -103,14 +77,14 @@ features:
 
 代表的な変更:
 
-- C++だけ使う: `bindings.python: false`
-- SHM / Hakoniwa time sourceを使う: `features.hakoniwa_core: true` とし、`paths.hakoniwa_core_root`（または `HAKONIWA_CORE_ROOT`）を設定
-- Zenohを使う: `features.zenoh: true`
-- MQTTを使う: `features.mqtt: true`
+- C++のみ: `bindings.python: false`
+- SHM / Hakoniwa time source: `features.hakoniwa_core: true`
+- Zenoh: `features.zenoh: true`
+- MQTT: `features.mqtt: true`
 
-Python/cffiは言語bindingであり、Hakoniwa Coreとは独立です。TCP/UDP/WebSocket/StorageやZenohだけならHakoniwa Coreは不要です。
+Python/cffiは言語bindingであり、Hakoniwa Coreとは独立です。TCP / UDP / WebSocket / Storage / Zenoh / MQTTだけならCoreは不要です。
 
-### 3. 設定確認とビルド
+設定確認とビルド:
 
 ```bash
 python tools/hako.py doctor
@@ -119,415 +93,248 @@ python tools/hako.py build
 python tools/hako.py test
 ```
 
-resolverは `.hako/resolved-build.yaml` と `.hako/cmake-args.txt` を出力します。ビルド問題を報告する場合は、これらを添えることで解決済みfeatureやpathを再現できます。
+resolverは次を生成します。
 
-依存関係モデル、manifest schema、移行方針は [Build Architecture](docs/build-architecture.md) を参照してください。
-
-既存の `build.bash`、`build-win.ps1`、`build-python.bash`、`build-python-win.ps1`、直接CMakeを使う方法も、互換・高度な開発者向け経路として引き続き利用できます。
-
-## 開発者向けガイド
-
-このセクションは、プロジェクトへの貢献、テストの実行、または高度なビルド設定を利用したい方向けの情報です。
-
-### 開発環境 (インストールしない場合)
-
-システムディレクトリにインストールせずにローカルでの変更をテストしたい場合は、一時的に環境変数を設定してPythonスクリプトを実行できます。
-
-**macOSの場合:**
-```bash
-# ビルド成果物を指すように環境変数を設定
-export PYTHONPATH=$(pwd)/python:$(pwd)/build/python
-export DYLD_LIBRARY_PATH=$(pwd)/build/src
-
-# これでスクリプトを直接実行可能
-python3 python/test/test_c_endpoint_smoke.py
+```text
+.hako/resolved-build.yaml
+.hako/cmake-args.txt
 ```
 
-**Linuxの場合:**
-```bash
-# ビルド成果物を指すように環境変数を設定
-export PYTHONPATH=$(pwd)/python:$(pwd)/build/python
-export LD_LIBRARY_PATH=$(pwd)/build/src
+ビルド問題を報告するときは、これらを添えると解決済みfeature・path・CMake引数を再現できます。
 
-# これでスクリプトを直接実行可能
-python3 python/test/test_c_endpoint_smoke.py
+詳細は [docs/build-architecture.md](docs/build-architecture.md) を参照してください。
+
+## Hakoniwa Core有効時の生成物
+
+`features.hakoniwa_core` は **callback / polling を選択する設定ではありません**。
+
+manifestは「どのartifactを生成するか」を決め、consumer側のCMake targetが「どのCore frontendに依存するか」を決めます。
+
+### Core OFF
+
+```yaml
+features:
+  hakoniwa_core: false
 ```
 
-### テストの実行
+主target:
 
-`bash build.bash` でビルドした後、`build`ディレクトリからC++のテストスイートを実行できます。
-
-```bash
-ctest --test-dir build --output-on-failure
+```text
+hakoniwa_pdu_endpoint
 ```
-PythonとC#のテストについては、`test-python.bash` と `test-csharp.bash` スクリプトを参照してください。
 
-### 手動でのCMakeビルド
+install後のCMake target:
 
-ビルドプロセスを完全に制御したい場合は、CMakeを直接実行することもできます。
+```cmake
+hakoniwa_pdu_endpoint::hakoniwa_pdu_endpoint
+```
+
+Core非依存のTCP / UDP / WebSocket / Storage / Zenoh / MQTT用途では、このtargetを使います。
+
+### Core ON
+
+```yaml
+features:
+  hakoniwa_core: true
+```
+
+3種類のnative targetを生成します。
+
+| build target | install後のCMake target | Core依存 | 位置づけ |
+|---|---|---|---|
+| `hakoniwa_pdu_endpoint` | `hakoniwa_pdu_endpoint::hakoniwa_pdu_endpoint` | callback + polling | legacy互換 |
+| `hakoniwa_pdu_endpoint_core_callback` | `hakoniwa_pdu_endpoint::core_callback` | `hakoniwa-core::assets` | 新規callback / asset統合で推奨 |
+| `hakoniwa_pdu_endpoint_core_polling` | `hakoniwa_pdu_endpoint::core_polling` | `hakoniwa-core::shakoc` | 新規polling統合で推奨 |
+
+従来の `hakoniwa_pdu_endpoint` targetは互換性のため残しています。Core ON時はcallbackとpollingの両SHM/time-source実装を含む「全部入り」のlegacy targetです。
+
+新しいCore統合では、利用するAPIスタイルに合わせてexplicit variantを選びます。
+
+```text
+Coreなし
+  -> hakoniwa_pdu_endpoint::hakoniwa_pdu_endpoint
+
+Coreあり + callback/assets API
+  -> hakoniwa_pdu_endpoint::core_callback
+
+Coreあり + polling/shakoc API
+  -> hakoniwa_pdu_endpoint::core_polling
+```
+
+重要な責務分担:
+
+```text
+manifest
+  -> どのcapability / artifactを生成するか
+
+consumerのCMake target
+  -> callback / pollingのどちらに依存するか
+```
+
+このためmanifestにはcallback/polling選択フィールドを設けません。
+
+## CMake packageとして利用する
+
+install済みEndpointを利用するprojectでは、include/lib pathを手動で組み立てず、export済みCMake targetを使います。
+
+callback/assets API:
+
+```cmake
+find_package(hakoniwa_pdu_endpoint CONFIG REQUIRED)
+
+target_link_libraries(my_app PRIVATE
+  hakoniwa_pdu_endpoint::core_callback
+)
+```
+
+polling/shakoc API:
+
+```cmake
+find_package(hakoniwa_pdu_endpoint CONFIG REQUIRED)
+
+target_link_libraries(my_app PRIVATE
+  hakoniwa_pdu_endpoint::core_polling
+)
+```
+
+Core対応Endpoint packageは `hakoniwa-core` をtransitive dependencyとして解決します。
+
+consumerが `assets` / `shakoc` / `hako` を直接 `find_library()` したり、Coreのinclude pathをhard-codeする必要はありません。
+
+この `install -> find_package -> external link` 契約は `core-variants` CIで検証します。
+
+## Requirements
+
+- C++20 compiler
+- CMake 3.16以上
+- Boost headers
+- testsをbuildする場合はGoogleTest
+- SHM / Hakoniwa time sourceを使う場合はHakoniwa Core
+- `bindings.python: true` の場合はPython 3 + `cffi` / `setuptools`
+
+WindowsではBoost.Asio / Boost.Beastをvcpkgで用意する構成を推奨します。
+
+## 手動CMakeビルド
+
+manifestを使わず直接CMakeを利用する経路も、互換・高度な開発者向けとして残しています。
 
 ```bash
-# プロジェクトの設定
 cmake -S . -B build
-
-# 全てのターゲットをビルド
 cmake --build build
 ```
-特定のオプションを渡すには `-D` フラグを使用します (例: `-DHAKO_PDU_ENDPOINT_ENABLE_ZENOH=OFF`)。
 
-## Quick Start For Storage
-
-Storage を先に試したい場合:
-
-1. project を build
-2. `config/sample/comm/storage_latest_out_comm.json` または `storage_queue_out_comm.json` を使う
-3. storage backend の endpoint で送信
-4. `hako_pdu_storage_debug` で中身を確認
-
-意味論:
-
-- `latest`: key ごとの最新状態
-- `queue`: 受信順ログ
-
-詳細:
-
-- [docs/storage_comm.md](docs/storage_comm.md)
-- [examples/README.md](examples/README.md)
-
-## Quick Start For Zenoh
-
-Zenoh は pub/sub を `Endpoint` モデルのまま使いたい場合の選択肢です。
-
-詳細な build/run 手順は英語版 README を参照してください。
-
-## Quick Start For MQTT
-
-MQTT は broker ベースの pub/sub を `Endpoint` モデルのまま使いたい場合の選択肢です。
-
-詳細な build/run 手順は英語版 README を参照してください。
-
-## Pythonからの利用
-
-Pythonバインディングを利用する推奨方法は、このドキュメントの冒頭にある「クイックスタート」に従って、必要なネイティブコンポーネントをビルド・インストールすることです。Pythonパッケージは、デフォルトで `/usr/local/hakoniwa/share/hakoniwa-pdu-endpoint/python` にインストールされます。
-
-自分のプロジェクトで利用するには、このパスを `PYTHONPATH` に追加してください。
-```bash
-export PYTHONPATH=/usr/local/hakoniwa/share/hakoniwa-pdu-endpoint/python:$PYTHONPATH
-```
-
-主なエントリーポイント:
-- `hakoniwa_pdu_endpoint.c_endpoint`: CFFIベースの薄いラッパー。
-- `hakoniwa_pdu_endpoint.endpoint_container`: 複数のエンドポイントを管理するpure-Pythonコンテナ。
-
-実行可能なサンプルは `python/examples/` ディレクトリにあります。
-
-## Quick Start For C#
-
-C# は C facade の上に薄い managed binding を載せています。
-
-代表コマンド:
+Coreを明示的に有効化する例:
 
 ```bash
-bash build.bash
-bash build-csharp.bash
-bash test-csharp.bash
+cmake -S . -B build-core \
+  -DHAKO_PDU_ENDPOINT_ENABLE_HAKONIWA_CORE=ON \
+  -DHAKO_PDU_ENDPOINT_HAKONIWA_CORE_ROOT=/path/to/hakoniwa-core-install
+cmake --build build-core
 ```
 
-詳細は英語版READMEを参照してください。
+raw CMakeのlegacy defaultはmanifest defaultと異なる場合があります。再現性を重視する通常利用ではmanifest flowを推奨します。
 
-## インストールとアンインストール
+## Endpoint設定
 
-「クイックスタート」で説明した `install.bash` スクリプトは、プロジェクトのコンポーネントを指定されたプレフィックス（デフォルト: `/usr/local/hakoniwa`）にインストールします。
-
-**インストールされるコンポーネント:**
-- **ヘッダファイル**: C++ヘッダ (`<prefix>/include`)
-- **共有ライブラリ**: コアC++ライブラリ (`libhakoniwa_pdu_endpoint.dylib` or `.so`) (`<prefix>/lib`)
-- **CMake設定ファイル**: CMakeパッケージファイル (`<prefix>/lib/cmake`)
-- **Pythonパッケージ**: CFFI拡張とそれに必要なネイティブライブラリを含む完全なPythonパッケージ (`<prefix>/share/hakoniwa-pdu-endpoint/python`)
-
-**アンインストール:**
-`uninstall.bash`スクリプトで、インストールされたファイルを削除できます。
-```bash
-sudo bash uninstall.bash
-```
-
-## C Facade
-
-C facade は foreign-language binding の ABI 境界です。
-
-主な API:
-
-- `create/destroy`
-- `open/start/post_start/stop/close`
-- `process_recv_events`
-- `send`
-- `recv`
-- `recv_next`
-- callback 登録
-- PDU 名 / channel 取得
-
-設計関連:
-
-- [docs/python_binding.md](docs/python_binding.md)
-- [docs/csharp_binding.md](docs/csharp_binding.md)
-- [docs/receive_semantics.md](docs/receive_semantics.md)
-
-## How to Run Tests
-
-代表コマンド:
-
-```bash
-bash test.bash
-bash test-python.bash
-bash test-csharp.bash
-```
-
-## Configuration
-
-設定は主に次の分割です。
+Endpoint設定は主に次の4要素で構成されます。
 
 - Endpoint config
 - Cache config
-- Comm config
-- PDU Definition config
+- Communication (`comm`) config
+- 任意のPDU Definition (`pdu_def`) config
 
-設計意図は「設定を小さな semantic decision ごとに分ける」ことです。
+代表例:
 
-関連:
-
-- `config/schema/`
-- `docs/tutorials/endpoint.md`
-- `docs/design_tradeoffs.md`
-
-## Basic Usage
-
-API は大きく 2 系統です。
-
-- name-based API
-  - `pdu_def_path` がある場合
-- resolved-key API
-  - 常に利用可能
-
-runtime の受信モデルは transport 非依存になるよう整理されています。
-
-- `latest`
-  - 最新値のみ保持
-  - `recv_next(...)` は pending key を到着順で返す
-- `queue`
-  - 複数イベント保持
-  - `recv_next(...)` はグローバル到着順で返す
-
-詳細:
-
-- [docs/receive_semantics.md](docs/receive_semantics.md)
-
-## Examples
-
-例の入口:
-
-- [examples/README.md](examples/README.md)
-- [csharp/examples/README.md](csharp/examples/README.md)
-
-## Config Generator
-
-設定生成は次で行えます。
-
-```bash
-python -m hakoniwa_pdu_endpoint.gen_endpoint_config --protocol tcp --direction inout --role server --name demo --out-dir config/generated
+```json
+{
+  "name": "my_endpoint",
+  "pdu_def_path": "comm/hakoniwa/pdudef.json",
+  "cache": "cache/queue.json",
+  "comm": "comm/hakoniwa/shm_comm.json"
+}
 ```
 
-generator は boilerplate を減らしますが、意味論を隠すことは目的にしていません。
+内部cacheだけを使うEndpointは `comm: null` にします。
 
-## Endpoint Comm Multiplexer (TCP Mux)
+```json
+{
+  "name": "my_internal_buffer",
+  "cache": "cache/buffer.json",
+  "comm": null
+}
+```
 
-TCP Mux は複数 client を 1 server endpoint 群として扱うための仕組みです。
+設定仕様とvalidation:
 
-詳細は英語版 README と `examples/endpoint_tcp_mux.cpp` を参照してください。
-
-## Architectural Design
-
-関連設計文書:
-
-- [docs/design_philosophy.md](docs/design_philosophy.md)
-- [docs/design_notes.md](docs/design_notes.md)
-- [docs/design_tradeoffs.md](docs/design_tradeoffs.md)
+- [docs/tutorials/endpoint.md](docs/tutorials/endpoint.md)
 - [docs/receive_semantics.md](docs/receive_semantics.md)
-- [docs/rmw_zenoh_integration.md](docs/rmw_zenoh_integration.md)
+- [docs/storage_comm.md](docs/storage_comm.md)
+- `config/schema/`
 
----
+## Transport概要
 
-詳細な build オプション、各 transport の手順、長い背景説明は英語版 README を参照してください。
+### Storage
 
-[English](README.md) | [日本語](README.ja.md)
- / Zenoh / MQTT
+- `latest`: keyごとの最新値。主read APIは `recv(key, ...)`
+- `queue`: 到着順queue。主read APIは `recv_next(...)`
 
-Windows で詰まりやすい点:
+`hako_pdu_storage_debug` でstorage fileをinspectできます。
 
-- `py` が無い:
-  `python` を使うか、`-PythonCommand python` を指定する
-- `BoostConfig.cmake` が見つからない:
-  `vcpkg` で `boost-asio:x64-windows` と `boost-beast:x64-windows` を入れ、`-ToolchainFile`、`-VcpkgTriplet`、`-Platform x64` を渡す
-- `generator platform: x64 ... used previously`:
-  既存 build directory を削除するか、`-Clean` を使う
-- Python 3.12 で `setuptools` が無い:
-  `python -m pip install --upgrade setuptools wheel cffi`
-- `cffi` と `_cffi_backend` の `Version mismatch`:
-  build 時に別の Python 環境の `PYTHONPATH` を混ぜない
-- 実行時に `hakoniwa_pdu_endpoint.dll` が見つからない:
-  `HAKO_PDU_ENDPOINT_SHARED_LIB` と `HAKO_PDU_ENDPOINT_LIB_DIR` を設定する
+### Zenoh
 
-主なモジュール:
+```yaml
+features:
+  zenoh: true
+```
+
+Zenohはfirst-class pub/sub transportとして扱います。Zenoh native topologyはZenoh側configに置き、Hakoniwa固有の意味論はEndpoint comm configに残します。
+
+### MQTT
+
+```yaml
+features:
+  mqtt: true
+```
+
+MQTTはbroker-based pub/subとして扱いながら、同じEndpoint APIを維持します。
+
+### Shared Memory
+
+SHMにはHakoniwa Coreが必要です。legacy targetではruntime configによるcallback/polling選択も維持しますが、新規CMake consumerは上記のexplicit variantを選ぶことを推奨します。
+
+## Language bindings
+
+### Python
+
+Python bindingはC facadeの上に `cffi` で構成します。
+
+主なmodule:
 
 - `python/hakoniwa_pdu_endpoint/c_endpoint.py`
 - `python/hakoniwa_pdu_endpoint/endpoint_container.py`
 
-主な examples:
+詳細: [docs/python_binding.md](docs/python_binding.md)
 
-- `python/examples/endpoint_internal_cache.py`
-- `python/examples/endpoint_callback.py`
-- `python/examples/endpoint_recv_next.py`
-- `python/examples/endpoint_container.py`
+### C#
 
-## Quick Start For C#
+C# bindingもC facadeをnative ABI boundaryとして利用します。
 
-C# は C facade の上に薄い managed binding を載せています。
-
-代表コマンド:
-
-```bash
-bash build-csharp.bash
-bash test-csharp.bash
-```
-
-主なディレクトリ:
-
-- `csharp/hakoniwa_pdu_endpoint/`
-- `csharp/examples/`
-- `csharp/tests/`
-
-Unity / Godot への導入手順:
-
+- [docs/csharp_binding.md](docs/csharp_binding.md)
 - [docs/csharp_engine_integration.md](docs/csharp_engine_integration.md)
 
-## Install / Uninstall
-
-インストール:
-
-```bash
-bash build.bash
-sudo bash install.bash
-```
-
-アンインストール:
-
-```bash
-sudo bash uninstall.bash
-```
-
-## C Facade
-
-C facade は foreign-language binding の ABI 境界です。
-
-主な API:
-
-- `create/destroy`
-- `open/start/post_start/stop/close`
-- `process_recv_events`
-- `send`
-- `recv`
-- `recv_next`
-- callback 登録
-- PDU 名 / channel 取得
-
-設計関連:
-
-- [docs/python_binding.md](docs/python_binding.md)
-- [docs/csharp_binding.md](docs/csharp_binding.md)
-- [docs/receive_semantics.md](docs/receive_semantics.md)
-
-## How to Run Tests
-
-代表コマンド:
-
-```bash
-bash test.bash
-bash test-python.bash
-bash test-csharp.bash
-```
-
-## Configuration
-
-設定は主に次の分割です。
-
-- Endpoint config
-- Cache config
-- Comm config
-- PDU Definition config
-
-設計意図は「設定を小さな semantic decision ごとに分ける」ことです。
-
-関連:
-
-- `config/schema/`
-- `docs/tutorials/endpoint.md`
-- `docs/design_tradeoffs.md`
-
-## Basic Usage
-
-API は大きく 2 系統です。
-
-- name-based API
-  - `pdu_def_path` がある場合
-- resolved-key API
-  - 常に利用可能
-
-runtime の受信モデルは transport 非依存になるよう整理されています。
-
-- `latest`
-  - 最新値のみ保持
-  - `recv_next(...)` は pending key を到着順で返す
-- `queue`
-  - 複数イベント保持
-  - `recv_next(...)` はグローバル到着順で返す
-
-詳細:
-
-- [docs/receive_semantics.md](docs/receive_semantics.md)
-
-## Examples
-
-例の入口:
+## Examples / tools
 
 - [examples/README.md](examples/README.md)
-- [csharp/examples/README.md](csharp/examples/README.md)
+- [benchmarks/README.md](benchmarks/README.md)
+- [docs/diagrams/README.md](docs/diagrams/README.md)
+- [FAQ.md](FAQ.md)
 
-## Config Generator
+## Maintainer rule
 
-設定生成は次で行えます。
+新しいoptional transport / binding / runtime capabilityを追加するときは、
 
-```bash
-python -m hakoniwa_pdu_endpoint.gen_endpoint_config --protocol tcp --direction inout --role server --name demo --out-dir config/generated
-```
-
-generator は boilerplate を減らしますが、意味論を隠すことは目的にしていません。
-
-## Endpoint Comm Multiplexer (TCP Mux)
-
-TCP Mux は複数 client を 1 server endpoint 群として扱うための仕組みです。
-
-詳細は英語版 README と `examples/endpoint_tcp_mux.cpp` を参照してください。
-
-## Architectural Design
-
-関連設計文書:
-
-- [docs/design_philosophy.md](docs/design_philosophy.md)
-- [docs/design_notes.md](docs/design_notes.md)
-- [docs/design_tradeoffs.md](docs/design_tradeoffs.md)
-- [docs/receive_semantics.md](docs/receive_semantics.md)
-
----
-
-詳細な build オプション、各 transport の手順、長い背景説明は英語版 README を参照してください。
-
-[English](README.md) | [日本語](README.ja.md)
+1. どの独立manifest axisが責務を持つか決める
+2. OS固有の解決はconfiguratorより下に置く
+3. dependencyは絶対include/lib pathではなくCMake targetで公開する
+4. capability combinationのsmoke testを追加する
+5. downstream CMake consumerに公開する契約ならinstall後のconsumer linkまで検証する

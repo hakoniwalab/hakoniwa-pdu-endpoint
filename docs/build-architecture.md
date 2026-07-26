@@ -159,6 +159,68 @@ When enabled, the root is resolved from, in order:
 2. `HAKONIWA_CORE_ROOT`
 3. `HAKO_PDU_ENDPOINT_HAKONIWA_CORE_ROOT`
 
+`features.hakoniwa_core` is a **capability switch**, not a callback/polling selector.
+It controls which Endpoint artifacts are generated. The downstream consumer chooses the
+Hakoniwa Core frontend through the CMake target it links.
+
+| Manifest value | Generated native targets | Intended use |
+|---|---|---|
+| `false` | `hakoniwa_pdu_endpoint` | Core-free TCP/UDP/WebSocket/Storage/Zenoh/MQTT usage |
+| `true` | `hakoniwa_pdu_endpoint`, `hakoniwa_pdu_endpoint_core_callback`, `hakoniwa_pdu_endpoint_core_polling` | Core-enabled compatibility target plus explicit callback/polling variants |
+
+With Core enabled, the three targets have different dependency contracts:
+
+| Build target | Installed CMake target | Core dependency | Recommendation |
+|---|---|---|---|
+| `hakoniwa_pdu_endpoint` | `hakoniwa_pdu_endpoint::hakoniwa_pdu_endpoint` | callback + polling frontends | Legacy compatibility; existing Core-enabled applications |
+| `hakoniwa_pdu_endpoint_core_callback` | `hakoniwa_pdu_endpoint::core_callback` | `hakoniwa-core::assets` | Preferred for new callback/asset integrations |
+| `hakoniwa_pdu_endpoint_core_polling` | `hakoniwa_pdu_endpoint::core_polling` | `hakoniwa-core::shakoc` | Preferred for new polling integrations |
+
+The legacy target intentionally keeps its historical behavior. With Core disabled it is a
+Core-free Endpoint library. With Core enabled it contains both callback and polling SHM/time
+implementations. New Core-aware consumers should normally choose one explicit variant
+instead of depending on the all-in-one legacy target.
+
+This separation is deliberate:
+
+```text
+manifest
+  decides which capabilities/artifacts are built
+
+consumer CMake target
+  decides which Core frontend the application depends on
+```
+
+Installed consumers should use the package contract rather than reconstructing include or
+library paths:
+
+```cmake
+find_package(hakoniwa_pdu_endpoint CONFIG REQUIRED)
+
+target_link_libraries(my_callback_app PRIVATE
+  hakoniwa_pdu_endpoint::core_callback
+)
+```
+
+or:
+
+```cmake
+find_package(hakoniwa_pdu_endpoint CONFIG REQUIRED)
+
+target_link_libraries(my_polling_app PRIVATE
+  hakoniwa_pdu_endpoint::core_polling
+)
+```
+
+The Endpoint package resolves `hakoniwa-core` transitively for Core-enabled builds. The
+Core frontend targets then carry their own public include/link usage requirements. A
+consumer should not need to call `find_library()` for `assets`, `shakoc`, or `hako`, nor
+hard-code the Core install layout.
+
+The `core-variants` CI workflow validates this package boundary on Ubuntu, macOS, and
+Windows by installing Core, installing Endpoint, then configuring and linking a separate
+consumer project against both exported variants.
+
 ### `features.zenoh` and `features.mqtt`
 
 These map to the corresponding optional native transports. They are independent from

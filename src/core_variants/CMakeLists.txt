@@ -38,70 +38,26 @@ if(HAKO_PDU_ENDPOINT_ENABLE_MQTT)
   list(APPEND HAKO_ENDPOINT_VARIANT_COMMON_SRC ../comm_mqtt.cpp)
 endif()
 
-# Resolve Boost independently here because imported package targets and ordinary
-# CMake variables created in src/CMakeLists.txt are directory-scoped. Keeping
-# this resolver local also avoids changing the legacy endpoint target.
-find_package(Boost 1.70 CONFIG QUIET)
-if(TARGET Boost::headers)
-  set(HAKO_ENDPOINT_VARIANT_BOOST_TARGET Boost::headers)
-elseif(TARGET Boost::boost)
-  set(HAKO_ENDPOINT_VARIANT_BOOST_TARGET Boost::boost)
-else()
-  set(HAKO_ENDPOINT_VARIANT_BOOST_INCLUDE_CANDIDATES "")
-  if(DEFINED VCPKG_INSTALLED_DIR AND DEFINED VCPKG_TARGET_TRIPLET)
-    list(APPEND HAKO_ENDPOINT_VARIANT_BOOST_INCLUDE_CANDIDATES
-      "${VCPKG_INSTALLED_DIR}/${VCPKG_TARGET_TRIPLET}/include"
-    )
-  endif()
-  if(DEFINED CMAKE_TOOLCHAIN_FILE)
-    get_filename_component(HAKO_ENDPOINT_VARIANT_VCPKG_TOOLCHAIN_DIR "${CMAKE_TOOLCHAIN_FILE}" DIRECTORY)
-    get_filename_component(HAKO_ENDPOINT_VARIANT_VCPKG_SCRIPTS_DIR "${HAKO_ENDPOINT_VARIANT_VCPKG_TOOLCHAIN_DIR}" DIRECTORY)
-    get_filename_component(HAKO_ENDPOINT_VARIANT_VCPKG_ROOT "${HAKO_ENDPOINT_VARIANT_VCPKG_SCRIPTS_DIR}" DIRECTORY)
-    if(DEFINED VCPKG_TARGET_TRIPLET)
-      list(APPEND HAKO_ENDPOINT_VARIANT_BOOST_INCLUDE_CANDIDATES
-        "${HAKO_ENDPOINT_VARIANT_VCPKG_ROOT}/installed/${VCPKG_TARGET_TRIPLET}/include"
-      )
-    endif()
-  endif()
-
-  find_path(HAKO_ENDPOINT_VARIANT_BOOST_INCLUDE_DIR boost/asio.hpp
-    HINTS ${HAKO_ENDPOINT_VARIANT_BOOST_INCLUDE_CANDIDATES}
-  )
-  if(NOT HAKO_ENDPOINT_VARIANT_BOOST_INCLUDE_DIR)
-    message(FATAL_ERROR
-      "Boost headers were not found for Hakoniwa Core endpoint variants. Checked hints: ${HAKO_ENDPOINT_VARIANT_BOOST_INCLUDE_CANDIDATES}")
-  endif()
-  add_library(hako_pdu_endpoint_core_variant_boost_headers INTERFACE)
-  target_include_directories(hako_pdu_endpoint_core_variant_boost_headers INTERFACE
-    "${HAKO_ENDPOINT_VARIANT_BOOST_INCLUDE_DIR}"
-  )
-  set(HAKO_ENDPOINT_VARIANT_BOOST_TARGET hako_pdu_endpoint_core_variant_boost_headers)
+# src/CMakeLists.txt owns the common dependency resolution. This directory is a
+# child of src so imported targets and resolved variables are visible here.
+if(NOT HAKO_PDU_ENDPOINT_BOOST_TARGET)
+  message(FATAL_ERROR "Hakoniwa Core endpoint variants require a resolved Boost target")
 endif()
-
 if(NOT TARGET nlohmann_json::nlohmann_json)
   message(FATAL_ERROR "Hakoniwa Core endpoint variants require nlohmann_json::nlohmann_json")
 endif()
 
-# Resolve Core includes and the two mutually-exclusive Core frontend link sets.
-set(HAKO_ENDPOINT_VARIANT_CORE_INCLUDES "")
-set(HAKO_ENDPOINT_CALLBACK_CORE_LIBS "")
-set(HAKO_ENDPOINT_POLLING_CORE_LIBS "")
-
+# Resolve the two mutually-exclusive Core frontend link targets. In an in-tree
+# build, use the native Core targets. When the parent already resolved an
+# installed Core package, reuse its imported targets. Only fall back to a local
+# find_package call for standalone configurations that did not resolve Core in
+# the parent directory.
 if(TARGET assets AND TARGET shakoc)
-  if(DEFINED HAKO_PDU_ENDPOINT_HAKONIWA_CORE_SOURCE_DIR AND
-     EXISTS "${HAKO_PDU_ENDPOINT_HAKONIWA_CORE_SOURCE_DIR}/include")
-    list(APPEND HAKO_ENDPOINT_VARIANT_CORE_INCLUDES
-      "${HAKO_PDU_ENDPOINT_HAKONIWA_CORE_SOURCE_DIR}/include"
-      "${HAKO_PDU_ENDPOINT_HAKONIWA_CORE_SOURCE_DIR}/hakoniwa-pdu-registry/pdu/types"
-    )
-    if(EXISTS "${HAKO_PDU_ENDPOINT_HAKONIWA_CORE_SOURCE_DIR}/include/hakoniwa")
-      list(APPEND HAKO_ENDPOINT_VARIANT_CORE_INCLUDES
-        "${HAKO_PDU_ENDPOINT_HAKONIWA_CORE_SOURCE_DIR}/include/hakoniwa"
-      )
-    endif()
-  endif()
-  set(HAKO_ENDPOINT_CALLBACK_CORE_LIBS assets)
-  set(HAKO_ENDPOINT_POLLING_CORE_LIBS shakoc)
+  set(HAKO_ENDPOINT_CALLBACK_CORE_TARGET assets)
+  set(HAKO_ENDPOINT_POLLING_CORE_TARGET shakoc)
+elseif(TARGET hakoniwa-core::assets AND TARGET hakoniwa-core::shakoc)
+  set(HAKO_ENDPOINT_CALLBACK_CORE_TARGET hakoniwa-core::assets)
+  set(HAKO_ENDPOINT_POLLING_CORE_TARGET hakoniwa-core::shakoc)
 else()
   set(HAKO_ENDPOINT_VARIANT_CORE_ROOT "${HAKO_PDU_ENDPOINT_HAKONIWA_CORE_ROOT}")
   if(HAKO_ENDPOINT_VARIANT_CORE_ROOT STREQUAL "")
@@ -114,58 +70,36 @@ else()
     endif()
   endif()
 
-  list(APPEND HAKO_ENDPOINT_VARIANT_CORE_INCLUDES
-    "${HAKO_ENDPOINT_VARIANT_CORE_ROOT}/include"
-    "${HAKO_ENDPOINT_VARIANT_CORE_ROOT}/include/hakoniwa"
+  find_package(hakoniwa-core CONFIG REQUIRED
+    PATHS "${HAKO_ENDPOINT_VARIANT_CORE_ROOT}"
+    NO_DEFAULT_PATH
   )
-  if(UNIX AND NOT APPLE)
-    list(APPEND HAKO_ENDPOINT_VARIANT_CORE_INCLUDES /usr/include/hakoniwa)
+
+  if(NOT TARGET hakoniwa-core::assets)
+    message(FATAL_ERROR "Hakoniwa Core package does not export hakoniwa-core::assets")
+  endif()
+  if(NOT TARGET hakoniwa-core::shakoc)
+    message(FATAL_ERROR "Hakoniwa Core package does not export hakoniwa-core::shakoc")
   endif()
 
-  set(HAKO_ENDPOINT_VARIANT_CORE_LIB_DIRS "${HAKO_ENDPOINT_VARIANT_CORE_ROOT}/lib")
-  if(UNIX AND NOT APPLE)
-    list(APPEND HAKO_ENDPOINT_VARIANT_CORE_LIB_DIRS /usr/lib/x86_64-linux-gnu)
-  endif()
-
-  find_library(HAKO_ENDPOINT_VARIANT_ASSETS_LIB NAMES assets PATHS ${HAKO_ENDPOINT_VARIANT_CORE_LIB_DIRS})
-  find_library(HAKO_ENDPOINT_VARIANT_SHAKOC_LIB NAMES shakoc PATHS ${HAKO_ENDPOINT_VARIANT_CORE_LIB_DIRS})
-
-  if(NOT HAKO_ENDPOINT_VARIANT_ASSETS_LIB)
-    message(FATAL_ERROR "Core callback endpoint variant requires the Hakoniwa assets library")
-  endif()
-  if(NOT HAKO_ENDPOINT_VARIANT_SHAKOC_LIB)
-    message(FATAL_ERROR "Core polling endpoint variant requires the Hakoniwa shakoc library")
-  endif()
-
-  set(HAKO_ENDPOINT_CALLBACK_CORE_LIBS ${HAKO_ENDPOINT_VARIANT_ASSETS_LIB})
-  set(HAKO_ENDPOINT_POLLING_CORE_LIBS ${HAKO_ENDPOINT_VARIANT_SHAKOC_LIB})
-
-  # assets is static on Windows and its hako dependency is not encoded in a raw
-  # find_library result, so retain the legacy Windows link requirement without
-  # pulling shakoc into the callback variant.
-  if(WIN32)
-    find_library(HAKO_ENDPOINT_VARIANT_HAKO_LIB NAMES hako PATHS ${HAKO_ENDPOINT_VARIANT_CORE_LIB_DIRS})
-    if(NOT HAKO_ENDPOINT_VARIANT_HAKO_LIB)
-      message(FATAL_ERROR "Core callback endpoint variant requires the Hakoniwa hako library on Windows")
-    endif()
-    list(APPEND HAKO_ENDPOINT_CALLBACK_CORE_LIBS ${HAKO_ENDPOINT_VARIANT_HAKO_LIB})
-  endif()
+  set(HAKO_ENDPOINT_CALLBACK_CORE_TARGET hakoniwa-core::assets)
+  set(HAKO_ENDPOINT_POLLING_CORE_TARGET hakoniwa-core::shakoc)
 endif()
 
-function(hako_configure_core_endpoint_variant target_name)
+function(hako_configure_core_endpoint_variant target_name export_name)
   target_include_directories(${target_name}
     PUBLIC
       $<BUILD_INTERFACE:${CMAKE_CURRENT_LIST_DIR}/../../include>
       $<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}>
-      ${HAKO_ENDPOINT_VARIANT_CORE_INCLUDES}
   )
 
   target_link_libraries(${target_name}
     PUBLIC
       nlohmann_json::nlohmann_json
-      ${HAKO_ENDPOINT_VARIANT_BOOST_TARGET}
+      ${HAKO_PDU_ENDPOINT_BOOST_TARGET}
   )
 
+  set_target_properties(${target_name} PROPERTIES EXPORT_NAME ${export_name})
   target_compile_definitions(${target_name} PUBLIC HAKO_PDU_ENDPOINT_HAS_HAKONIWA_CORE=1)
 
   if(WIN32)
@@ -179,7 +113,9 @@ function(hako_configure_core_endpoint_variant target_name)
   endif()
 
   if(HAKO_PDU_ENDPOINT_ENABLE_ZENOH)
-    if(TARGET zenohc::lib)
+    if(TARGET zenohc::static)
+      target_link_libraries(${target_name} PUBLIC zenohc::static)
+    elseif(TARGET zenohc::lib)
       target_link_libraries(${target_name} PUBLIC zenohc::lib)
     elseif(TARGET zenohc)
       target_link_libraries(${target_name} PUBLIC zenohc)
@@ -212,8 +148,8 @@ add_library(hakoniwa_pdu_endpoint_core_callback
   ../hakoniwa_time_source_callback.cpp
   hakoniwa_time_source_poll_unavailable.cpp
 )
-hako_configure_core_endpoint_variant(hakoniwa_pdu_endpoint_core_callback)
-target_link_libraries(hakoniwa_pdu_endpoint_core_callback PUBLIC ${HAKO_ENDPOINT_CALLBACK_CORE_LIBS})
+hako_configure_core_endpoint_variant(hakoniwa_pdu_endpoint_core_callback core_callback)
+target_link_libraries(hakoniwa_pdu_endpoint_core_callback PUBLIC ${HAKO_ENDPOINT_CALLBACK_CORE_TARGET})
 add_library(hakoniwa_pdu_endpoint::core_callback ALIAS hakoniwa_pdu_endpoint_core_callback)
 
 add_library(hakoniwa_pdu_endpoint_core_polling
@@ -223,8 +159,8 @@ add_library(hakoniwa_pdu_endpoint_core_polling
   ../hakoniwa_time_source_poll.cpp
   hakoniwa_time_source_callback_unavailable.cpp
 )
-hako_configure_core_endpoint_variant(hakoniwa_pdu_endpoint_core_polling)
-target_link_libraries(hakoniwa_pdu_endpoint_core_polling PUBLIC ${HAKO_ENDPOINT_POLLING_CORE_LIBS})
+hako_configure_core_endpoint_variant(hakoniwa_pdu_endpoint_core_polling core_polling)
+target_link_libraries(hakoniwa_pdu_endpoint_core_polling PUBLIC ${HAKO_ENDPOINT_POLLING_CORE_TARGET})
 add_library(hakoniwa_pdu_endpoint::core_polling ALIAS hakoniwa_pdu_endpoint_core_polling)
 
 message(STATUS "Hakoniwa Core endpoint variants enabled: core_callback, core_polling")
