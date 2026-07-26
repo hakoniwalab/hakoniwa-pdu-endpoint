@@ -39,7 +39,7 @@ CIは役割を分けています。
 - `ci`: 通常build、tests、bindings、manifest resolution、transport combinations
 - `core-variants`: Hakoniwa Core package統合と外部CMake consumerのlink契約
 
-`core-variants` では Ubuntu x64、macOS、Windows x64 で次を継続検証します。
+`core-variants` では Ubuntu x64、Linux ARM64 (`aarch64`)、macOS、Windows x64 で次を継続検証します。
 
 ```text
 hakoniwa-core-pro をbuild/install
@@ -53,7 +53,7 @@ find_package(hakoniwa_pdu_endpoint CONFIG REQUIRED)
 core_callback / core_polling consumerを実リンク
 ```
 
-Linux ARM64 (`aarch64`) も同じsource-build / manifestモデルで扱います。現在 `core-variants` にnative ARM64 jobを追加して検証中です。成功確認前なので、このREADMEではまだARM64をCI verifiedとは断言していません。
+Linux ARM64はnative ARM64のGitHub Actions runnerでCI verifiedです。Endpointが利用するHakoniwa Coreのbuild/install経路、exportされた `assets` / `shakoc` package target、Endpoint Core variants、外部consumer linkまでARM64上で検証しています。
 
 READMEや `docs/**` だけの変更では、重いbuild workflowは起動しません。
 
