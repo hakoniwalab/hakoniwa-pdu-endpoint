@@ -45,6 +45,7 @@ jobs:
 
       - name: Build and install endpoint package
         run: |
+          cmake --build build-core-variants --config Release --target hakoniwa_pdu_endpoint
           cmake --build build-core-variants --config Release --target hakoniwa_pdu_endpoint_core_callback
           cmake --build build-core-variants --config Release --target hakoniwa_pdu_endpoint_core_polling
           cmake --install build-core-variants --config Release --prefix "${GITHUB_WORKSPACE}/endpoint-install"
@@ -95,6 +96,7 @@ jobs:
 
       - name: Build and install endpoint package
         run: |
+          cmake --build build-core-variants --config Release --target hakoniwa_pdu_endpoint
           cmake --build build-core-variants --config Release --target hakoniwa_pdu_endpoint_core_callback
           cmake --build build-core-variants --config Release --target hakoniwa_pdu_endpoint_core_polling
           cmake --install build-core-variants --config Release --prefix "${GITHUB_WORKSPACE}/endpoint-install"
@@ -152,6 +154,7 @@ jobs:
       - name: Build and install endpoint package
         shell: pwsh
         run: |
+          cmake --build build-core-variants --config Release --target hakoniwa_pdu_endpoint
           cmake --build build-core-variants --config Release --target hakoniwa_pdu_endpoint_core_callback
           cmake --build build-core-variants --config Release --target hakoniwa_pdu_endpoint_core_polling
           cmake --install build-core-variants --config Release --prefix "$env:GITHUB_WORKSPACE/endpoint-install"
