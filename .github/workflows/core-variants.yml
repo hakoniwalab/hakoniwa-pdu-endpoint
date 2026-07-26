@@ -13,7 +13,50 @@ on:
       - "LICENSE*"
 
 jobs:
+  changes:
+    runs-on: ubuntu-latest
+    outputs:
+      build: ${{ steps.check.outputs.build }}
+    steps:
+      - name: Checkout current head
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          fetch-depth: 2
+
+      - name: Check whether the latest update affects build inputs
+        id: check
+        shell: bash
+        run: |
+          if [[ "${{ github.event_name }}" == "pull_request" && "${{ github.event.action }}" != "synchronize" ]]; then
+            echo "build=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          BEFORE="${{ github.event.before }}"
+          AFTER="${{ github.event.pull_request.head.sha || github.sha }}"
+
+          if [[ -z "$BEFORE" || "$BEFORE" =~ ^0+$ ]]; then
+            BEFORE="$(git rev-parse HEAD^ 2>/dev/null || true)"
+          fi
+
+          if [[ -z "$BEFORE" ]]; then
+            echo "build=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          if git diff --quiet "$BEFORE" "$AFTER" -- . \
+            ':(exclude)**/*.md' \
+            ':(exclude)docs/**' \
+            ':(exclude)LICENSE*'; then
+            echo "build=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "build=true" >> "$GITHUB_OUTPUT"
+          fi
+
   ubuntu-core-variants:
+    needs: changes
+    if: needs.changes.outputs.build == 'true'
     runs-on: ubuntu-latest
     steps:
       - name: Checkout endpoint
@@ -66,6 +109,8 @@ jobs:
           cmake --build build-package-consumer --config Release
 
   ubuntu-arm64-core-variants:
+    needs: changes
+    if: needs.changes.outputs.build == 'true'
     runs-on: ubuntu-24.04-arm
     steps:
       - name: Checkout endpoint
@@ -123,6 +168,8 @@ jobs:
           cmake --build build-package-consumer --config Release
 
   macos-core-variants:
+    needs: changes
+    if: needs.changes.outputs.build == 'true'
     runs-on: macos-latest
     steps:
       - name: Checkout endpoint
@@ -174,6 +221,8 @@ jobs:
           cmake --build build-package-consumer --config Release
 
   windows-core-variants:
+    needs: changes
+    if: needs.changes.outputs.build == 'true'
     runs-on: windows-latest
     steps:
       - name: Checkout endpoint
