@@ -3,6 +3,7 @@ import sys
 import tempfile
 import unittest
 from pathlib import Path
+from unittest.mock import patch
 
 MODULE_PATH = Path(__file__).with_name("hako.py")
 spec = importlib.util.spec_from_file_location("hako_build_tool", MODULE_PATH)
@@ -58,6 +59,54 @@ class ConfigTests(unittest.TestCase):
             'version: 1 # comment\nbuild:\n  dir: "build#local" # another comment\n'
         )
         self.assertEqual(cfg["build"]["dir"], "build#local")
+
+    def test_aarch64_normalizes_to_arm64(self):
+        with patch.object(hako.sys, "platform", "linux"), patch.object(
+            hako.platform, "machine", return_value="aarch64"
+        ):
+            self.assertEqual(hako._host_platform(), ("linux", "arm64"))
+
+
+class DoctorTests(unittest.TestCase):
+    def make_context(self, *, zenoh: bool):
+        cfg = hako.resolve_config(
+            {
+                "version": 1,
+                "bindings": {"python": False},
+                "features": {"zenoh": zenoh},
+            }
+        )
+        return hako.BuildContext(
+            repo_root=Path("."),
+            manifest_path=Path("hakoniwa-build.yaml"),
+            cfg=cfg,
+            platform_name="linux",
+            arch="arm64",
+            build_dir=Path("build"),
+            vcpkg_root=None,
+            core_root=None,
+            vcpkg_triplet="",
+            child_env={},
+        )
+
+    def test_zenoh_requires_rust_toolchain(self):
+        ctx = self.make_context(zenoh=True)
+
+        def fake_which(command: str):
+            if command in {"cargo", "rustc"}:
+                return None
+            return f"/usr/bin/{command}"
+
+        with patch.object(hako.shutil, "which", side_effect=fake_which):
+            errors, _warnings = hako.doctor(ctx)
+
+        self.assertTrue(any("missing: cargo, rustc" in error for error in errors))
+
+    def test_rust_toolchain_not_required_without_zenoh(self):
+        ctx = self.make_context(zenoh=False)
+        with patch.object(hako.shutil, "which", return_value="/usr/bin/cmake"):
+            errors, _warnings = hako.doctor(ctx)
+        self.assertEqual(errors, [])
 
 
 if __name__ == "__main__":

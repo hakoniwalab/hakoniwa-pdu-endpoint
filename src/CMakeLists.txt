@@ -16,6 +16,14 @@ project(hakoniwa_pdu_endpoint LANGUAGES CXX)
 if(HAKO_PDU_ENDPOINT_ENABLE_ZENOH)
   include(FetchContent)
 
+  find_program(HAKO_PDU_ENDPOINT_CARGO_EXECUTABLE cargo)
+  find_program(HAKO_PDU_ENDPOINT_RUSTC_EXECUTABLE rustc)
+  if(NOT HAKO_PDU_ENDPOINT_CARGO_EXECUTABLE OR NOT HAKO_PDU_ENDPOINT_RUSTC_EXECUTABLE)
+    message(FATAL_ERROR
+      "Zenoh support requires a Rust toolchain (cargo and rustc) on PATH. "
+      "Install Rust with rustup and ensure $HOME/.cargo/bin is available before configuring.")
+  endif()
+
   file(STRINGS "${CMAKE_CURRENT_LIST_DIR}/../ZENOH_VERSION.txt" HAKO_ZENOH_C_VERSION_RAW
        LIMIT_COUNT 1 REGEX "^[^# \t].*")
   if(NOT HAKO_ZENOH_C_VERSION_RAW)
@@ -195,7 +203,13 @@ else()
 endif()
 
 if(HAKO_PDU_ENDPOINT_ENABLE_ZENOH)
-  if(TARGET zenohc::lib)
+  # Keep the vendored zenoh-c implementation inside pdu-endpoint even when
+  # hakoniwa_pdu_endpoint itself is shared. This avoids a runtime dependency
+  # on libzenohc.so, which can otherwise be resolved to ROS 2's rmw_zenoh
+  # vendor copy when both runtimes are loaded in the same process.
+  if(TARGET zenohc::static)
+    target_link_libraries(hakoniwa_pdu_endpoint PUBLIC zenohc::static)
+  elseif(TARGET zenohc::lib)
     target_link_libraries(hakoniwa_pdu_endpoint PUBLIC zenohc::lib)
   elseif(TARGET zenohc)
     target_link_libraries(hakoniwa_pdu_endpoint PUBLIC zenohc)
@@ -258,8 +272,8 @@ if(HAKO_PDU_ENDPOINT_ENABLE_HAKONIWA_CORE)
     target_include_directories(hakoniwa_pdu_endpoint PUBLIC ${HAKONIWA_INCLUDE_DIRS})
 
     set(HAKONIWA_LIB_DIRS "${HAKO_HAKONIWA_CORE_ROOT}/lib")
-    if(UNIX AND NOT APPLE)
-      list(APPEND HAKONIWA_LIB_DIRS /usr/lib/x86_64-linux-gnu)
+    if(UNIX AND NOT APPLE AND CMAKE_LIBRARY_ARCHITECTURE)
+      list(APPEND HAKONIWA_LIB_DIRS "/usr/lib/${CMAKE_LIBRARY_ARCHITECTURE}")
     endif()
 
     set(HAKONIWA_LINK_LIBS "")

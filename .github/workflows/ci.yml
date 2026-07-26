@@ -104,6 +104,47 @@ jobs:
           python3 python/test/test_c_endpoint_smoke.py
           python3 python/test/test_endpoint_container_smoke.py
 
+  linux-zenoh-shared:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Install Dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y g++-12 cmake libboost-dev
+
+      - name: Update Compiler Alternatives
+        run: |
+          sudo update-alternatives --install /usr/bin/g++ g++ /usr/bin/g++-12 12
+
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Check Rust toolchain
+        run: |
+          cargo --version
+          rustc --version
+
+      - name: Build shared endpoint with Zenoh
+        run: |
+          cmake -S . -B build-zenoh \
+            -DBUILD_SHARED_LIBS=ON \
+            -DHAKO_PDU_ENDPOINT_ENABLE_HAKONIWA_CORE=OFF \
+            -DHAKO_PDU_ENDPOINT_ENABLE_ZENOH=ON \
+            -DHAKO_PDU_ENDPOINT_BUILD_TESTS=OFF \
+            -DHAKO_PDU_ENDPOINT_BUILD_EXAMPLES=OFF \
+            -DHAKO_PDU_ENDPOINT_BUILD_TOOLS=OFF \
+            -DHAKO_PDU_ENDPOINT_BUILD_BENCHMARKS=OFF
+          cmake --build build-zenoh --config Release --target hakoniwa_pdu_endpoint
+
+      - name: Verify zenoh-c is not a dynamic dependency
+        run: |
+          if readelf -d build-zenoh/src/libhakoniwa_pdu_endpoint.so | grep -q 'libzenohc.so'; then
+            echo "Unexpected dynamic libzenohc.so dependency"
+            readelf -d build-zenoh/src/libhakoniwa_pdu_endpoint.so
+            exit 1
+          fi
+          readelf -d build-zenoh/src/libhakoniwa_pdu_endpoint.so | grep NEEDED || true
+
   macos-python:
     runs-on: macos-latest
     steps:

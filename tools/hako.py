@@ -343,6 +343,14 @@ def doctor(ctx: BuildContext) -> tuple[list[str], list[str]]:
     warnings: list[str] = []
     if not shutil.which("cmake"):
         errors.append("CMake was not found on PATH")
+    if ctx.cfg["features"]["zenoh"]:
+        missing_rust_tools = [tool for tool in ("cargo", "rustc") if not shutil.which(tool)]
+        if missing_rust_tools:
+            errors.append(
+                "Zenoh support requires a Rust toolchain on PATH; missing: "
+                + ", ".join(missing_rust_tools)
+                + " (install Rust with rustup and ensure $HOME/.cargo/bin is on PATH)"
+            )
     if ctx.cfg["bindings"]["python"]:
         if importlib.util.find_spec("cffi") is None:
             errors.append("Python package 'cffi' is missing (install with: python -m pip install cffi)")

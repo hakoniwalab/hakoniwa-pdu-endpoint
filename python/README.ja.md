@@ -37,12 +37,16 @@ GitHub Releases から、自分の OS / CPU / Python ABI に対応した zip bun
 
 想定 asset 名:
 
-- Linux: `hakoniwa-pdu-endpoint-linux-x86_64-cp312.zip`
+- Linux:
+  - `hakoniwa-pdu-endpoint-linux-x86_64-cp312.zip`
+  - ARM64 / aarch64 は現在 prebuilt bundle 未提供（後述の source build を使用）
 - macOS:
   - `hakoniwa-pdu-endpoint-macos-x86_64-cp312.zip`
   - `hakoniwa-pdu-endpoint-macos-arm64-cp312.zip`
 - Windows:
   - `hakoniwa-pdu-endpoint-windows-x64-cp312.zip`
+
+`install-python.bash` の `bootstrap` モードは Linux の CPU architecture を確認します。prebuilt bundle が存在しない ARM64 / aarch64 では x86_64 bundle を誤って取得せず、manifest-driven source build へ誘導して終了します。
 
 zip を展開したディレクトリには次のものが入っています。
 
@@ -64,6 +68,66 @@ POSIX では installer を 2 段に分けています。
   - installed package directory への runtime overlay
 
 copy 権限だけが必要な環境では、後者だけ `sudo` 実行できます。
+
+### 2.1 Linux ARM64 / Raspberry Pi は manifest-driven source build を使う
+
+Raspberry Pi などの Linux ARM64 / aarch64 環境では、別系統のビルド手順を使うのではなく、リポジトリ共通の `hakoniwa-build.yaml` と `tools/hako.py` を使います。
+
+まず共通の native / Python build 前提を用意します。Ubuntu 24.04 の例:
+
+```bash
+sudo apt-get update
+sudo apt-get install -y build-essential cmake libboost-dev python3-dev
+python3 -m pip install --upgrade pip setuptools cffi
+```
+
+Zenoh を使う場合は `zenoh-c` のビルドに Rust toolchain (`cargo`, `rustc`) が必要です。Rust を導入した後、`cargo` と `rustc` が `PATH` 上にあることを確認してください。
+
+```bash
+cargo --version
+rustc --version
+```
+
+`hakoniwa-build.yaml` では必要な機能だけを有効にします。ROS 2 / `rmw_zenoh` と通信するだけなら Hakoniwa Core は不要です。
+
+```yaml
+bindings:
+  python: true
+
+features:
+  hakoniwa_core: false
+  zenoh: true
+  mqtt: false
+```
+
+SHM または Hakoniwa time source が必要な場合だけ `features.hakoniwa_core: true` にし、`paths.hakoniwa_core_root` または `HAKONIWA_CORE_ROOT` でインストール済み Hakoniwa Core を指定してください。ARM64 で Core の prebuilt package がない環境では `hakoniwa-core-pro` をソースから用意します。
+
+設定確認とビルドは全 OS 共通です。
+
+```bash
+python3 tools/hako.py doctor
+python3 tools/hako.py configure --dry-run
+python3 tools/hako.py build
+python3 tools/hako.py test
+```
+
+checkout 上の build 結果をそのまま使う場合は、たとえば次のように Python と native library の場所を明示します。
+
+```bash
+export PYTHONPATH="$(pwd)/python:$(pwd)/build/python:${PYTHONPATH:-}"
+export HAKO_PDU_ENDPOINT_SHARED_LIB="$(pwd)/build/src/libhakoniwa_pdu_endpoint.so"
+export HAKO_PDU_ENDPOINT_LIB_DIR="$(pwd)/build/src"
+```
+
+Hakoniwa Core を有効にした場合は、Core の shared library も dynamic loader から見える必要があります。
+
+```bash
+export LD_LIBRARY_PATH="/usr/local/hakoniwa/lib:${LD_LIBRARY_PATH:-}"
+```
+
+Zenoh を有効にした pdu-endpoint は vendored `zenoh-c` を static link するため、pdu-endpoint の `build/_deps/...` 配下にある `libzenohc.so` を `LD_LIBRARY_PATH` へ追加する必要はありません。ROS 2 Jazzy の `rmw_zenoh_cpp` が独自の `libzenohc.so` を提供している環境でも、pdu-endpoint 用の Zenoh runtime を loader の検索順で切り替える構成にはしません。
+
+`venv --system-site-packages`、`rclpy`、`colcon`、ROS 2 package の実行環境などは pdu-endpoint の native/Python runtime ではなく `hakoniwa-pdu-ros` 側の integration concern です。ROS 2 bridge を構築する場合は `hakoniwa-pdu-ros` のセットアップ手順と合わせて確認してください。
 
 ## 3. 環境変数を設定する
 
@@ -193,6 +257,18 @@ pip show hakoniwa-pdu-endpoint
 
 `HAKO_PDU_ENDPOINT_SHARED_LIB` と `HAKO_PDU_ENDPOINT_LIB_DIR` を設定してください。
 
+### Linux ARM64 で `install-python.bash` が停止する
+
+prebuilt ARM64 bundle は未提供です。`bootstrap` の URL を x86_64 bundle に置き換えず、2.1 の manifest-driven source build を使用してください。
+
+### Zenoh 有効化時に Rust toolchain が見つからない
+
+`cargo` と `rustc` が `PATH` 上にあることを確認してください。Zenoh 有効時は CMake configure の段階で不足を明示的に検出します。
+
+### ROS 2 と同時利用すると `libzenohc.so` が競合する
+
+現在の source build は vendored `zenoh-c` を pdu-endpoint に static link します。pdu-endpoint 用 `libzenohc.so` を `LD_LIBRARY_PATH` の先頭へ追加する回避策は不要です。古い build artifact が残っている場合は build directory を作り直してください。
+
 ### Windows で `py` コマンドが無い
 
 `py` の代わりに `python` を使ってください。
@@ -208,3 +284,5 @@ python -m pip install --upgrade setuptools wheel cffi
 - PyPI: `pip install hakoniwa-pdu-endpoint`
 - GitHub Releases: native binary 配布元
 - Repository README: 開発者向けの build / test / release 手順
+- Build Architecture: `docs/build-architecture.md`
+- ROS 2 bridge: `hakoniwa-pdu-ros`

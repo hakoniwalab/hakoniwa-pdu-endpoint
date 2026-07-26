@@ -69,7 +69,13 @@ OS-specific logic is limited to toolchain and runtime discovery:
 
 - Windows: MSVC/vswhere, optional vcpkg toolchain, DLL search directories
 - macOS: dylib naming/search
-- Linux: shared-object naming/search
+- Linux: shared-object naming/search and native library architecture directories
+
+Linux `aarch64` and `arm64` are normalized to the same `arm64` platform architecture by
+the resolver. A missing prebuilt Linux ARM64 release bundle is a packaging limitation,
+not a separate build model: source builds still use the same manifest/configure flow.
+Architecture-specific system library fallbacks must use CMake platform information such
+as `CMAKE_LIBRARY_ARCHITECTURE` rather than hard-coded x86_64 paths.
 
 The build model itself does not change by OS.
 
@@ -158,6 +164,18 @@ When enabled, the root is resolved from, in order:
 These map to the corresponding optional native transports. They are independent from
 Python and Hakoniwa Core.
 
+`features.zenoh: true` also introduces a Rust toolchain requirement because the vendored
+`zenoh-c` implementation is built from Rust. `tools/hako.py doctor` therefore checks that
+both `cargo` and `rustc` are available before build. Direct-CMake users receive the same
+preflight during CMake configure.
+
+The Zenoh dependency is treated as an implementation detail of pdu-endpoint. When the
+endpoint itself is built as a shared library (including the Python/cffi flow), the build
+prefers the vendored `zenohc::static` target rather than inheriting `BUILD_SHARED_LIBS`
+through `zenohc::lib`. This avoids a runtime `libzenohc.so` dependency that can collide
+with another Zenoh runtime in the same process, notably the vendor library used by ROS 2
+`rmw_zenoh_cpp`.
+
 ### Python binding
 
 `bindings.python: true` is the default manifest behavior. The configurator:
@@ -232,7 +250,7 @@ Phase 2:
 
 - move CI Python build jobs to the manifest flow on all supported OSes;
 - reduce duplicated feature-resolution logic in shell/PowerShell helpers;
-- add more executable validation for feature combinations.
+- add more executable validation for feature combinations, including shared Python/Zenoh linkage.
 
 Phase 3:
 
