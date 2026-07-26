@@ -296,6 +296,11 @@ if(HAKO_PDU_ENDPOINT_ENABLE_HAKONIWA_CORE)
       message(WARNING "Hakoniwa core include directory not found: ${HAKO_HAKONIWA_CORE_ROOT}/include")
     endif()
   endif()
+
+  # Core-aware variants must be configured below the dependency resolution above
+  # so directory-scoped imported targets (for example nlohmann_json) and resolved
+  # dependency variables are visible to the variant subdirectory.
+  add_subdirectory(core_variants)
 endif()
 
 option(HAKO_PDU_ENDPOINT_BUILD_TESTS "Build UDP endpoint tests" ON)

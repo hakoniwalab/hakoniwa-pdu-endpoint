@@ -1,0 +1,140 @@
+name: core-variants
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  ubuntu-core-variants:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout endpoint
+        uses: actions/checkout@v4
+
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y g++-12 cmake libboost-dev
+          sudo update-alternatives --install /usr/bin/g++ g++ /usr/bin/g++-12 12
+
+      - name: Build and install hakoniwa-core-pro
+        run: |
+          git clone --recursive https://github.com/hakoniwalab/hakoniwa-core-pro.git
+          cmake -S hakoniwa-core-pro -B hakoniwa-core-pro/build \
+            -DCMAKE_BUILD_TYPE=Release \
+            -DCMAKE_INSTALL_PREFIX="${GITHUB_WORKSPACE}/core-install" \
+            -DHAKO_CORE_CONFIG_INSTALL_DIR=etc/hakoniwa \
+            -DHAKO_CORE_PRO_BUILD_COMMAND=OFF \
+            -DHAKO_CORE_PRO_BUILD_EXAMPLES=OFF \
+            -DHAKO_CORE_PRO_BUILD_PYTHON_BINDINGS=OFF \
+            -DHAKO_ENABLE_GTEST=OFF
+          cmake --build hakoniwa-core-pro/build --config Release
+          cmake --install hakoniwa-core-pro/build --config Release --prefix "${GITHUB_WORKSPACE}/core-install"
+
+      - name: Configure endpoint with Hakoniwa Core
+        run: |
+          cmake -S . -B build-core-variants \
+            -DCMAKE_BUILD_TYPE=Release \
+            -DHAKO_PDU_ENDPOINT_ENABLE_HAKONIWA_CORE=ON \
+            -DHAKO_PDU_ENDPOINT_HAKONIWA_CORE_ROOT="${GITHUB_WORKSPACE}/core-install" \
+            -DHAKO_PDU_ENDPOINT_BUILD_TESTS=OFF \
+            -DHAKO_PDU_ENDPOINT_BUILD_EXAMPLES=OFF \
+            -DHAKO_PDU_ENDPOINT_BUILD_TOOLS=OFF \
+            -DHAKO_PDU_ENDPOINT_BUILD_BENCHMARKS=OFF \
+            -DHAKO_PDU_ENDPOINT_INSTALL=OFF
+
+      - name: Build callback and polling variants
+        run: |
+          cmake --build build-core-variants --config Release --target hakoniwa_pdu_endpoint_core_callback
+          cmake --build build-core-variants --config Release --target hakoniwa_pdu_endpoint_core_polling
+
+  macos-core-variants:
+    runs-on: macos-latest
+    steps:
+      - name: Checkout endpoint
+        uses: actions/checkout@v4
+
+      - name: Install dependencies
+        run: |
+          brew update
+          brew install cmake boost
+
+      - name: Build and install hakoniwa-core-pro
+        run: |
+          git clone --recursive https://github.com/hakoniwalab/hakoniwa-core-pro.git
+          cmake -S hakoniwa-core-pro -B hakoniwa-core-pro/build \
+            -DCMAKE_BUILD_TYPE=Release \
+            -DCMAKE_INSTALL_PREFIX="${GITHUB_WORKSPACE}/core-install" \
+            -DHAKO_CORE_CONFIG_INSTALL_DIR=etc/hakoniwa \
+            -DHAKO_CORE_PRO_BUILD_COMMAND=OFF \
+            -DHAKO_CORE_PRO_BUILD_EXAMPLES=OFF \
+            -DHAKO_CORE_PRO_BUILD_PYTHON_BINDINGS=OFF \
+            -DHAKO_ENABLE_GTEST=OFF
+          cmake --build hakoniwa-core-pro/build --config Release
+          cmake --install hakoniwa-core-pro/build --config Release --prefix "${GITHUB_WORKSPACE}/core-install"
+
+      - name: Configure endpoint with Hakoniwa Core
+        run: |
+          cmake -S . -B build-core-variants \
+            -DCMAKE_BUILD_TYPE=Release \
+            -DHAKO_PDU_ENDPOINT_ENABLE_HAKONIWA_CORE=ON \
+            -DHAKO_PDU_ENDPOINT_HAKONIWA_CORE_ROOT="${GITHUB_WORKSPACE}/core-install" \
+            -DHAKO_PDU_ENDPOINT_BUILD_TESTS=OFF \
+            -DHAKO_PDU_ENDPOINT_BUILD_EXAMPLES=OFF \
+            -DHAKO_PDU_ENDPOINT_BUILD_TOOLS=OFF \
+            -DHAKO_PDU_ENDPOINT_BUILD_BENCHMARKS=OFF \
+            -DHAKO_PDU_ENDPOINT_INSTALL=OFF
+
+      - name: Build callback and polling variants
+        run: |
+          cmake --build build-core-variants --config Release --target hakoniwa_pdu_endpoint_core_callback
+          cmake --build build-core-variants --config Release --target hakoniwa_pdu_endpoint_core_polling
+
+  windows-core-variants:
+    runs-on: windows-latest
+    steps:
+      - name: Checkout endpoint
+        uses: actions/checkout@v4
+
+      - name: Install vcpkg and Boost headers
+        shell: pwsh
+        run: |
+          git clone https://github.com/microsoft/vcpkg.git C:\vcpkg
+          & C:\vcpkg\bootstrap-vcpkg.bat
+          & C:\vcpkg\vcpkg.exe install boost-asio:x64-windows boost-beast:x64-windows
+
+      - name: Build and install hakoniwa-core-pro
+        shell: pwsh
+        run: |
+          git clone --recursive https://github.com/hakoniwalab/hakoniwa-core-pro.git
+          $coreOptions = "$env:GITHUB_WORKSPACE/hakoniwa-core-pro/cmake-options/win-cmake-options.cmake"
+          cmake -S hakoniwa-core-pro -B hakoniwa-core-pro/build -A x64 `
+            -DHAKO_CLIENT_OPTION_FILEPATH="$coreOptions" `
+            -DCMAKE_INSTALL_PREFIX="$env:GITHUB_WORKSPACE/core-install" `
+            -DHAKO_CORE_CONFIG_INSTALL_DIR=etc/hakoniwa `
+            -DHAKO_CORE_PRO_BUILD_COMMAND=OFF `
+            -DHAKO_CORE_PRO_BUILD_EXAMPLES=OFF `
+            -DHAKO_CORE_PRO_BUILD_PYTHON_BINDINGS=OFF `
+            -DHAKO_ENABLE_GTEST=OFF
+          cmake --build hakoniwa-core-pro/build --config Release
+          cmake --install hakoniwa-core-pro/build --config Release --prefix "$env:GITHUB_WORKSPACE/core-install"
+
+      - name: Configure endpoint with Hakoniwa Core
+        shell: pwsh
+        run: |
+          cmake -S . -B build-core-variants -A x64 `
+            -DCMAKE_TOOLCHAIN_FILE=C:\vcpkg\scripts\buildsystems\vcpkg.cmake `
+            -DVCPKG_TARGET_TRIPLET=x64-windows `
+            -DHAKO_PDU_ENDPOINT_ENABLE_HAKONIWA_CORE=ON `
+            -DHAKO_PDU_ENDPOINT_HAKONIWA_CORE_ROOT="$env:GITHUB_WORKSPACE/core-install" `
+            -DHAKO_PDU_ENDPOINT_BUILD_TESTS=OFF `
+            -DHAKO_PDU_ENDPOINT_BUILD_EXAMPLES=OFF `
+            -DHAKO_PDU_ENDPOINT_BUILD_TOOLS=OFF `
+            -DHAKO_PDU_ENDPOINT_BUILD_BENCHMARKS=OFF `
+            -DHAKO_PDU_ENDPOINT_INSTALL=OFF
+
+      - name: Build callback and polling variants
+        shell: pwsh
+        run: |
+          cmake --build build-core-variants --config Release --target hakoniwa_pdu_endpoint_core_callback
+          cmake --build build-core-variants --config Release --target hakoniwa_pdu_endpoint_core_polling
