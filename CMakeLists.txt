@@ -46,13 +46,13 @@ if(HAKO_PDU_ENDPOINT_BUILD_BENCHMARKS)
   add_subdirectory(benchmarks)
 endif()
 
-
 option(HAKO_PDU_ENDPOINT_BUILD_EXAMPLES "Build example programs" OFF)
 if(HAKO_PDU_ENDPOINT_BUILD_EXAMPLES)
   add_subdirectory(examples)
 endif()
 
 set(hakoniwa_pdu_endpoint_cmake_dir "${CMAKE_INSTALL_LIBDIR}/cmake/hakoniwa_pdu_endpoint")
+set(HAKO_PDU_ENDPOINT_PACKAGE_HAS_HAKONIWA_CORE ${HAKO_PDU_ENDPOINT_ENABLE_HAKONIWA_CORE})
 
 if(HAKO_PDU_ENDPOINT_INSTALL)
   install(
@@ -63,6 +63,19 @@ if(HAKO_PDU_ENDPOINT_INSTALL)
     RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR}
     INCLUDES DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}
   )
+
+  if(HAKO_PDU_ENDPOINT_ENABLE_HAKONIWA_CORE)
+    install(
+      TARGETS
+        hakoniwa_pdu_endpoint_core_callback
+        hakoniwa_pdu_endpoint_core_polling
+      EXPORT hakoniwa_pdu_endpointTargets
+      ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR}
+      LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}
+      RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR}
+      INCLUDES DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}
+    )
+  endif()
 
   install(
     DIRECTORY include/
