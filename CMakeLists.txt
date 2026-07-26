@@ -25,9 +25,6 @@ include(CMakePackageConfigHelpers)
 
 # add_subdirectory を使って src と test ディレクトリの CMakeLists.txt を含める
 add_subdirectory(src)
-if(HAKO_PDU_ENDPOINT_ENABLE_HAKONIWA_CORE)
-  add_subdirectory(src/core_variants)
-endif()
 option(HAKO_PDU_ENDPOINT_BUILD_TOOLS "Build debug and inspection tools" ON)
 if(HAKO_PDU_ENDPOINT_BUILD_TOOLS)
   add_subdirectory(tools)
