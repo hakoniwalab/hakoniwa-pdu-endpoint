@@ -83,12 +83,26 @@ HakoPduErrorType set_socket_nonblocking(SocketHandle fd, bool enabled) noexcept
 
 SocketHandle create_socket(int family, int type, int protocol) noexcept
 {
-    return ::socket(family, type, protocol);
+    SocketHandle fd = ::socket(family, type, protocol);
+#if defined(SO_NOSIGPIPE)
+    if (is_valid_socket(fd)) {
+        const int enabled = 1;
+        (void)::setsockopt(fd, SOL_SOCKET, SO_NOSIGPIPE, &enabled, sizeof(enabled));
+    }
+#endif
+    return fd;
 }
 
 SocketHandle accept_socket(SocketHandle fd, SocketAddress* address, SocketLength* address_len) noexcept
 {
-    return ::accept(fd, address, address_len);
+    SocketHandle accepted_fd = ::accept(fd, address, address_len);
+#if defined(SO_NOSIGPIPE)
+    if (is_valid_socket(accepted_fd)) {
+        const int enabled = 1;
+        (void)::setsockopt(accepted_fd, SOL_SOCKET, SO_NOSIGPIPE, &enabled, sizeof(enabled));
+    }
+#endif
+    return accepted_fd;
 }
 
 int connect_socket(SocketHandle fd, const SocketAddress* address, SocketLength address_len) noexcept
@@ -113,6 +127,9 @@ SocketSize recv_socket(SocketHandle fd, std::byte* buffer, size_t size, int flag
 
 SocketSize send_socket(SocketHandle fd, const std::byte* buffer, size_t size, int flags) noexcept
 {
+#if defined(MSG_NOSIGNAL)
+    flags |= MSG_NOSIGNAL;
+#endif
     return ::send(fd, buffer, size, flags);
 }
 
