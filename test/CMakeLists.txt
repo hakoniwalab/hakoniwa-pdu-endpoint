@@ -54,18 +54,16 @@ target_link_libraries(cache_runtime_config_test
 
 add_test(NAME cache_runtime_config_test COMMAND cache_runtime_config_test)
 
-if(NOT WIN32)
-  add_executable(socket_portability_test
-    socket_portability_test.cpp
-  )
+add_executable(socket_portability_test
+  socket_portability_test.cpp
+)
 
-  target_link_libraries(socket_portability_test
-    PRIVATE
-      hakoniwa_pdu_endpoint
-      GTest::gtest_main
-  )
+target_link_libraries(socket_portability_test
+  PRIVATE
+    hakoniwa_pdu_endpoint
+    GTest::gtest_main
+)
 
-  add_test(NAME socket_portability_test COMMAND socket_portability_test)
-endif()
+add_test(NAME socket_portability_test COMMAND socket_portability_test)
 
 set_tests_properties(endpoint_test PROPERTIES WORKING_DIRECTORY "${PROJECT_SOURCE_DIR}")
