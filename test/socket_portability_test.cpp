@@ -10,7 +10,16 @@
 
 using namespace hakoniwa::pdu;
 
-#ifndef _WIN32
+#ifdef _WIN32
+
+TEST(SocketPortabilityTest, WindowsTimeoutIsRetryableLikeWouldBlock)
+{
+    EXPECT_TRUE(is_socket_would_block(WSAEWOULDBLOCK));
+    EXPECT_TRUE(is_socket_would_block(WSAETIMEDOUT));
+    EXPECT_FALSE(is_socket_would_block(WSAECONNRESET));
+}
+
+#else
 
 TEST(SocketPortabilityTest, CreatedSocketDisablesSigpipeWhenSupported)
 {
