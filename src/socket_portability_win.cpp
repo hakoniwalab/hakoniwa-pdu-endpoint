@@ -70,7 +70,11 @@ std::string socket_error_message(int error_number)
 
 bool is_socket_would_block(int error_number) noexcept
 {
-    return error_number == WSAEWOULDBLOCK;
+    // POSIX reports SO_RCVTIMEO/SO_SNDTIMEO expiry as EAGAIN/EWOULDBLOCK,
+    // while Winsock reports the equivalent blocking-socket timeout as WSAETIMEDOUT.
+    // Normalize both cases as retryable so higher-level TCP/TCP-mux/UDP loops behave
+    // consistently across platforms.
+    return error_number == WSAEWOULDBLOCK || error_number == WSAETIMEDOUT;
 }
 
 bool is_socket_interrupted(int error_number) noexcept
