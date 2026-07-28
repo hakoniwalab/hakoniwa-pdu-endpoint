@@ -70,7 +70,25 @@ jobs:
         run: python tools/hako.py configure
 
       # This is the regression/reproduction point from hakoniwa-business-pack#47.
-      # Before the upstream package/export issue is fixed, the Core callback/polling
-      # variants are expected to expose the missing-header failure here.
+      # Capture the complete output so follow-up diagnosis is based on the actual
+      # latest-Core failure rather than the older candidate's inferred root cause.
       - name: Build through hako.py
-        run: python tools/hako.py build --config Release
+        shell: pwsh
+        run: |
+          python tools/hako.py build --config Release 2>&1 | Tee-Object -FilePath hako-build.log
+          $exitCode = $LASTEXITCODE
+          if ($exitCode -ne 0) {
+            Write-Host "=== hako.py build error summary ==="
+            Select-String -Path hako-build.log -Pattern 'error C[0-9]+|fatal error|No such file|LNK[0-9]+' |
+              Select-Object -Last 80 |
+              ForEach-Object { $_.Line }
+            exit $exitCode
+          }
+
+      - name: Upload hako.py build log
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: windows-hako-core-build-log
+          path: hako-build.log
+          if-no-files-found: warn
