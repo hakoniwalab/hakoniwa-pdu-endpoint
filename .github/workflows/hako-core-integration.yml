@@ -1,0 +1,94 @@
+name: hako-core-integration
+
+on:
+  push:
+    paths-ignore:
+      - "**/*.md"
+      - "docs/**"
+      - "LICENSE*"
+  pull_request:
+    paths-ignore:
+      - "**/*.md"
+      - "docs/**"
+      - "LICENSE*"
+
+jobs:
+  windows-hako-core:
+    runs-on: windows-latest
+
+    steps:
+      - name: Checkout endpoint
+        uses: actions/checkout@v4
+
+      - name: Setup Python 3.12
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install Python build prerequisites
+        run: python -m pip install --upgrade pip setuptools cffi
+
+      - name: Install vcpkg and Boost headers
+        shell: pwsh
+        run: |
+          git clone https://github.com/microsoft/vcpkg.git C:\vcpkg
+          & C:\vcpkg\bootstrap-vcpkg.bat
+          & C:\vcpkg\vcpkg.exe install boost-asio:x64-windows boost-beast:x64-windows
+
+      # Intentionally consume the current Core main branch. This is an integration
+      # early-warning check, not a released-version compatibility matrix.
+      - name: Build and install latest hakoniwa-core-pro
+        shell: pwsh
+        run: |
+          git clone --recursive https://github.com/hakoniwalab/hakoniwa-core-pro.git
+          $coreOptions = "$env:GITHUB_WORKSPACE/hakoniwa-core-pro/cmake-options/win-cmake-options.cmake"
+          cmake -S hakoniwa-core-pro -B hakoniwa-core-pro/build -A x64 `
+            -DHAKO_CLIENT_OPTION_FILEPATH="$coreOptions" `
+            -DCMAKE_INSTALL_PREFIX="$env:GITHUB_WORKSPACE/core-install" `
+            -DHAKO_CORE_CONFIG_INSTALL_DIR=etc/hakoniwa `
+            -DHAKO_CORE_PRO_BUILD_COMMAND=OFF `
+            -DHAKO_CORE_PRO_BUILD_EXAMPLES=OFF `
+            -DHAKO_CORE_PRO_BUILD_PYTHON_BINDINGS=OFF `
+            -DHAKO_ENABLE_GTEST=OFF
+          cmake --build hakoniwa-core-pro/build --config Release
+          cmake --install hakoniwa-core-pro/build --config Release --prefix "$env:GITHUB_WORKSPACE/core-install"
+
+      - name: Enable Core in the user build manifest
+        shell: pwsh
+        run: |
+          $manifest = Get-Content hakoniwa-build.yaml -Raw
+          $manifest = $manifest.Replace("  hakoniwa_core: false", "  hakoniwa_core: true")
+          $manifest = $manifest.Replace('  hakoniwa_core_root: ""', "  hakoniwa_core_root: `"$($env:GITHUB_WORKSPACE.Replace('\', '/'))/core-install`"")
+          $manifest = $manifest.Replace('  vcpkg_root: ""', '  vcpkg_root: "C:/vcpkg"')
+          Set-Content hakoniwa-build.yaml $manifest
+          Get-Content hakoniwa-build.yaml
+
+      - name: Doctor through hako.py
+        run: python tools/hako.py doctor
+
+      - name: Configure through hako.py
+        run: python tools/hako.py configure
+
+      # This is the regression/reproduction point from hakoniwa-business-pack#47.
+      # Capture the complete output so follow-up diagnosis is based on the actual
+      # latest-Core failure rather than the older candidate's inferred root cause.
+      - name: Build through hako.py
+        shell: pwsh
+        run: |
+          python tools/hako.py build 2>&1 | Tee-Object -FilePath hako-build.log
+          $exitCode = $LASTEXITCODE
+          if ($exitCode -ne 0) {
+            Write-Host "=== hako.py build error summary ==="
+            Select-String -Path hako-build.log -Pattern 'error C[0-9]+|fatal error|No such file|LNK[0-9]+' |
+              Select-Object -Last 80 |
+              ForEach-Object { $_.Line }
+            exit $exitCode
+          }
+
+      - name: Upload hako.py build log
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: windows-hako-core-build-log
+          path: hako-build.log
+          if-no-files-found: warn
