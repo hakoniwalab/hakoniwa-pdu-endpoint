@@ -75,7 +75,7 @@ jobs:
       - name: Build through hako.py
         shell: pwsh
         run: |
-          python tools/hako.py build --config Release 2>&1 | Tee-Object -FilePath hako-build.log
+          python tools/hako.py build 2>&1 | Tee-Object -FilePath hako-build.log
           $exitCode = $LASTEXITCODE
           if ($exitCode -ne 0) {
             Write-Host "=== hako.py build error summary ==="
