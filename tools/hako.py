@@ -2,7 +2,6 @@
 from __future__ import annotations
 
 import argparse
-import importlib.util
 import json
 import os
 import platform
@@ -338,7 +337,27 @@ def create_context(manifest: Path, repo_root: Path) -> BuildContext:
     )
 
 
-def doctor(ctx: BuildContext) -> tuple[list[str], list[str]]:
+def _python_package_available(interpreter: Path, package: str) -> bool:
+    result = subprocess.run(
+        [
+            str(interpreter),
+            "-c",
+            (
+                "import importlib.util, sys; "
+                f"sys.exit(0 if importlib.util.find_spec({package!r}) else 1)"
+            ),
+        ],
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+    return result.returncode == 0
+
+
+def doctor(
+    ctx: BuildContext,
+    python_interpreter: Path | None = None,
+) -> tuple[list[str], list[str]]:
     errors: list[str] = []
     warnings: list[str] = []
     if not shutil.which("cmake"):
@@ -352,9 +371,12 @@ def doctor(ctx: BuildContext) -> tuple[list[str], list[str]]:
                 + " (install Rust with rustup and ensure $HOME/.cargo/bin is on PATH)"
             )
     if ctx.cfg["bindings"]["python"]:
-        if importlib.util.find_spec("cffi") is None:
+        interpreter = python_interpreter or Path(sys.executable)
+        if not interpreter.is_file():
+            errors.append(f"Python interpreter was not found: {interpreter}")
+        elif not _python_package_available(interpreter, "cffi"):
             errors.append("Python package 'cffi' is missing (install with: python -m pip install cffi)")
-        if importlib.util.find_spec("setuptools") is None:
+        if interpreter.is_file() and not _python_package_available(interpreter, "setuptools"):
             errors.append("Python package 'setuptools' is missing (install with: python -m pip install setuptools)")
         if ctx.platform_name == "windows" and not (_find_vswhere() or shutil.which("cl.exe")):
             errors.append("Visual Studio C++ tools were not found (vswhere.exe/cl.exe unavailable)")
@@ -535,7 +557,7 @@ def _python_env(ctx: BuildContext, native_lib: Path) -> Dict[str, str]:
     return env
 
 
-def build(ctx: BuildContext) -> None:
+def build(ctx: BuildContext, python_interpreter: Path | None = None) -> None:
     configure(ctx)
     command = ["cmake", "--build", str(ctx.build_dir), "--config", ctx.cfg["build"]["type"]]
     parallel = ctx.cfg["build"]["parallel"]
@@ -545,10 +567,11 @@ def build(ctx: BuildContext) -> None:
     if ctx.cfg["bindings"]["python"]:
         native_lib = _find_native_shared_lib(ctx)
         env = _python_env(ctx, native_lib)
-        _run([sys.executable, str(ctx.repo_root / "python" / "hakoniwa_pdu_endpoint" / "build_c_endpoint_ffi.py")], cwd=ctx.repo_root, env=env)
+        interpreter = python_interpreter or Path(sys.executable)
+        _run([str(interpreter), str(ctx.repo_root / "python" / "hakoniwa_pdu_endpoint" / "build_c_endpoint_ffi.py")], cwd=ctx.repo_root, env=env)
 
 
-def test(ctx: BuildContext) -> None:
+def test(ctx: BuildContext, python_interpreter: Path | None = None) -> None:
     if ctx.cfg["validation"]["tests"]:
         _run(
             ["ctest", "--test-dir", str(ctx.build_dir), "-C", ctx.cfg["build"]["type"], "--output-on-failure"],
@@ -558,36 +581,298 @@ def test(ctx: BuildContext) -> None:
     if ctx.cfg["validation"]["python_import"]:
         native_lib = _find_native_shared_lib(ctx)
         env = _python_env(ctx, native_lib)
+        interpreter = python_interpreter or Path(sys.executable)
         _run(
-            [sys.executable, "-c", "from hakoniwa_pdu_endpoint.c_endpoint import Endpoint; print('HAKO_PYTHON_IMPORT_OK', Endpoint)"],
+            [str(interpreter), "-c", "from hakoniwa_pdu_endpoint.c_endpoint import Endpoint; print('HAKO_PYTHON_IMPORT_OK', Endpoint)"],
             cwd=ctx.repo_root,
             env=env,
         )
 
 
+def _command_output(command: list[str], cwd: Path) -> str:
+    result = subprocess.run(
+        command,
+        cwd=cwd,
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+    return result.stdout.strip() if result.returncode == 0 else "unknown"
+
+
+def _cmake_cache_value(build_dir: Path, key: str) -> str:
+    cache = build_dir / "CMakeCache.txt"
+    if not cache.is_file():
+        return "unknown"
+    prefix = f"{key}:"
+    for line in cache.read_text(encoding="utf-8", errors="replace").splitlines():
+        if line.startswith(prefix) and "=" in line:
+            return line.split("=", 1)[1] or "unknown"
+    return "unknown"
+
+
+def _read_dependency_receipt(prefix: Path, component_id: str) -> Dict[str, Any]:
+    path = prefix / "share" / "hakoniwa" / "receipts" / f"{component_id}.yaml"
+    if not path.is_file():
+        raise ConfigError(f"dependency receipt not found: {path}")
+
+    result: Dict[str, Any] = {"build_limits": {}}
+    section = ""
+    for raw in path.read_text(encoding="utf-8").splitlines():
+        if raw and not raw.startswith(" ") and raw.endswith(":"):
+            section = raw[:-1]
+            continue
+        if not raw.startswith("  ") or raw.startswith("    ") or ":" not in raw:
+            continue
+        key, value = raw.strip().split(":", 1)
+        parsed = _parse_scalar(value)
+        if section == "component" and key in {"version", "source_revision"}:
+            result[key] = parsed
+        elif section == "build_limits":
+            result["build_limits"][key] = parsed
+
+    if not result.get("version") or not result.get("source_revision"):
+        raise ConfigError(f"incomplete dependency receipt: {path}")
+    return result
+
+
+def _endpoint_artifacts(install_dir: Path) -> list[tuple[Path, str]]:
+    artifacts: list[tuple[Path, str]] = []
+    fixed = (
+        (Path("include/hakoniwa/pdu/endpoint.hpp"), "header"),
+        (Path("include/hakoniwa/time_source"), "directory"),
+        (Path("lib/cmake/hakoniwa_pdu_endpoint"), "cmake-package"),
+    )
+    for relative, kind in fixed:
+        installed = install_dir / relative
+        if installed.exists():
+            artifacts.append((relative, kind))
+
+    for child in ("bin", "lib"):
+        parent = install_dir / child
+        if not parent.is_dir():
+            continue
+        for installed in parent.iterdir():
+            if installed.is_file() and "hakoniwa_pdu_endpoint" in installed.name:
+                kind = "executable" if child == "bin" and installed.suffix == ".exe" else "library"
+                artifacts.append((installed.relative_to(install_dir), kind))
+    venv_dir = install_dir / "python"
+    if venv_dir.is_dir():
+        for package_dir in venv_dir.rglob("hakoniwa_pdu_endpoint"):
+            if package_dir.is_dir() and (package_dir / "c_endpoint.py").is_file():
+                artifacts.append(
+                    (package_dir.relative_to(install_dir), "python-package")
+                )
+                break
+    return sorted(set(artifacts), key=lambda item: item[0].as_posix())
+
+
+def write_receipt(ctx: BuildContext, install_dir: Path) -> Path:
+    receipt_root = install_dir / "share" / "hakoniwa" / "receipts"
+    resolved_relative = (
+        Path("share")
+        / "hakoniwa"
+        / "receipts"
+        / "resolved"
+        / "hakoniwa-pdu-endpoint.yaml"
+    )
+    (install_dir / resolved_relative).parent.mkdir(parents=True, exist_ok=True)
+    shutil.copyfile(
+        ctx.repo_root / ".hako" / "resolved-build.yaml",
+        install_dir / resolved_relative,
+    )
+
+    artifacts = _endpoint_artifacts(install_dir)
+    if not any(kind == "cmake-package" for _, kind in artifacts):
+        raise ConfigError(f"installed Endpoint CMake package not found under: {install_dir}")
+
+    dependencies: Dict[str, Dict[str, Any]] = {}
+    if ctx.cfg["features"]["hakoniwa_core"]:
+        if ctx.core_root is None:
+            raise ConfigError("resolved Hakoniwa Core root is missing")
+        dependencies["hakoniwa-core-pro"] = _read_dependency_receipt(
+            ctx.core_root,
+            "hakoniwa-core-pro",
+        )
+
+    compiler = _cmake_cache_value(ctx.build_dir, "CMAKE_CXX_COMPILER")
+    revision = _command_output(["git", "rev-parse", "HEAD"], ctx.repo_root)
+    capabilities = {
+        "cmake_package": True,
+        "python_binding": ctx.cfg["bindings"]["python"],
+        "hakoniwa_core": ctx.cfg["features"]["hakoniwa_core"],
+        "core_callback": ctx.cfg["features"]["hakoniwa_core"],
+        "core_polling": ctx.cfg["features"]["hakoniwa_core"],
+        "tcp": True,
+        "udp": True,
+        "websocket": True,
+        "storage": True,
+        "zenoh": ctx.cfg["features"]["zenoh"],
+        "mqtt": ctx.cfg["features"]["mqtt"],
+    }
+    lines = [
+        "schema_version: 1",
+        "component:",
+        "  id: hakoniwa-pdu-endpoint",
+        "  version: 1.0.0",
+        f"  source_revision: {_yaml_scalar(revision)}",
+        "platform:",
+        f"  os: {_yaml_scalar(ctx.platform_name)}",
+        f"  architecture: {_yaml_scalar(ctx.arch)}",
+        f"  toolchain: {_yaml_scalar(compiler)}",
+        "install:",
+        f"  prefix: {_yaml_scalar(install_dir)}",
+        "capabilities:",
+    ]
+    for key, value in capabilities.items():
+        lines.append(f"  {key}: {_yaml_scalar(value)}")
+    core_limits = (
+        dependencies["hakoniwa-core-pro"]["build_limits"]
+        if "hakoniwa-core-pro" in dependencies
+        else {}
+    )
+    if core_limits:
+        lines.append("build_limits:")
+        for key, value in core_limits.items():
+            lines.append(f"  {key}: {_yaml_scalar(value)}")
+    else:
+        lines.append("build_limits: {}")
+    if dependencies:
+        lines.append("dependencies:")
+        for component_id, dependency in dependencies.items():
+            lines.extend(
+                [
+                    f"  {component_id}:",
+                    f"    version: {_yaml_scalar(dependency['version'])}",
+                    f"    source_revision: {_yaml_scalar(dependency['source_revision'])}",
+                    "    build_limits:",
+                ]
+            )
+            for key, value in dependency["build_limits"].items():
+                lines.append(f"      {key}: {_yaml_scalar(value)}")
+    else:
+        lines.append("dependencies: {}")
+    lines.append("artifacts:")
+    for path, kind in artifacts:
+        lines.extend(
+            [
+                f"  - path: {_yaml_scalar(path.as_posix())}",
+                f"    kind: {kind}",
+            ]
+        )
+    lines.append(f"resolved_manifest: {_yaml_scalar(resolved_relative.as_posix())}")
+    receipt_path = receipt_root / "hakoniwa-pdu-endpoint.yaml"
+    receipt_path.parent.mkdir(parents=True, exist_ok=True)
+    receipt_path.write_text("\n".join(lines) + "\n", encoding="utf-8")
+    return receipt_path
+
+
+def _venv_python(venv_dir: Path, platform_name: str) -> Path:
+    if platform_name == "windows":
+        return venv_dir / "Scripts" / "python.exe"
+    return venv_dir / "bin" / "python"
+
+
+def _install_python_binding(
+    ctx: BuildContext,
+    install_dir: Path,
+    python_venv: Path,
+) -> None:
+    interpreter = _venv_python(python_venv, ctx.platform_name)
+    if not interpreter.is_file():
+        raise ConfigError(f"Foundation Python venv was not found: {python_venv}")
+    site_result = subprocess.run(
+        [
+            str(interpreter),
+            "-c",
+            "import site; print(site.getsitepackages()[0])",
+        ],
+        check=True,
+        capture_output=True,
+        text=True,
+    )
+    site_packages = Path(site_result.stdout.strip()).resolve()
+    try:
+        site_packages.relative_to(install_dir)
+    except ValueError as exc:
+        raise ConfigError(
+            f"Python venv is outside the selected install prefix: {python_venv}"
+        ) from exc
+
+    destination = site_packages / "hakoniwa_pdu_endpoint"
+    shutil.copytree(
+        ctx.repo_root / "python" / "hakoniwa_pdu_endpoint",
+        destination,
+        dirs_exist_ok=True,
+    )
+    extension_root = ctx.build_dir / "python" / "hakoniwa_pdu_endpoint"
+    extensions = [
+        path
+        for path in extension_root.glob("_c_endpoint_ffi*")
+        if path.is_file() and path.suffix.lower() in {".so", ".pyd", ".dll"}
+    ]
+    if not extensions:
+        raise ConfigError(
+            f"built Endpoint CFFI extension not found under: {extension_root}"
+        )
+    for extension in extensions:
+        shutil.copy2(extension, destination / extension.name)
+
+
+def install(
+    ctx: BuildContext,
+    install_dir: Path,
+    python_venv: Path | None,
+) -> None:
+    if not (ctx.build_dir / "CMakeCache.txt").is_file():
+        raise ConfigError(
+            f"configured build tree not found: {ctx.build_dir}; run hako.py build first"
+        )
+    command = ["cmake", "--install", str(ctx.build_dir), "--prefix", str(install_dir)]
+    if ctx.platform_name == "windows":
+        command.extend(["--config", ctx.cfg["build"]["type"]])
+    _run(command, cwd=ctx.repo_root, env=ctx.child_env)
+    if ctx.cfg["bindings"]["python"]:
+        if python_venv is None:
+            raise ConfigError(
+                "bindings.python=true requires --python-venv during install"
+            )
+        _install_python_binding(ctx, install_dir, python_venv)
+    receipt = write_receipt(ctx, install_dir)
+    print(f"Component Receipt: {receipt}")
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description="OS-independent Hakoniwa PDU Endpoint build configurator")
-    parser.add_argument("command", choices=["doctor", "configure", "build", "test"])
-    parser.add_argument("--config", default="hakoniwa-build.yaml", help="build manifest (default: hakoniwa-build.yaml)")
+    parser.add_argument("command", choices=["doctor", "configure", "build", "test", "install"])
+    parser.add_argument("--config", default=None, help="build manifest (default: repository root/hakoniwa-build.yaml)")
+    parser.add_argument("--install-dir", default=None, help="explicit local install prefix (required by install)")
+    parser.add_argument("--python-venv", default=None, help="Foundation Python venv used to install the CFFI binding")
     parser.add_argument("--dry-run", action="store_true", help="resolve and print without running build commands")
     args = parser.parse_args(argv)
 
     repo_root = Path(__file__).resolve().parents[1]
-    manifest = Path(args.config)
-    if not manifest.is_absolute():
+    manifest = repo_root / "hakoniwa-build.yaml" if args.config is None else Path(args.config)
+    if args.config is not None and not manifest.is_absolute():
         manifest = (Path.cwd() / manifest).resolve()
     if not manifest.exists():
         raise ConfigError(f"build manifest not found: {manifest}")
 
     ctx = create_context(manifest, repo_root)
-    errors, warnings = doctor(ctx)
+    python_venv = Path(args.python_venv).resolve() if args.python_venv else None
+    python_interpreter = (
+        _venv_python(python_venv, ctx.platform_name)
+        if python_venv is not None
+        else Path(sys.executable)
+    )
+    errors, warnings = doctor(ctx, python_interpreter)
     print_summary(ctx, errors, warnings)
     resolved = write_resolved(ctx)
     print(f"\nResolved configuration: {resolved}")
 
     if args.command == "doctor":
         return 1 if errors else 0
-    if args.command in {"build", "test"} and errors:
+    if args.command in {"build", "test", "install"} and errors:
         raise ConfigError("doctor found blocking prerequisites; fix them before building/testing")
     if args.command == "configure" and not shutil.which("cmake"):
         raise ConfigError("CMake was not found on PATH")
@@ -596,9 +881,16 @@ def main(argv: list[str] | None = None) -> int:
     if args.command == "configure":
         configure(ctx)
     elif args.command == "build":
-        build(ctx)
+        build(ctx, python_interpreter)
     elif args.command == "test":
-        test(ctx)
+        test(ctx, python_interpreter)
+    elif args.command == "install":
+        if not args.install_dir:
+            raise ConfigError("install requires --install-dir")
+        install_dir = Path(args.install_dir)
+        if not install_dir.is_absolute():
+            install_dir = (Path.cwd() / install_dir).resolve()
+        install(ctx, install_dir, python_venv)
     return 0
 
 

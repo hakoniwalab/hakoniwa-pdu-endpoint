@@ -298,6 +298,18 @@ Use an alternative manifest:
 python tools/hako.py build --config path/to/my-build.yaml
 ```
 
+Use one Foundation venv consistently for Python prerequisite checks, CFFI build,
+import validation, and install:
+
+```bash
+python tools/hako.py doctor --python-venv /path/to/foundation/python
+python tools/hako.py build --python-venv /path/to/foundation/python
+python tools/hako.py test --python-venv /path/to/foundation/python
+python tools/hako.py install \
+  --install-dir /path/to/foundation \
+  --python-venv /path/to/foundation/python
+```
+
 ## Migration strategy
 
 Phase 1 (this architecture):

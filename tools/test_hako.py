@@ -108,6 +108,99 @@ class DoctorTests(unittest.TestCase):
             errors, _warnings = hako.doctor(ctx)
         self.assertEqual(errors, [])
 
+    def test_python_dependencies_are_checked_with_selected_interpreter(self):
+        ctx = self.make_context(zenoh=False)
+        ctx.cfg["bindings"]["python"] = True
+        selected = Path("/foundation/python/bin/python")
+
+        with patch.object(hako.shutil, "which", return_value="/usr/bin/cmake"), patch.object(
+            hako.Path, "is_file", return_value=True
+        ), patch.object(
+            hako, "_python_package_available", return_value=True
+        ) as available:
+            errors, _warnings = hako.doctor(ctx, selected)
+
+        self.assertEqual(errors, [])
+        self.assertEqual(
+            available.call_args_list,
+            [
+                unittest.mock.call(selected, "cffi"),
+                unittest.mock.call(selected, "setuptools"),
+            ],
+        )
+
+
+class FoundationInstallTests(unittest.TestCase):
+    def test_dependency_receipt_reads_core_contract_fields(self):
+        with tempfile.TemporaryDirectory() as temp_dir:
+            prefix = Path(temp_dir)
+            receipt = (
+                prefix
+                / "share"
+                / "hakoniwa"
+                / "receipts"
+                / "hakoniwa-core-pro.yaml"
+            )
+            receipt.parent.mkdir(parents=True)
+            receipt.write_text(
+                """schema_version: 1
+component:
+  id: hakoniwa-core-pro
+  version: 1.0.0
+  source_revision: "abc123"
+build_limits:
+  asset_num: 16
+  pdu_channel_max: 8192
+artifacts:
+  - path: "bin/hako-cmd"
+    kind: executable
+""",
+                encoding="utf-8",
+            )
+
+            dependency = hako._read_dependency_receipt(
+                prefix,
+                "hakoniwa-core-pro",
+            )
+
+            self.assertEqual(dependency["version"], "1.0.0")
+            self.assertEqual(dependency["source_revision"], "abc123")
+            self.assertEqual(dependency["build_limits"]["asset_num"], 16)
+
+    def test_endpoint_artifacts_do_not_expand_all_headers(self):
+        with tempfile.TemporaryDirectory() as temp_dir:
+            prefix = Path(temp_dir)
+            header_root = prefix / "include" / "hakoniwa" / "pdu"
+            header_root.mkdir(parents=True)
+            (header_root / "endpoint.hpp").write_text("", encoding="utf-8")
+            for index in range(100):
+                (header_root / f"generated_{index}.hpp").write_text("", encoding="utf-8")
+            cmake_dir = prefix / "lib" / "cmake" / "hakoniwa_pdu_endpoint"
+            cmake_dir.mkdir(parents=True)
+            (prefix / "lib" / "libhakoniwa_pdu_endpoint.a").write_text(
+                "",
+                encoding="utf-8",
+            )
+
+            artifacts = hako._endpoint_artifacts(prefix)
+
+            self.assertIn(
+                (Path("include/hakoniwa/pdu/endpoint.hpp"), "header"),
+                artifacts,
+            )
+            self.assertLess(len(artifacts), 10)
+
+    def test_foundation_venv_python_is_cross_platform(self):
+        root = Path("/foundation/python")
+        self.assertEqual(
+            hako._venv_python(root, "macos"),
+            root / "bin" / "python",
+        )
+        self.assertEqual(
+            hako._venv_python(root, "windows"),
+            root / "Scripts" / "python.exe",
+        )
+
 
 if __name__ == "__main__":
     unittest.main()

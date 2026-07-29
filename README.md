@@ -94,6 +94,18 @@ python tools/hako.py build
 python tools/hako.py test
 ```
 
+Foundation共通venvへCFFI bindingを導入する場合は、各operationへ同じ
+`--python-venv`を指定します。`doctor`、CFFI build、Python import test、
+installのすべてがそのvenvのinterpreterを使用します。
+
+```bash
+python tools/hako.py doctor --python-venv /path/to/foundation/python
+python tools/hako.py build --python-venv /path/to/foundation/python
+python tools/hako.py install \
+  --install-dir /path/to/foundation \
+  --python-venv /path/to/foundation/python
+```
+
 The resolver writes:
 
 ```text

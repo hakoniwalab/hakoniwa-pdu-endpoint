@@ -77,6 +77,8 @@ def _candidate_native_lib_dirs() -> List[Path]:
         dirs.append(Path(env_shared_lib).expanduser().resolve().parent)
 
     for candidate in (
+        Path(sys.prefix).resolve().parent / "lib",
+        Path(sys.prefix).resolve().parent / "bin",
         _repo_root / "build" / "src",
         _repo_root / "build-zenoh" / "src",
         _repo_root / "build-zenoh-shared" / "src",
