@@ -667,6 +667,31 @@ def _endpoint_artifacts(install_dir: Path) -> list[tuple[Path, str]]:
     return sorted(set(artifacts), key=lambda item: item[0].as_posix())
 
 
+def _remove_stale_profile_artifacts(
+    ctx: BuildContext,
+    install_dir: Path,
+) -> None:
+    if not ctx.cfg["features"]["hakoniwa_core"]:
+        for child in ("bin", "lib"):
+            directory = install_dir / child
+            if not directory.is_dir():
+                continue
+            for pattern in (
+                "*hakoniwa_pdu_endpoint_core_callback*",
+                "*hakoniwa_pdu_endpoint_core_polling*",
+            ):
+                for artifact in directory.glob(pattern):
+                    if artifact.is_file():
+                        artifact.unlink()
+
+    if not ctx.cfg["bindings"]["python"]:
+        venv_dir = install_dir / "python"
+        if venv_dir.is_dir():
+            for package_dir in venv_dir.rglob("hakoniwa_pdu_endpoint"):
+                if package_dir.is_dir() and (package_dir / "c_endpoint.py").is_file():
+                    shutil.rmtree(package_dir)
+
+
 def write_receipt(ctx: BuildContext, install_dir: Path) -> Path:
     receipt_root = install_dir / "share" / "hakoniwa" / "receipts"
     resolved_relative = (
@@ -828,6 +853,7 @@ def install(
         raise ConfigError(
             f"configured build tree not found: {ctx.build_dir}; run hako.py build first"
         )
+    _remove_stale_profile_artifacts(ctx, install_dir)
     command = ["cmake", "--install", str(ctx.build_dir), "--prefix", str(install_dir)]
     if ctx.platform_name == "windows":
         command.extend(["--config", ctx.cfg["build"]["type"]])

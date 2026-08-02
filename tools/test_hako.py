@@ -131,6 +131,46 @@ class DoctorTests(unittest.TestCase):
 
 
 class FoundationInstallTests(unittest.TestCase):
+    def test_core_free_profile_removes_only_stale_endpoint_variants(self):
+        with tempfile.TemporaryDirectory() as temp_dir:
+            prefix = Path(temp_dir) / "install"
+            library_dir = prefix / "lib"
+            package_dir = (
+                prefix
+                / "python"
+                / "lib"
+                / "python3.12"
+                / "site-packages"
+                / "hakoniwa_pdu_endpoint"
+            )
+            library_dir.mkdir(parents=True)
+            package_dir.mkdir(parents=True)
+            (package_dir / "c_endpoint.py").write_text("", encoding="utf-8")
+            stale_callback = library_dir / "libhakoniwa_pdu_endpoint_core_callback.dylib"
+            stale_polling = library_dir / "libhakoniwa_pdu_endpoint_core_polling.dylib"
+            active = library_dir / "libhakoniwa_pdu_endpoint.dylib"
+            unrelated = library_dir / "libunrelated.dylib"
+            for path in (stale_callback, stale_polling, active, unrelated):
+                path.write_text("", encoding="utf-8")
+            ctx = type(
+                "Context",
+                (),
+                {
+                    "cfg": {
+                        "features": {"hakoniwa_core": False},
+                        "bindings": {"python": False},
+                    }
+                },
+            )()
+
+            hako._remove_stale_profile_artifacts(ctx, prefix)
+
+            self.assertFalse(stale_callback.exists())
+            self.assertFalse(stale_polling.exists())
+            self.assertFalse(package_dir.exists())
+            self.assertTrue(active.exists())
+            self.assertTrue(unrelated.exists())
+
     def test_dependency_receipt_reads_core_contract_fields(self):
         with tempfile.TemporaryDirectory() as temp_dir:
             prefix = Path(temp_dir)
