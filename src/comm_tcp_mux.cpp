@@ -415,8 +415,9 @@ HakoPduErrorType TcpCommMultiplexer::open(const std::string& config_path)
 
     listen_fd_ = create_socket(local_addr_info->ai_family, local_addr_info->ai_socktype, local_addr_info->ai_protocol);
     if (!is_valid_socket(listen_fd_.load())) {
+        const int error_number = last_socket_error();
         free_address_info(local_addr_info);
-        std::cerr << "Failed to create socket: " << socket_error_message(last_socket_error()) << std::endl;
+        std::cerr << "Failed to create socket: " << socket_error_message(error_number) << std::endl;
         return HAKO_PDU_ERR_IO_ERROR;
     }
     if (configure_socket_options_(listen_fd_.load(), options_) != HAKO_PDU_ERR_OK) {
@@ -433,15 +434,17 @@ HakoPduErrorType TcpCommMultiplexer::open(const std::string& config_path)
         return HAKO_PDU_ERR_INVALID_ARGUMENT;
     }
     if (bind_socket(listen_fd_.load(), local_addr_info->ai_addr, local_addr_len) != 0) {
+        const int error_number = last_socket_error();
         close();
         free_address_info(local_addr_info);
-        std::cerr << "Failed to bind socket: " << socket_error_message(last_socket_error()) << std::endl;
+        std::cerr << "Failed to bind socket: " << socket_error_message(error_number) << std::endl;
         return HAKO_PDU_ERR_IO_ERROR;
     }
     if (listen_socket(listen_fd_.load(), options_.backlog) != 0) {
+        const int error_number = last_socket_error();
         close();
         free_address_info(local_addr_info);
-        std::cerr << "Failed to listen on socket: " << socket_error_message(last_socket_error()) << std::endl;
+        std::cerr << "Failed to listen on socket: " << socket_error_message(error_number) << std::endl;
         return HAKO_PDU_ERR_IO_ERROR;
     }
     free_address_info(local_addr_info);
