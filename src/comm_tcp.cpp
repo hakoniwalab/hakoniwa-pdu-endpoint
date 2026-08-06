@@ -234,9 +234,10 @@ HakoPduErrorType TcpComm::raw_stop() noexcept {
         (void)close_socket(current_listen_fd);
         listen_fd_ = kInvalidSocket;
     }
-    SocketHandle current_client_fd = client_fd_.load();
+    SocketHandle current_client_fd = client_fd_.exchange(kInvalidSocket);
     if (is_valid_socket(current_client_fd)) {
         shutdown_socket(current_client_fd, SocketShutdownMode::ReadWrite);
+        (void)close_socket(current_client_fd);
     }
 
     if (comm_thread_.joinable()) {
