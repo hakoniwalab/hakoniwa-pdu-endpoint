@@ -141,12 +141,15 @@ protected:
         }
         stopping_ = true;
         is_running_ = false;
-        if (is_valid_socket(fd_)) {
-            shutdown_socket(fd_, SocketShutdownMode::ReadWrite);
+        const SocketHandle current_fd = fd_;
+        if (is_valid_socket(current_fd)) {
+            shutdown_socket(current_fd, SocketShutdownMode::ReadWrite);
+            (void)close_socket(current_fd);
         }
         if (recv_thread_.joinable()) {
             recv_thread_.join();
         }
+        fd_ = kInvalidSocket;
         disconnect_notified_ = false;
         return HAKO_PDU_ERR_OK;
     }
