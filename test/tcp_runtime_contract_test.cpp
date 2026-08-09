@@ -44,7 +44,10 @@ int find_available_tcp_port()
 
 class TcpConfigPair {
 public:
-    TcpConfigPair(int port, int read_timeout_ms, int write_timeout_ms)
+    TcpConfigPair(int port,
+                  int server_read_timeout_ms,
+                  int client_read_timeout_ms,
+                  int write_timeout_ms)
         : root_(std::filesystem::temp_directory_path()
                 / ("hako_tcp_contract_" + std::to_string(port)))
     {
@@ -53,9 +56,9 @@ public:
         server_ = root_ / "server.json";
         client_ = root_ / "client.json";
         write_config(server_, "contract-server", "server", "local", port,
-                     read_timeout_ms, write_timeout_ms);
+                     server_read_timeout_ms, write_timeout_ms);
         write_config(client_, "contract-client", "client", "remote", port,
-                     read_timeout_ms, write_timeout_ms);
+                     client_read_timeout_ms, write_timeout_ms);
     }
 
     ~TcpConfigPair()
@@ -113,7 +116,7 @@ TEST(TcpRuntimeContractTest, ZeroTimeoutStopUnblocksBlockingReceive)
 {
     const int port = find_available_tcp_port();
     ASSERT_GT(port, 0);
-    TcpConfigPair configs(port, 0, 0);
+    TcpConfigPair configs(port, 0, 0, 0);
 
     auto server = create_pdu_comm(configs.server().string());
     auto client = create_pdu_comm(configs.client().string());
@@ -146,7 +149,11 @@ TEST(TcpRuntimeContractTest, BlockingReceiveTimeoutDisconnectsWithTimeoutError)
 {
     const int port = find_available_tcp_port();
     ASSERT_GT(port, 0);
-    TcpConfigPair configs(port, 100, 1000);
+
+    // Make the timeout owner deterministic. Only the server has a receive
+    // deadline; the client waits indefinitely and may observe peer EOF after
+    // the server closes the timed-out connection.
+    TcpConfigPair configs(port, 100, 0, 1000);
 
     auto server = create_pdu_comm(configs.server().string());
     auto client = create_pdu_comm(configs.client().string());
@@ -155,18 +162,18 @@ TEST(TcpRuntimeContractTest, BlockingReceiveTimeoutDisconnectsWithTimeoutError)
     ASSERT_EQ(server->open(configs.server().string()), HAKO_PDU_ERR_OK);
     ASSERT_EQ(client->open(configs.client().string()), HAKO_PDU_ERR_OK);
 
-    std::atomic<int> client_disconnect_reason{HAKO_PDU_ERR_OK};
-    ASSERT_EQ(client->set_on_disconnected_callback(
+    std::atomic<int> server_disconnect_reason{HAKO_PDU_ERR_OK};
+    ASSERT_EQ(server->set_on_disconnected_callback(
         [&](const CommDisconnectEvent& event) {
-            client_disconnect_reason = event.reason_code;
+            server_disconnect_reason = event.reason_code;
         }), HAKO_PDU_ERR_OK);
 
     ASSERT_EQ(server->start(), HAKO_PDU_ERR_OK);
     ASSERT_EQ(client->start(), HAKO_PDU_ERR_OK);
     ASSERT_TRUE(wait_until([&] {
-        return client_disconnect_reason.load() != HAKO_PDU_ERR_OK;
+        return server_disconnect_reason.load() != HAKO_PDU_ERR_OK;
     }, 5s));
-    EXPECT_EQ(client_disconnect_reason.load(), HAKO_PDU_ERR_TIMEOUT);
+    EXPECT_EQ(server_disconnect_reason.load(), HAKO_PDU_ERR_TIMEOUT);
 
     EXPECT_EQ(client->stop(), HAKO_PDU_ERR_OK);
     EXPECT_EQ(server->stop(), HAKO_PDU_ERR_OK);
