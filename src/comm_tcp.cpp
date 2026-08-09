@@ -1,6 +1,7 @@
 #include "hakoniwa/pdu/comm/comm_tcp.hpp"
 #include "hakoniwa/pdu/socket_portability.hpp"
 #include "hakoniwa/pdu/socket_utils.hpp"
+#include "tcp_diagnostics.hpp"
 #include <nlohmann/json.hpp>
 #include <fstream>
 #include <cstring>
@@ -74,6 +75,7 @@ HakoPduErrorType TcpComm::raw_open(const std::string& config_path) {
         std::cerr << "TCP Comm config error: missing 'direction' or 'role'." << std::endl;
         return HAKO_PDU_ERR_INVALID_ARGUMENT;
     }
+    comm_name_ = config_json.value("name", std::string{"tcp"});
     config_direction_ = parse_direction(config_json.at("direction").get<std::string>());
 
     if (config_json.contains("comm_raw_version")) {
@@ -140,13 +142,25 @@ HakoPduErrorType TcpComm::raw_open(const std::string& config_path) {
         if (!is_valid_socket(listen_fd_.load())) {
             const int error_number = last_socket_error();
             free_address_info(local_addr_info);
-            std::cerr << "Failed to create socket: " << socket_error_message(error_number) << std::endl;
+            log_tcp_socket_failure(
+                {"tcp", comm_name_, "server", 0, {}},
+                "create_socket",
+                error_number,
+                map_errno_to_error(error_number),
+                0,
+                stopping_.load());
             return HAKO_PDU_ERR_IO_ERROR;
         }
         if (configure_socket_options(listen_fd_.load(), options_) != HAKO_PDU_ERR_OK) {
+            log_tcp_mapped_failure(
+                {"tcp", comm_name_, "server", 0, {}},
+                "configure_listener",
+                HAKO_PDU_ERR_IO_ERROR,
+                0,
+                "failed to configure socket options",
+                stopping_.load());
             raw_close();
             free_address_info(local_addr_info);
-            std::cerr << "Failed to configure socket options." << std::endl;
             return HAKO_PDU_ERR_IO_ERROR;
         }
         SocketLength local_addr_len = 0;
@@ -157,16 +171,28 @@ HakoPduErrorType TcpComm::raw_open(const std::string& config_path) {
         }
         if (bind_socket(listen_fd_.load(), local_addr_info->ai_addr, local_addr_len) != 0) {
             const int error_number = last_socket_error();
+            log_tcp_socket_failure(
+                {"tcp", comm_name_, "server", 0, {}},
+                "bind",
+                error_number,
+                map_errno_to_error(error_number),
+                0,
+                stopping_.load());
             raw_close();
             free_address_info(local_addr_info);
-            std::cerr << "Failed to bind socket: " << socket_error_message(error_number) << std::endl;
             return HAKO_PDU_ERR_IO_ERROR;
         }
         if (listen_socket(listen_fd_.load(), options_.backlog) != 0) {
             const int error_number = last_socket_error();
+            log_tcp_socket_failure(
+                {"tcp", comm_name_, "server", 0, {}},
+                "listen",
+                error_number,
+                map_errno_to_error(error_number),
+                0,
+                stopping_.load());
             raw_close();
             free_address_info(local_addr_info);
-            std::cerr << "Failed to listen on socket: " << socket_error_message(error_number) << std::endl;
             return HAKO_PDU_ERR_IO_ERROR;
         }
         free_address_info(local_addr_info);
@@ -185,6 +211,8 @@ HakoPduErrorType TcpComm::raw_open(const std::string& config_path) {
             free_address_info(remote_addr_info);
             return HAKO_PDU_ERR_INVALID_ARGUMENT;
         }
+        peer_endpoint_ = format_socket_address(
+            reinterpret_cast<SocketAddress*>(&remote_addr_info_), remote_addr_len_);
         free_address_info(remote_addr_info);
     }
 
@@ -269,9 +297,10 @@ HakoPduErrorType TcpComm::raw_send(const std::vector<std::byte>& data) noexcept 
     #ifdef ENABLE_DEBUG_MESSAGES
     std::cout << "DEBUG: TCP Comm sending " << data.size() << " bytes." << std::endl;
     #endif
-    HakoPduErrorType err = write_data(current_client_fd, data.data(), data.size());
+    HakoPduErrorType err = write_data(current_client_fd, data.data(), data.size(), "send_packet");
     if (err != HAKO_PDU_ERR_OK) {
         notify_disconnect_if_needed_(err, "send");
+        close_failed_connection_(current_client_fd);
     }
     return err;
 }
@@ -284,35 +313,58 @@ void TcpComm::server_loop() {
 
         if (!is_valid_socket(accepted_fd)) {
             if (is_running_flag_) {
-                std::cerr << "TCP Comm accept failed: " << socket_error_message(last_socket_error()) << std::endl;
+                const int error_number = last_socket_error();
+                log_tcp_socket_failure(
+                    {"tcp", comm_name_, "server", connection_id_.load(), peer_endpoint_},
+                    "accept",
+                    error_number,
+                    map_errno_to_error(error_number),
+                    options_.read_timeout_ms,
+                    stopping_.load());
             }
             continue; // or break
         }
 
         client_fd_ = accepted_fd;
-        configure_socket_options(client_fd_.load(), options_);
+        connection_id_ = next_tcp_connection_id();
+        peer_endpoint_ = format_socket_address(
+            reinterpret_cast<SocketAddress*>(&client_addr), client_len);
+        if (configure_socket_options(client_fd_.load(), options_) != HAKO_PDU_ERR_OK) {
+            log_tcp_mapped_failure(
+                {"tcp", comm_name_, "server", connection_id_.load(), peer_endpoint_},
+                "configure_connection",
+                HAKO_PDU_ERR_IO_ERROR,
+                0,
+                "failed to configure accepted socket",
+                stopping_.load());
+            close_failed_connection_(accepted_fd);
+            continue;
+        }
         is_connected_ = true;
         disconnect_notified_ = false;
 
         while (is_running_flag_) {
             if (packet_version() == "v1") {
                 std::array<std::byte, 4> header_len_buf{};
-                HakoPduErrorType err = read_data(client_fd_.load(), header_len_buf.data(), header_len_buf.size());
+                HakoPduErrorType err = read_data(client_fd_.load(), header_len_buf.data(), header_len_buf.size(), "recv_v1_header_length");
                 if (err != HAKO_PDU_ERR_OK) {
-                    std::cerr << "TCP Comm read v1 header length failed: " << static_cast<int>(err) << std::endl;
                     notify_disconnect_if_needed_(err, "server read v1 header");
                     break;
                 }
                 uint32_t header_len = read_le32(header_len_buf.data());
                 if (header_len == 0 || header_len > kMaxV1PacketSize) {
-                    std::cerr << "TCP Comm v1 header length invalid: " << header_len << std::endl;
+                    log_tcp_protocol_error(
+                        {"tcp", comm_name_, "server", connection_id_.load(), peer_endpoint_},
+                        "decode_v1_header_length",
+                        "invalid header length " + std::to_string(header_len),
+                        stopping_.load());
+                    notify_disconnect_if_needed_(HAKO_PDU_ERR_IO_ERROR, "server invalid v1 header length");
                     break;
                 }
                 std::vector<std::byte> packet_buf(4 + header_len);
                 std::memcpy(packet_buf.data(), header_len_buf.data(), header_len_buf.size());
-                err = read_data(client_fd_.load(), packet_buf.data() + 4, header_len);
+                err = read_data(client_fd_.load(), packet_buf.data() + 4, header_len, "recv_v1_payload");
                 if (err != HAKO_PDU_ERR_OK) {
-                    std::cerr << "TCP Comm read v1 payload failed: " << static_cast<int>(err) << std::endl;
                     notify_disconnect_if_needed_(err, "server read v1 payload");
                     break;
                 }
@@ -321,10 +373,8 @@ void TcpComm::server_loop() {
             }
 
             std::vector<std::byte> header_buf(sizeof(MetaPdu));
-            HakoPduErrorType err = read_data(client_fd_.load(), header_buf.data(), header_buf.size());
+            HakoPduErrorType err = read_data(client_fd_.load(), header_buf.data(), header_buf.size(), "recv_header");
             if (err != HAKO_PDU_ERR_OK) {
-                std::cerr << "TCP Comm read header failed: " << static_cast<int>(err) << std::endl;
-                // Connection closed or error
                 notify_disconnect_if_needed_(err, "server read header");
                 break;
             }
@@ -337,10 +387,8 @@ void TcpComm::server_loop() {
 
             if (meta.body_len > 0) {
                 std::vector<std::byte> body_buf(meta.body_len);
-                err = read_data(client_fd_.load(), body_buf.data(), body_buf.size());
+                err = read_data(client_fd_.load(), body_buf.data(), body_buf.size(), "recv_body");
                 if (err != HAKO_PDU_ERR_OK) {
-                    std::cerr << "TCP Comm read body failed: " << static_cast<int>(err) << std::endl;
-                    // Incomplete packet or error
                     notify_disconnect_if_needed_(err, "server read body");
                     break;
                 }
@@ -362,9 +410,17 @@ void TcpComm::server_loop() {
 
 void TcpComm::client_loop() {
     while (is_running_flag_) {
+        connection_id_ = next_tcp_connection_id();
         client_fd_ = create_socket(remote_addr_info_.ss_family, kTcpSocketType, 0);
         if (!is_valid_socket(client_fd_.load())) {
-            std::cerr << "TCP Comm client socket create failed: " << socket_error_message(last_socket_error()) << std::endl;
+            const int error_number = last_socket_error();
+            log_tcp_socket_failure(
+                {"tcp", comm_name_, "client", connection_id_.load(), peer_endpoint_},
+                "create_socket",
+                error_number,
+                map_errno_to_error(error_number),
+                0,
+                stopping_.load());
             std::this_thread::sleep_for(std::chrono::seconds(1));
             continue;
         }
@@ -376,36 +432,51 @@ void TcpComm::client_loop() {
 
         HakoPduErrorType connect_err = connect_with_timeout(client_fd_.load(), &remote_info, options_);
         if (connect_err != HAKO_PDU_ERR_OK) {
-            std::cerr << "TCP Comm connect failed: " << static_cast<int>(connect_err) << std::endl;
             (void)close_socket(client_fd_.load());
             client_fd_ = kInvalidSocket;
             std::this_thread::sleep_for(std::chrono::seconds(1));
             continue;
         }
 
-        configure_socket_options(client_fd_.load(), options_);
+        if (configure_socket_options(client_fd_.load(), options_) != HAKO_PDU_ERR_OK) {
+            log_tcp_mapped_failure(
+                {"tcp", comm_name_, "client", connection_id_.load(), peer_endpoint_},
+                "configure_connection",
+                HAKO_PDU_ERR_IO_ERROR,
+                0,
+                "failed to configure connected socket",
+                stopping_.load());
+            close_failed_connection_(client_fd_.load());
+            std::this_thread::sleep_for(std::chrono::seconds(1));
+            continue;
+        }
+        peer_endpoint_ = format_socket_address(
+            reinterpret_cast<SocketAddress*>(&remote_addr_info_), remote_addr_len_);
         is_connected_ = true;
         disconnect_notified_ = false;
 
         while (is_running_flag_) {
             if (packet_version() == "v1") {
                 std::array<std::byte, 4> header_len_buf{};
-                HakoPduErrorType err = read_data(client_fd_.load(), header_len_buf.data(), header_len_buf.size());
+                HakoPduErrorType err = read_data(client_fd_.load(), header_len_buf.data(), header_len_buf.size(), "recv_v1_header_length");
                 if (err != HAKO_PDU_ERR_OK) {
-                    std::cerr << "TCP Comm read v1 header length failed: " << static_cast<int>(err) << std::endl;
                     notify_disconnect_if_needed_(err, "client read v1 header");
                     break;
                 }
                 uint32_t header_len = read_le32(header_len_buf.data());
                 if (header_len == 0 || header_len > kMaxV1PacketSize) {
-                    std::cerr << "TCP Comm v1 header length invalid: " << header_len << std::endl;
+                    log_tcp_protocol_error(
+                        {"tcp", comm_name_, "client", connection_id_.load(), peer_endpoint_},
+                        "decode_v1_header_length",
+                        "invalid header length " + std::to_string(header_len),
+                        stopping_.load());
+                    notify_disconnect_if_needed_(HAKO_PDU_ERR_IO_ERROR, "client invalid v1 header length");
                     break;
                 }
                 std::vector<std::byte> packet_buf(4 + header_len);
                 std::memcpy(packet_buf.data(), header_len_buf.data(), header_len_buf.size());
-                err = read_data(client_fd_.load(), packet_buf.data() + 4, header_len);
+                err = read_data(client_fd_.load(), packet_buf.data() + 4, header_len, "recv_v1_payload");
                 if (err != HAKO_PDU_ERR_OK) {
-                    std::cerr << "TCP Comm read v1 payload failed: " << static_cast<int>(err) << std::endl;
                     notify_disconnect_if_needed_(err, "client read v1 payload");
                     break;
                 }
@@ -414,9 +485,8 @@ void TcpComm::client_loop() {
             }
 
             std::vector<std::byte> header_buf(sizeof(MetaPdu));
-            HakoPduErrorType err = read_data(client_fd_.load(), header_buf.data(), header_buf.size());
+            HakoPduErrorType err = read_data(client_fd_.load(), header_buf.data(), header_buf.size(), "recv_header");
             if (err != HAKO_PDU_ERR_OK) {
-                std::cerr << "TCP Comm read header failed: " << static_cast<int>(err) << std::endl;
                 notify_disconnect_if_needed_(err, "client read header");
                 break; // Disconnected
             }
@@ -430,9 +500,8 @@ void TcpComm::client_loop() {
             std::vector<std::byte> body_buf;
             if (meta.body_len > 0) {
                 body_buf.resize(meta.body_len);
-                err = read_data(client_fd_.load(), body_buf.data(), body_buf.size());
+                err = read_data(client_fd_.load(), body_buf.data(), body_buf.size(), "recv_body");
                 if (err != HAKO_PDU_ERR_OK) {
-                    std::cerr << "TCP Comm read body failed: " << static_cast<int>(err) << std::endl;
                     notify_disconnect_if_needed_(err, "client read body");
                     break; // Incomplete packet
                 }
@@ -460,47 +529,123 @@ void TcpComm::notify_disconnect_if_needed_(HakoPduErrorType reason, const char* 
     notify_disconnected_(static_cast<int>(reason), std::string("tcp disconnected: ") + context);
 }
 
-HakoPduErrorType TcpComm::read_data(SocketHandle fd, std::byte* buffer, size_t size) noexcept {
+HakoPduErrorType TcpComm::read_data(SocketHandle fd, std::byte* buffer, size_t size, const char* operation) noexcept {
     size_t total_received = 0;
     while (total_received < size) {
         SocketSize received = recv_socket(fd, buffer + total_received, size - total_received, 0);
         if (received > 0) {
             total_received += received;
         } else if (received == 0) {
+            log_tcp_peer_closed(
+                {"tcp", comm_name_, role_ == Role::Server ? "server" : "client", connection_id_.load(), peer_endpoint_},
+                operation,
+                stopping_.load());
             return HAKO_PDU_ERR_IO_ERROR; // Connection closed
         } else {
             const int error_number = last_socket_error();
+            if (is_socket_timeout(error_number)) {
+                const auto mapped_error = HAKO_PDU_ERR_TIMEOUT;
+                log_tcp_socket_failure(
+                    {"tcp", comm_name_, role_ == Role::Server ? "server" : "client", connection_id_.load(), peer_endpoint_},
+                    operation,
+                    error_number,
+                    mapped_error,
+                    options_.read_timeout_ms,
+                    stopping_.load());
+                return mapped_error;
+            }
             if (is_socket_would_block(error_number)) {
-                // Should use poll/select for non-blocking
+                if (options_.blocking && options_.read_timeout_ms > 0) {
+                    const auto mapped_error = HAKO_PDU_ERR_TIMEOUT;
+                    log_tcp_socket_failure(
+                        {"tcp", comm_name_, role_ == Role::Server ? "server" : "client", connection_id_.load(), peer_endpoint_},
+                        operation,
+                        error_number,
+                        mapped_error,
+                        options_.read_timeout_ms,
+                        stopping_.load());
+                    return mapped_error;
+                }
                 continue;
             }
-            return map_errno_to_error(error_number);
+            const auto mapped_error = map_errno_to_error(error_number);
+            log_tcp_socket_failure(
+                {"tcp", comm_name_, role_ == Role::Server ? "server" : "client", connection_id_.load(), peer_endpoint_},
+                operation,
+                error_number,
+                mapped_error,
+                options_.read_timeout_ms,
+                stopping_.load());
+            return mapped_error;
         }
     }
     return HAKO_PDU_ERR_OK;
 }
 
-HakoPduErrorType TcpComm::write_data(SocketHandle fd, const std::byte* buffer, size_t size) noexcept {
+HakoPduErrorType TcpComm::write_data(SocketHandle fd, const std::byte* buffer, size_t size, const char* operation) noexcept {
     size_t total_sent = 0;
     while (total_sent < size) {
         SocketSize sent = send_socket(fd, buffer + total_sent, size - total_sent, 0);
         if (sent > 0) {
             total_sent += sent;
         } else if (sent == 0) {
+            log_tcp_protocol_error(
+                {"tcp", comm_name_, role_ == Role::Server ? "server" : "client", connection_id_.load(), peer_endpoint_},
+                operation,
+                "send returned zero bytes",
+                stopping_.load());
             return HAKO_PDU_ERR_IO_ERROR; // Should not happen
         } else {
             const int error_number = last_socket_error();
+            if (is_socket_timeout(error_number)) {
+                const auto mapped_error = HAKO_PDU_ERR_TIMEOUT;
+                log_tcp_socket_failure(
+                    {"tcp", comm_name_, role_ == Role::Server ? "server" : "client", connection_id_.load(), peer_endpoint_},
+                    operation,
+                    error_number,
+                    mapped_error,
+                    options_.write_timeout_ms,
+                    stopping_.load());
+                return mapped_error;
+            }
             if (is_socket_would_block(error_number)) {
-                // Should use poll/select for non-blocking
+                if (options_.blocking && options_.write_timeout_ms > 0) {
+                    const auto mapped_error = HAKO_PDU_ERR_TIMEOUT;
+                    log_tcp_socket_failure(
+                        {"tcp", comm_name_, role_ == Role::Server ? "server" : "client", connection_id_.load(), peer_endpoint_},
+                        operation,
+                        error_number,
+                        mapped_error,
+                        options_.write_timeout_ms,
+                        stopping_.load());
+                    return mapped_error;
+                }
                 continue;
             }
-            return map_errno_to_error(error_number);
+            const auto mapped_error = map_errno_to_error(error_number);
+            log_tcp_socket_failure(
+                {"tcp", comm_name_, role_ == Role::Server ? "server" : "client", connection_id_.load(), peer_endpoint_},
+                operation,
+                error_number,
+                mapped_error,
+                options_.write_timeout_ms,
+                stopping_.load());
+            return mapped_error;
         }
     }
     #ifdef ENABLE_DEBUG_MESSAGES
     std::cout << "DEBUG: TCP Comm sent " << total_sent << " bytes." << std::endl;
     #endif
     return HAKO_PDU_ERR_OK;
+}
+
+void TcpComm::close_failed_connection_(SocketHandle expected_fd) noexcept
+{
+    SocketHandle current_fd = expected_fd;
+    if (client_fd_.compare_exchange_strong(current_fd, kInvalidSocket)) {
+        shutdown_socket(expected_fd, SocketShutdownMode::ReadWrite);
+        (void)close_socket(expected_fd);
+    }
 }
 
 
@@ -582,18 +727,52 @@ HakoPduErrorType TcpComm::connect_with_timeout(SocketHandle fd, AddressInfo* rem
         (void)set_socket_status_flags(fd, original_flags);
         return HAKO_PDU_ERR_OK;
     }
-    if (!is_socket_connect_in_progress(last_socket_error())) {
+    const int connect_error = last_socket_error();
+    if (!is_socket_connect_in_progress(connect_error)) {
+        log_tcp_socket_failure(
+            {"tcp", comm_name_, "client", connection_id_.load(), peer_endpoint_},
+            "connect",
+            connect_error,
+            map_errno_to_error(connect_error),
+            options.connect_timeout_ms,
+            stopping_.load());
         (void)set_socket_status_flags(fd, original_flags);
         return HAKO_PDU_ERR_IO_ERROR;
     }
     bool ready = false;
     HakoPduErrorType wait_err = wait_socket(fd, SocketWaitCondition::Writable, options.connect_timeout_ms, ready);
     if (wait_err != HAKO_PDU_ERR_OK || !ready) {
+        log_tcp_mapped_failure(
+            {"tcp", comm_name_, "client", connection_id_.load(), peer_endpoint_},
+            "connect_wait",
+            wait_err != HAKO_PDU_ERR_OK ? wait_err : HAKO_PDU_ERR_TIMEOUT,
+            options.connect_timeout_ms,
+            "socket did not become writable",
+            stopping_.load());
         (void)set_socket_status_flags(fd, original_flags);
-        return wait_err;
+        return wait_err != HAKO_PDU_ERR_OK ? wait_err : HAKO_PDU_ERR_TIMEOUT;
     }
     int so_error = 0;
-    if (get_socket_option_int(fd, SOL_SOCKET, SO_ERROR, so_error) != HAKO_PDU_ERR_OK || so_error != 0) {
+    if (get_socket_option_int(fd, SOL_SOCKET, SO_ERROR, so_error) != HAKO_PDU_ERR_OK) {
+        const int error_number = last_socket_error();
+        log_tcp_socket_failure(
+            {"tcp", comm_name_, "client", connection_id_.load(), peer_endpoint_},
+            "connect_get_so_error",
+            error_number,
+            map_errno_to_error(error_number),
+            options.connect_timeout_ms,
+            stopping_.load());
+        (void)set_socket_status_flags(fd, original_flags);
+        return HAKO_PDU_ERR_IO_ERROR;
+    }
+    if (so_error != 0) {
+        log_tcp_socket_failure(
+            {"tcp", comm_name_, "client", connection_id_.load(), peer_endpoint_},
+            "connect_complete",
+            so_error,
+            map_errno_to_error(so_error),
+            options.connect_timeout_ms,
+            stopping_.load());
         (void)set_socket_status_flags(fd, original_flags);
         return HAKO_PDU_ERR_IO_ERROR;
     }

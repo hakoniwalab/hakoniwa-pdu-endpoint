@@ -54,7 +54,7 @@ int last_socket_error() noexcept
 std::string socket_error_message(int error_number)
 {
     char* s = nullptr;
-    FormatMessageA(
+    const DWORD length = FormatMessageA(
         FORMAT_MESSAGE_ALLOCATE_BUFFER | FORMAT_MESSAGE_FROM_SYSTEM | FORMAT_MESSAGE_IGNORE_INSERTS,
         nullptr,
         error_number,
@@ -63,6 +63,9 @@ std::string socket_error_message(int error_number)
         0,
         nullptr
     );
+    if (length == 0 || s == nullptr) {
+        return "unknown Winsock error " + std::to_string(error_number);
+    }
     std::string msg(s);
     LocalFree(s);
     return msg;
@@ -70,11 +73,15 @@ std::string socket_error_message(int error_number)
 
 bool is_socket_would_block(int error_number) noexcept
 {
-    // POSIX reports SO_RCVTIMEO/SO_SNDTIMEO expiry as EAGAIN/EWOULDBLOCK,
-    // while Winsock reports the equivalent blocking-socket timeout as WSAETIMEDOUT.
-    // Normalize both cases as retryable so higher-level TCP/TCP-mux/UDP loops behave
-    // consistently across platforms.
-    return error_number == WSAEWOULDBLOCK || error_number == WSAETIMEDOUT;
+    return error_number == WSAEWOULDBLOCK;
+}
+
+bool is_socket_timeout(int error_number) noexcept
+{
+    // Winsock documents a blocking SO_RCVTIMEO/SO_SNDTIMEO expiry as leaving
+    // the connection in an indeterminate state. It is an error boundary, not
+    // a retryable would-block condition on the same socket.
+    return error_number == WSAETIMEDOUT;
 }
 
 bool is_socket_interrupted(int error_number) noexcept

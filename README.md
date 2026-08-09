@@ -283,10 +283,18 @@ For configuration semantics and validation, see:
 
 - [docs/tutorials/endpoint.md](docs/tutorials/endpoint.md)
 - [docs/receive_semantics.md](docs/receive_semantics.md)
+- [docs/tcp-runtime-contract.md](docs/tcp-runtime-contract.md)
 - [docs/storage_comm.md](docs/storage_comm.md)
 - `config/schema/`
 
 ## Transport notes
+
+### TCP / TCP Mux
+
+Persistent TCP sessions use `read_timeout_ms: 0` and `write_timeout_ms: 0` by
+default. A positive blocking I/O timeout is terminal for the current
+connection; it is reported as `HAKO_PDU_ERR_TIMEOUT`, and the socket is closed
+rather than reused. See [docs/tcp-runtime-contract.md](docs/tcp-runtime-contract.md).
 
 ### Storage
 

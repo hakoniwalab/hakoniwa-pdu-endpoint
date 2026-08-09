@@ -56,6 +56,9 @@ std::optional<std::string> lookup_mapped_address(const std::string& map_path, co
 
 HakoPduErrorType map_errno_to_error(int error_number) noexcept
 {
+    if (is_socket_timeout(error_number)) {
+        return HAKO_PDU_ERR_TIMEOUT;
+    }
     if (is_socket_would_block(error_number)) {
         return HAKO_PDU_ERR_TIMEOUT;
     }

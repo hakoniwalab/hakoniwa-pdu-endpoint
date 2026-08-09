@@ -120,6 +120,47 @@ jobs:
           LD_LIBRARY_PATH: /usr/local/hakoniwa/lib
         run: ctest --test-dir build --rerun-failed --output-on-failure
 
+  windows-tcp-contract:
+    needs: changes
+    if: needs.changes.outputs.build == 'true'
+    runs-on: windows-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install vcpkg dependencies
+        shell: pwsh
+        run: |
+          git clone https://github.com/microsoft/vcpkg.git C:\vcpkg
+          & C:\vcpkg\bootstrap-vcpkg.bat
+          & C:\vcpkg\vcpkg.exe install boost-asio:x64-windows boost-beast:x64-windows gtest:x64-windows
+
+      - name: Configure TCP contract tests
+        shell: pwsh
+        run: >
+          cmake -S . -B build-tcp-contract -A x64
+          -DHAKO_PDU_ENDPOINT_ENABLE_HAKONIWA_CORE=OFF
+          -DHAKO_PDU_ENDPOINT_BUILD_TESTS=ON
+          -DHAKO_PDU_ENDPOINT_BUILD_EXAMPLES=OFF
+          -DHAKO_PDU_ENDPOINT_BUILD_TOOLS=OFF
+          -DHAKO_PDU_ENDPOINT_BUILD_BENCHMARKS=OFF
+          -DCMAKE_TOOLCHAIN_FILE=C:\vcpkg\scripts\buildsystems\vcpkg.cmake
+          -DVCPKG_TARGET_TRIPLET=x64-windows
+
+      - name: Build TCP contract tests
+        shell: pwsh
+        run: >
+          cmake --build build-tcp-contract --config Release
+          --target socket_portability_test tcp_runtime_contract_test
+          --parallel
+
+      - name: Run TCP contract tests
+        shell: pwsh
+        run: >
+          ctest --test-dir build-tcp-contract -C Release
+          -R "socket_portability_test|tcp_runtime_contract_test"
+          --output-on-failure
+
   linux-python:
     needs: changes
     if: needs.changes.outputs.build == 'true'

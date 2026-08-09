@@ -33,8 +33,8 @@ private:
 
     struct Options {
         int backlog = 5;
-        int read_timeout_ms = 1000;
-        int write_timeout_ms = 1000;
+        int read_timeout_ms = 0;
+        int write_timeout_ms = 0;
         bool blocking = true;
         bool reuse_address = true;
         bool keepalive = true;
@@ -52,6 +52,7 @@ private:
     std::thread accept_thread_;
 
     Options options_{};
+    std::string comm_name_{"tcp_mux"};
     size_t expected_clients_ = 0;
     std::atomic<size_t> connected_clients_{0};
 

@@ -268,10 +268,15 @@ Endpoint設定は主に次の4要素で構成されます。
 
 - [docs/tutorials/endpoint.md](docs/tutorials/endpoint.md)
 - [docs/receive_semantics.md](docs/receive_semantics.md)
+- [docs/tcp-runtime-contract-ja.md](docs/tcp-runtime-contract-ja.md)
 - [docs/storage_comm.md](docs/storage_comm.md)
 - `config/schema/`
 
 ## Transport概要
+
+### TCP / TCP Mux
+
+永続TCP sessionの既定値は`read_timeout_ms: 0`および`write_timeout_ms: 0`です。blocking I/Oに正のtimeoutを指定して期限に達した場合、そのconnectionは`HAKO_PDU_ERR_TIMEOUT`として終了し、socketは再利用されません。詳細は[docs/tcp-runtime-contract-ja.md](docs/tcp-runtime-contract-ja.md)を参照してください。
 
 ### Storage
 

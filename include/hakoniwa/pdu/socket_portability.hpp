@@ -71,6 +71,11 @@ HakoPduErrorType set_socket_status_flags(SocketHandle fd, int flags) noexcept;
 int last_socket_error() noexcept;
 std::string socket_error_message(int error_number);
 bool is_socket_would_block(int error_number) noexcept;
+// True only for a native blocking-socket timeout whose connection must no
+// longer be reused. On Winsock this is WSAETIMEDOUT. POSIX EAGAIN/EWOULDBLOCK
+// remains classified as would-block because the native error does not
+// distinguish a configured timeout from non-blocking readiness.
+bool is_socket_timeout(int error_number) noexcept;
 bool is_socket_interrupted(int error_number) noexcept;
 bool is_socket_connect_in_progress(int error_number) noexcept;
 HakoPduErrorType close_socket(SocketHandle fd) noexcept;

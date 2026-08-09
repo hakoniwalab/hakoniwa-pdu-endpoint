@@ -296,7 +296,12 @@ void UdpComm::recv_loop()
 
         if (received < 0) {
             const int error_number = last_socket_error();
-            if (is_socket_would_block(error_number) || is_socket_interrupted(error_number)) {
+            // UDP is connectionless, so a blocking receive timeout does not
+            // invalidate a connection. Keep it as a polling wake-up here even
+            // though the same Winsock timeout is terminal for TCP.
+            if (is_socket_would_block(error_number)
+                || is_socket_timeout(error_number)
+                || is_socket_interrupted(error_number)) {
                 // Timeout or interrupted, just continue loop
                 continue;
             }
