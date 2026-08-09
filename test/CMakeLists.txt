@@ -66,4 +66,16 @@ target_link_libraries(socket_portability_test
 
 add_test(NAME socket_portability_test COMMAND socket_portability_test)
 
+add_executable(tcp_runtime_contract_test
+  tcp_runtime_contract_test.cpp
+)
+
+target_link_libraries(tcp_runtime_contract_test
+  PRIVATE
+    hakoniwa_pdu_endpoint
+    GTest::gtest_main
+)
+
+add_test(NAME tcp_runtime_contract_test COMMAND tcp_runtime_contract_test)
+
 set_tests_properties(endpoint_test PROPERTIES WORKING_DIRECTORY "${PROJECT_SOURCE_DIR}")

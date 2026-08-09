@@ -41,6 +41,12 @@ bool is_socket_would_block(int error_number) noexcept
     return error_number == EAGAIN || error_number == EWOULDBLOCK;
 }
 
+bool is_socket_timeout(int error_number) noexcept
+{
+    (void)error_number;
+    return false;
+}
+
 bool is_socket_interrupted(int error_number) noexcept
 {
     return error_number == EINTR;

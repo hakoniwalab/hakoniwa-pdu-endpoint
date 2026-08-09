@@ -2,6 +2,7 @@
 #include "hakoniwa/pdu/comm/comm_raw.hpp"
 #include "hakoniwa/pdu/socket_portability.hpp"
 #include "hakoniwa/pdu/socket_utils.hpp"
+#include "tcp_diagnostics.hpp"
 #include <nlohmann/json.hpp>
 #include <cstring>
 #include <fstream>
@@ -45,13 +46,14 @@ uint32_t from_le32(uint32_t value) noexcept
 class TcpSessionComm final : public PduCommRaw
 {
 public:
-    explicit TcpSessionComm(SocketHandle fd) : fd_(fd) {}
+    TcpSessionComm(SocketHandle fd, std::uint64_t connection_id, std::string peer)
+        : fd_(fd), connection_id_(connection_id), peer_endpoint_(std::move(peer)) {}
     ~TcpSessionComm() override { (void)raw_close(); }
 
 protected:
     HakoPduErrorType raw_open(const std::string& config_path) override
     {
-        if (!is_valid_socket(fd_)) {
+        if (!is_valid_socket(fd_.load())) {
             return HAKO_PDU_ERR_IO_ERROR;
         }
 
@@ -73,6 +75,7 @@ protected:
             std::cerr << "TCP Mux Comm config error: protocol is not 'tcp'." << std::endl;
             return HAKO_PDU_ERR_INVALID_ARGUMENT;
         }
+        comm_name_ = config_json.value("name", std::string{"tcp_mux_session"});
         if (config_json.contains("direction")) {
             config_direction_ = parse_direction(config_json.at("direction").get<std::string>());
         }
@@ -106,15 +109,15 @@ protected:
             }
         }
 
-        return configure_socket_options_(fd_, options_);
+        return configure_socket_options_(fd_.load(), options_);
     }
 
     HakoPduErrorType raw_close() noexcept override
     {
         raw_stop();
-        if (is_valid_socket(fd_)) {
-            (void)close_socket(fd_);
-            fd_ = kInvalidSocket;
+        const SocketHandle current_fd = fd_.exchange(kInvalidSocket);
+        if (is_valid_socket(current_fd)) {
+            (void)close_socket(current_fd);
         }
         return HAKO_PDU_ERR_OK;
     }
@@ -141,7 +144,7 @@ protected:
         }
         stopping_ = true;
         is_running_ = false;
-        const SocketHandle current_fd = fd_;
+        const SocketHandle current_fd = fd_.exchange(kInvalidSocket);
         if (is_valid_socket(current_fd)) {
             shutdown_socket(current_fd, SocketShutdownMode::ReadWrite);
             (void)close_socket(current_fd);
@@ -149,7 +152,6 @@ protected:
         if (recv_thread_.joinable()) {
             recv_thread_.join();
         }
-        fd_ = kInvalidSocket;
         disconnect_notified_ = false;
         return HAKO_PDU_ERR_OK;
     }
@@ -162,19 +164,25 @@ protected:
 
     HakoPduErrorType raw_send(const std::vector<std::byte>& data) noexcept override
     {
-        if (!is_valid_socket(fd_)) {
+        const SocketHandle current_fd = fd_.load();
+        if (!is_valid_socket(current_fd)) {
             return HAKO_PDU_ERR_NOT_RUNNING;
         }
         if (config_direction_ == HAKO_PDU_ENDPOINT_DIRECTION_IN) {
             return HAKO_PDU_ERR_INVALID_ARGUMENT;
         }
-        return write_data_(fd_, data.data(), data.size());
+        const auto result = write_data_(current_fd, data.data(), data.size(), "send_packet");
+        if (result != HAKO_PDU_ERR_OK) {
+            notify_disconnect_if_needed_(result, "mux session send");
+            close_failed_connection_(current_fd);
+        }
+        return result;
     }
 
 private:
     struct Options {
-        int read_timeout_ms = 1000;
-        int write_timeout_ms = 1000;
+        int read_timeout_ms = 0;
+        int write_timeout_ms = 0;
         bool blocking = true;
         bool reuse_address = true;
         bool keepalive = true;
@@ -235,7 +243,7 @@ private:
         return HAKO_PDU_ERR_OK;
     }
 
-    HakoPduErrorType read_data_(SocketHandle fd, std::byte* buffer, size_t size) noexcept
+    HakoPduErrorType read_data_(SocketHandle fd, std::byte* buffer, size_t size, const char* operation) noexcept
     {
         size_t total_received = 0;
         while (total_received < size) {
@@ -243,19 +251,53 @@ private:
             if (received > 0) {
                 total_received += received;
             } else if (received == 0) {
+                log_tcp_peer_closed(
+                    {"tcp_mux", comm_name_, "session", connection_id_, peer_endpoint_},
+                    operation,
+                    stopping_.load());
                 return HAKO_PDU_ERR_IO_ERROR;
             } else {
                 const int error_number = last_socket_error();
+                if (is_socket_timeout(error_number)) {
+                    const auto mapped_error = HAKO_PDU_ERR_TIMEOUT;
+                    log_tcp_socket_failure(
+                        {"tcp_mux", comm_name_, "session", connection_id_, peer_endpoint_},
+                        operation,
+                        error_number,
+                        mapped_error,
+                        options_.read_timeout_ms,
+                        stopping_.load());
+                    return mapped_error;
+                }
                 if (is_socket_would_block(error_number)) {
+                    if (options_.blocking && options_.read_timeout_ms > 0) {
+                        const auto mapped_error = HAKO_PDU_ERR_TIMEOUT;
+                        log_tcp_socket_failure(
+                            {"tcp_mux", comm_name_, "session", connection_id_, peer_endpoint_},
+                            operation,
+                            error_number,
+                            mapped_error,
+                            options_.read_timeout_ms,
+                            stopping_.load());
+                        return mapped_error;
+                    }
                     continue;
                 }
-                return map_errno_to_error(error_number);
+                const auto mapped_error = map_errno_to_error(error_number);
+                log_tcp_socket_failure(
+                    {"tcp_mux", comm_name_, "session", connection_id_, peer_endpoint_},
+                    operation,
+                    error_number,
+                    mapped_error,
+                    options_.read_timeout_ms,
+                    stopping_.load());
+                return mapped_error;
             }
         }
         return HAKO_PDU_ERR_OK;
     }
 
-    HakoPduErrorType write_data_(SocketHandle fd, const std::byte* buffer, size_t size) noexcept
+    HakoPduErrorType write_data_(SocketHandle fd, const std::byte* buffer, size_t size, const char* operation) noexcept
     {
         size_t total_sent = 0;
         while (total_sent < size) {
@@ -263,13 +305,48 @@ private:
             if (sent > 0) {
                 total_sent += sent;
             } else if (sent == 0) {
+                log_tcp_protocol_error(
+                    {"tcp_mux", comm_name_, "session", connection_id_, peer_endpoint_},
+                    operation,
+                    "send returned zero bytes",
+                    stopping_.load());
                 return HAKO_PDU_ERR_IO_ERROR;
             } else {
                 const int error_number = last_socket_error();
+                if (is_socket_timeout(error_number)) {
+                    const auto mapped_error = HAKO_PDU_ERR_TIMEOUT;
+                    log_tcp_socket_failure(
+                        {"tcp_mux", comm_name_, "session", connection_id_, peer_endpoint_},
+                        operation,
+                        error_number,
+                        mapped_error,
+                        options_.write_timeout_ms,
+                        stopping_.load());
+                    return mapped_error;
+                }
                 if (is_socket_would_block(error_number)) {
+                    if (options_.blocking && options_.write_timeout_ms > 0) {
+                        const auto mapped_error = HAKO_PDU_ERR_TIMEOUT;
+                        log_tcp_socket_failure(
+                            {"tcp_mux", comm_name_, "session", connection_id_, peer_endpoint_},
+                            operation,
+                            error_number,
+                            mapped_error,
+                            options_.write_timeout_ms,
+                            stopping_.load());
+                        return mapped_error;
+                    }
                     continue;
                 }
-                return map_errno_to_error(error_number);
+                const auto mapped_error = map_errno_to_error(error_number);
+                log_tcp_socket_failure(
+                    {"tcp_mux", comm_name_, "session", connection_id_, peer_endpoint_},
+                    operation,
+                    error_number,
+                    mapped_error,
+                    options_.write_timeout_ms,
+                    stopping_.load());
+                return mapped_error;
             }
         }
         return HAKO_PDU_ERR_OK;
@@ -280,18 +357,25 @@ private:
         while (is_running_) {
             if (packet_version() == "v1") {
                 std::array<std::byte, 4> header_len_buf{};
-                HakoPduErrorType err = read_data_(fd_, header_len_buf.data(), header_len_buf.size());
+                const SocketHandle current_fd = fd_.load();
+                HakoPduErrorType err = read_data_(current_fd, header_len_buf.data(), header_len_buf.size(), "recv_v1_header_length");
                 if (err != HAKO_PDU_ERR_OK) {
                     notify_disconnect_if_needed_(err, "mux session read v1 header");
                     break;
                 }
                 uint32_t header_len = read_le32(header_len_buf.data());
                 if (header_len == 0 || header_len > kMaxV1PacketSize) {
+                    log_tcp_protocol_error(
+                        {"tcp_mux", comm_name_, "session", connection_id_, peer_endpoint_},
+                        "decode_v1_header_length",
+                        "invalid header length " + std::to_string(header_len),
+                        stopping_.load());
+                    notify_disconnect_if_needed_(HAKO_PDU_ERR_IO_ERROR, "mux session invalid v1 header length");
                     break;
                 }
                 std::vector<std::byte> packet_buf(4 + header_len);
                 std::memcpy(packet_buf.data(), header_len_buf.data(), header_len_buf.size());
-                err = read_data_(fd_, packet_buf.data() + 4, header_len);
+                err = read_data_(current_fd, packet_buf.data() + 4, header_len, "recv_v1_payload");
                 if (err != HAKO_PDU_ERR_OK) {
                     notify_disconnect_if_needed_(err, "mux session read v1 payload");
                     break;
@@ -301,7 +385,8 @@ private:
             }
 
             std::vector<std::byte> header_buf(sizeof(MetaPdu));
-            HakoPduErrorType err = read_data_(fd_, header_buf.data(), header_buf.size());
+            const SocketHandle current_fd = fd_.load();
+            HakoPduErrorType err = read_data_(current_fd, header_buf.data(), header_buf.size(), "recv_header");
             if (err != HAKO_PDU_ERR_OK) {
                 notify_disconnect_if_needed_(err, "mux session read header");
                 break;
@@ -312,7 +397,7 @@ private:
 
             if (meta.body_len > 0) {
                 std::vector<std::byte> body_buf(meta.body_len);
-                err = read_data_(fd_, body_buf.data(), body_buf.size());
+                err = read_data_(current_fd, body_buf.data(), body_buf.size(), "recv_body");
                 if (err != HAKO_PDU_ERR_OK) {
                     notify_disconnect_if_needed_(err, "mux session read body");
                     break;
@@ -322,6 +407,7 @@ private:
             on_raw_data_received(header_buf);
         }
         is_running_ = false;
+        close_failed_connection_(fd_.load());
     }
     void notify_disconnect_if_needed_(HakoPduErrorType reason, const char* context) noexcept
     {
@@ -335,13 +421,28 @@ private:
         notify_disconnected_(static_cast<int>(reason), std::string(context));
     }
 
-    SocketHandle fd_ = kInvalidSocket;
+    void close_failed_connection_(SocketHandle expected_fd) noexcept
+    {
+        if (!is_valid_socket(expected_fd)) {
+            return;
+        }
+        SocketHandle current_fd = expected_fd;
+        if (fd_.compare_exchange_strong(current_fd, kInvalidSocket)) {
+            shutdown_socket(expected_fd, SocketShutdownMode::ReadWrite);
+            (void)close_socket(expected_fd);
+        }
+    }
+
+    std::atomic<SocketHandle> fd_{kInvalidSocket};
     std::atomic<bool> is_running_{false};
     std::atomic<bool> stopping_{false};
     std::atomic<bool> disconnect_notified_{false};
     std::thread recv_thread_;
     HakoPduEndpointDirectionType config_direction_ = HAKO_PDU_ENDPOINT_DIRECTION_INOUT;
     Options options_{};
+    std::string comm_name_{"tcp_mux_session"};
+    std::uint64_t connection_id_ = 0;
+    std::string peer_endpoint_;
 };
 
 } // namespace
@@ -381,6 +482,7 @@ HakoPduErrorType TcpCommMultiplexer::open(const std::string& config_path)
         std::cerr << "TCP Mux config error: missing 'expected_clients'." << std::endl;
         return HAKO_PDU_ERR_INVALID_ARGUMENT;
     }
+    comm_name_ = config_json.value("name", std::string{"tcp_mux"});
 
     expected_clients_ = config_json.at("expected_clients").get<size_t>();
 
@@ -420,13 +522,25 @@ HakoPduErrorType TcpCommMultiplexer::open(const std::string& config_path)
     if (!is_valid_socket(listen_fd_.load())) {
         const int error_number = last_socket_error();
         free_address_info(local_addr_info);
-        std::cerr << "Failed to create socket: " << socket_error_message(error_number) << std::endl;
+        log_tcp_socket_failure(
+            {"tcp_mux", comm_name_, "listener", 0, {}},
+            "create_socket",
+            error_number,
+            map_errno_to_error(error_number),
+            0,
+            false);
         return HAKO_PDU_ERR_IO_ERROR;
     }
     if (configure_socket_options_(listen_fd_.load(), options_) != HAKO_PDU_ERR_OK) {
+        log_tcp_mapped_failure(
+            {"tcp_mux", comm_name_, "listener", 0, {}},
+            "configure_listener",
+            HAKO_PDU_ERR_IO_ERROR,
+            0,
+            "failed to configure socket options",
+            false);
         close();
         free_address_info(local_addr_info);
-        std::cerr << "Failed to configure socket options." << std::endl;
         return HAKO_PDU_ERR_IO_ERROR;
     }
     SocketLength local_addr_len = 0;
@@ -438,16 +552,28 @@ HakoPduErrorType TcpCommMultiplexer::open(const std::string& config_path)
     }
     if (bind_socket(listen_fd_.load(), local_addr_info->ai_addr, local_addr_len) != 0) {
         const int error_number = last_socket_error();
+        log_tcp_socket_failure(
+            {"tcp_mux", comm_name_, "listener", 0, {}},
+            "bind",
+            error_number,
+            map_errno_to_error(error_number),
+            0,
+            false);
         close();
         free_address_info(local_addr_info);
-        std::cerr << "Failed to bind socket: " << socket_error_message(error_number) << std::endl;
         return HAKO_PDU_ERR_IO_ERROR;
     }
     if (listen_socket(listen_fd_.load(), options_.backlog) != 0) {
         const int error_number = last_socket_error();
+        log_tcp_socket_failure(
+            {"tcp_mux", comm_name_, "listener", 0, {}},
+            "listen",
+            error_number,
+            map_errno_to_error(error_number),
+            0,
+            false);
         close();
         free_address_info(local_addr_info);
-        std::cerr << "Failed to listen on socket: " << socket_error_message(error_number) << std::endl;
         return HAKO_PDU_ERR_IO_ERROR;
     }
     free_address_info(local_addr_info);
@@ -519,12 +645,22 @@ void TcpCommMultiplexer::accept_loop_()
         SocketHandle accepted_fd = accept_socket(listen_fd_.load(), reinterpret_cast<SocketAddress*>(&client_addr), &client_len);
         if (!is_valid_socket(accepted_fd)) {
             if (is_running_) {
-                std::cerr << "TCP Mux accept failed: " << socket_error_message(last_socket_error()) << std::endl;
+                const int error_number = last_socket_error();
+                log_tcp_socket_failure(
+                    {"tcp_mux", comm_name_, "listener", 0, {}},
+                    "accept",
+                    error_number,
+                    map_errno_to_error(error_number),
+                    options_.read_timeout_ms,
+                    !is_running_.load());
             }
             continue;
         }
 
-        auto session = std::make_shared<TcpSessionComm>(accepted_fd);
+        const auto connection_id = next_tcp_connection_id();
+        const auto peer = format_socket_address(
+            reinterpret_cast<SocketAddress*>(&client_addr), client_len);
+        auto session = std::make_shared<TcpSessionComm>(accepted_fd, connection_id, peer);
         {
             std::lock_guard<std::mutex> lock(sessions_mutex_);
             pending_sessions_.push_back(std::move(session));

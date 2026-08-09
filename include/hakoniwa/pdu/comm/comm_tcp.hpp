@@ -6,6 +6,7 @@
 #include <atomic>
 #include <vector>
 #include <string>
+#include <cstdint>
 
 namespace hakoniwa {
 namespace pdu {
@@ -35,8 +36,9 @@ private:
     void notify_disconnect_if_needed_(HakoPduErrorType reason, const char* context) noexcept;
 
     // Helper methods
-    HakoPduErrorType read_data(SocketHandle fd, std::byte* buffer, size_t size) noexcept;
-    HakoPduErrorType write_data(SocketHandle fd, const std::byte* buffer, size_t size) noexcept;
+    HakoPduErrorType read_data(SocketHandle fd, std::byte* buffer, size_t size, const char* operation) noexcept;
+    HakoPduErrorType write_data(SocketHandle fd, const std::byte* buffer, size_t size, const char* operation) noexcept;
+    void close_failed_connection_(SocketHandle expected_fd) noexcept;
 
     enum class Role {
         Client,
@@ -46,8 +48,8 @@ private:
     struct Options {
         int backlog = 5;
         int connect_timeout_ms = 1000;
-        int read_timeout_ms = 1000;
-        int write_timeout_ms = 1000;
+        int read_timeout_ms = 0;
+        int write_timeout_ms = 0;
         bool blocking = true;
         bool reuse_address = true;
         bool keepalive = true;
@@ -78,6 +80,9 @@ private:
     std::atomic<bool> is_connected_{false};
     std::atomic<bool> stopping_{false};
     std::atomic<bool> disconnect_notified_{false};
+    std::string comm_name_{"tcp"};
+    std::string peer_endpoint_;
+    std::atomic<std::uint64_t> connection_id_{0};
 };
 
 } // namespace comm

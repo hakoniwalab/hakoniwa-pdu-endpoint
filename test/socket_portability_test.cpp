@@ -1,4 +1,5 @@
 #include "hakoniwa/pdu/socket_portability.hpp"
+#include "hakoniwa/pdu/socket_utils.hpp"
 
 #include <gtest/gtest.h>
 
@@ -12,14 +13,22 @@ using namespace hakoniwa::pdu;
 
 #ifdef _WIN32
 
-TEST(SocketPortabilityTest, WindowsTimeoutIsRetryableLikeWouldBlock)
+TEST(SocketPortabilityTest, WindowsTimeoutIsNotRetryableWouldBlock)
 {
     EXPECT_TRUE(is_socket_would_block(WSAEWOULDBLOCK));
-    EXPECT_TRUE(is_socket_would_block(WSAETIMEDOUT));
+    EXPECT_FALSE(is_socket_would_block(WSAETIMEDOUT));
+    EXPECT_TRUE(is_socket_timeout(WSAETIMEDOUT));
+    EXPECT_EQ(map_errno_to_error(WSAETIMEDOUT), HAKO_PDU_ERR_TIMEOUT);
     EXPECT_FALSE(is_socket_would_block(WSAECONNRESET));
 }
 
 #else
+
+TEST(SocketPortabilityTest, PosixWouldBlockRemainsRetryable)
+{
+    EXPECT_TRUE(is_socket_would_block(EAGAIN));
+    EXPECT_FALSE(is_socket_timeout(EAGAIN));
+}
 
 TEST(SocketPortabilityTest, CreatedSocketDisablesSigpipeWhenSupported)
 {

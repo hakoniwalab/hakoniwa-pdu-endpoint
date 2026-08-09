@@ -66,8 +66,8 @@
       "properties": {
         "backlog": { "type": "integer", "description": "TCP server listen backlog." },
         "connect_timeout_ms": { "type": "integer", "description": "TCP/WebSocket connect timeout (ms)." },
-        "read_timeout_ms": { "type": "integer", "description": "TCP/WebSocket read timeout (ms)." },
-        "write_timeout_ms": { "type": "integer", "description": "TCP/WebSocket write timeout (ms)." },
+        "read_timeout_ms": { "type": "integer", "minimum": 0, "description": "Blocking read timeout in milliseconds. Zero disables the timeout. A positive TCP timeout terminates the current connection." },
+        "write_timeout_ms": { "type": "integer", "minimum": 0, "description": "Blocking write timeout in milliseconds. Zero disables the timeout. A positive TCP timeout terminates the current connection." },
         "blocking": { "type": "boolean", "description": "Blocking mode." },
         "reuse_address": { "type": "boolean", "description": "SO_REUSEADDR option." },
         "keepalive": { "type": "boolean", "description": "TCP keepalive." },
