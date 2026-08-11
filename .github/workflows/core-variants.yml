@@ -257,6 +257,7 @@ jobs:
           cmake -S . -B build-core-variants -A x64 `
             -DCMAKE_TOOLCHAIN_FILE=C:\vcpkg\scripts\buildsystems\vcpkg.cmake `
             -DVCPKG_TARGET_TRIPLET=x64-windows `
+            -DBUILD_SHARED_LIBS=ON `
             -DHAKO_PDU_ENDPOINT_ENABLE_HAKONIWA_CORE=ON `
             -DHAKO_PDU_ENDPOINT_HAKONIWA_CORE_ROOT="$env:GITHUB_WORKSPACE/core-install" `
             -DHAKO_PDU_ENDPOINT_BUILD_TESTS=OFF `

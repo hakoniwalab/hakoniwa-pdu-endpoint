@@ -667,6 +667,34 @@ def _endpoint_artifacts(install_dir: Path) -> list[tuple[Path, str]]:
     return sorted(set(artifacts), key=lambda item: item[0].as_posix())
 
 
+def _validate_core_variant_artifacts(
+    ctx: BuildContext,
+    install_dir: Path,
+) -> None:
+    if not (
+        ctx.platform_name == "windows"
+        and ctx.cfg["features"]["hakoniwa_core"]
+        and ctx.cfg["build"]["shared_resolved"]
+    ):
+        return
+
+    required: list[Path] = []
+    for variant in ("core_callback", "core_polling"):
+        name = f"hakoniwa_pdu_endpoint_{variant}"
+        required.extend(
+            [
+                Path("bin") / f"{name}.dll",
+                Path("lib") / f"{name}.lib",
+            ]
+        )
+    missing = [path for path in required if not (install_dir / path).is_file()]
+    if missing:
+        raise ConfigError(
+            "installed Windows Core endpoint variant is incomplete; missing: "
+            + ", ".join(path.as_posix() for path in missing)
+        )
+
+
 def _remove_stale_profile_artifacts(
     ctx: BuildContext,
     install_dir: Path,
@@ -707,6 +735,7 @@ def write_receipt(ctx: BuildContext, install_dir: Path) -> Path:
         install_dir / resolved_relative,
     )
 
+    _validate_core_variant_artifacts(ctx, install_dir)
     artifacts = _endpoint_artifacts(install_dir)
     if not any(kind == "cmake-package" for _, kind in artifacts):
         raise ConfigError(f"installed Endpoint CMake package not found under: {install_dir}")

@@ -102,6 +102,15 @@ function(hako_configure_core_endpoint_variant target_name export_name)
   set_target_properties(${target_name} PROPERTIES EXPORT_NAME ${export_name})
   target_compile_definitions(${target_name} PUBLIC HAKO_PDU_ENDPOINT_HAS_HAKONIWA_CORE=1)
 
+  # MSVC creates an import library for a shared target only when the DLL
+  # exports symbols. The installed CMake target references that import library,
+  # so keep the Core variants consistent with the legacy endpoint target.
+  if(BUILD_SHARED_LIBS AND WIN32)
+    set_target_properties(${target_name} PROPERTIES
+      WINDOWS_EXPORT_ALL_SYMBOLS ON
+    )
+  endif()
+
   if(WIN32)
     target_link_libraries(${target_name} PRIVATE ws2_32)
   endif()

@@ -131,6 +131,58 @@ class DoctorTests(unittest.TestCase):
 
 
 class FoundationInstallTests(unittest.TestCase):
+    def windows_shared_core_context(self):
+        return type(
+            "Context",
+            (),
+            {
+                "platform_name": "windows",
+                "cfg": {
+                    "features": {"hakoniwa_core": True},
+                    "build": {"shared_resolved": True},
+                },
+            },
+        )()
+
+    def test_windows_shared_core_variants_require_import_libraries(self):
+        with tempfile.TemporaryDirectory() as temp_dir:
+            prefix = Path(temp_dir)
+            for variant in ("core_callback", "core_polling"):
+                dll = (
+                    prefix
+                    / "bin"
+                    / f"hakoniwa_pdu_endpoint_{variant}.dll"
+                )
+                dll.parent.mkdir(parents=True, exist_ok=True)
+                dll.touch()
+
+            with self.assertRaisesRegex(
+                hako.ConfigError,
+                "core_callback.lib.*core_polling.lib",
+            ):
+                hako._validate_core_variant_artifacts(
+                    self.windows_shared_core_context(),
+                    prefix,
+                )
+
+    def test_windows_shared_core_variants_accept_complete_link_contract(self):
+        with tempfile.TemporaryDirectory() as temp_dir:
+            prefix = Path(temp_dir)
+            for variant in ("core_callback", "core_polling"):
+                name = f"hakoniwa_pdu_endpoint_{variant}"
+                for relative in (
+                    Path("bin") / f"{name}.dll",
+                    Path("lib") / f"{name}.lib",
+                ):
+                    artifact = prefix / relative
+                    artifact.parent.mkdir(parents=True, exist_ok=True)
+                    artifact.touch()
+
+            hako._validate_core_variant_artifacts(
+                self.windows_shared_core_context(),
+                prefix,
+            )
+
     def test_core_free_profile_removes_only_stale_endpoint_variants(self):
         with tempfile.TemporaryDirectory() as temp_dir:
             prefix = Path(temp_dir) / "install"
