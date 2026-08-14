@@ -225,6 +225,13 @@ The `core-variants` workflow validates this installed-package contract with a se
 
 On Windows, Boost.Asio / Boost.Beast through vcpkg is the recommended setup.
 
+On Linux and macOS, `tools/hako.py doctor` checks the required
+`boost/asio.hpp` and `boost/beast.hpp` contract through CMake discovery before
+the real configure/build. A missing-prerequisite diagnostic reports the
+technical artifacts and detected platform. It intentionally does not prescribe
+one fixed OS package name or run a package manager, because valid Boost
+installations may come from the system, a custom prefix, or another toolchain.
+
 ## Direct CMake build
 
 Direct CMake remains available as a compatibility and advanced-developer path.

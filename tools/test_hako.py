@@ -97,14 +97,18 @@ class DoctorTests(unittest.TestCase):
                 return None
             return f"/usr/bin/{command}"
 
-        with patch.object(hako.shutil, "which", side_effect=fake_which):
+        with patch.object(hako.shutil, "which", side_effect=fake_which), patch.object(
+            hako, "_cmake_boost_headers_available", return_value=True
+        ):
             errors, _warnings = hako.doctor(ctx)
 
         self.assertTrue(any("missing: cargo, rustc" in error for error in errors))
 
     def test_rust_toolchain_not_required_without_zenoh(self):
         ctx = self.make_context(zenoh=False)
-        with patch.object(hako.shutil, "which", return_value="/usr/bin/cmake"):
+        with patch.object(hako.shutil, "which", return_value="/usr/bin/tool"), patch.object(
+            hako, "_cmake_boost_headers_available", return_value=True
+        ):
             errors, _warnings = hako.doctor(ctx)
         self.assertEqual(errors, [])
 
@@ -117,7 +121,9 @@ class DoctorTests(unittest.TestCase):
             hako.Path, "is_file", return_value=True
         ), patch.object(
             hako, "_python_package_available", return_value=True
-        ) as available:
+        ) as available, patch.object(
+            hako, "_cmake_boost_headers_available", return_value=True
+        ):
             errors, _warnings = hako.doctor(ctx, selected)
 
         self.assertEqual(errors, [])
@@ -128,6 +134,43 @@ class DoctorTests(unittest.TestCase):
                 unittest.mock.call(selected, "setuptools"),
             ],
         )
+
+    def test_linux_missing_boost_headers_are_actionable(self):
+        ctx = self.make_context(zenoh=False)
+        with patch.object(hako.shutil, "which", return_value="/usr/bin/tool"), patch.object(
+            hako, "_cmake_boost_headers_available", return_value=False
+        ):
+            errors, _warnings = hako.doctor(ctx)
+
+        self.assertEqual(len(errors), 1)
+        self.assertIn("hakoniwa-pdu-endpoint", errors[0])
+        self.assertIn("boost/asio.hpp", errors[0])
+        self.assertIn("boost/beast.hpp", errors[0])
+        self.assertIn("platform: linux arm64", errors[0])
+        self.assertNotIn("apt install", errors[0])
+
+    def test_linux_discoverable_boost_headers_pass(self):
+        ctx = self.make_context(zenoh=False)
+        with patch.object(hako.shutil, "which", return_value="/usr/bin/tool"), patch.object(
+            hako, "_cmake_boost_headers_available", return_value=True
+        ):
+            errors, _warnings = hako.doctor(ctx)
+
+        self.assertEqual(errors, [])
+
+    def test_linux_missing_compiler_is_reported_without_boost_probe(self):
+        ctx = self.make_context(zenoh=False)
+
+        def fake_which(command: str):
+            return "/usr/bin/cmake" if command == "cmake" else None
+
+        with patch.object(hako.shutil, "which", side_effect=fake_which), patch.object(
+            hako, "_cmake_boost_headers_available"
+        ) as probe:
+            errors, _warnings = hako.doctor(ctx)
+
+        self.assertTrue(any("C++ compiler" in error for error in errors))
+        probe.assert_not_called()
 
 
 class FoundationInstallTests(unittest.TestCase):
