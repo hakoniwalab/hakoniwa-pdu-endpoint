@@ -141,7 +141,14 @@ class VcpkgDiscoveryTests(unittest.TestCase):
 
 
 class DoctorTests(unittest.TestCase):
-    def make_context(self, *, zenoh: bool):
+    def make_context(
+        self,
+        *,
+        zenoh: bool,
+        platform_name: str = "linux",
+        vcpkg_root: Path | None = None,
+        child_env: dict[str, str] | None = None,
+    ):
         cfg = hako.resolve_config(
             {
                 "version": 1,
@@ -153,14 +160,101 @@ class DoctorTests(unittest.TestCase):
             repo_root=Path("."),
             manifest_path=Path("hakoniwa-build.yaml"),
             cfg=cfg,
-            platform_name="linux",
+            platform_name=platform_name,
             arch="arm64",
             build_dir=Path("build"),
-            vcpkg_root=None,
+            vcpkg_root=vcpkg_root,
             core_root=None,
-            vcpkg_triplet="",
-            child_env={},
+            vcpkg_triplet="x64-windows" if platform_name == "windows" else "",
+            child_env=child_env or {},
         )
+
+    def test_common_probe_uses_cxx20_toolchain_and_native_search_environment(self):
+        with tempfile.TemporaryDirectory() as temp_dir:
+            root = Path(temp_dir)
+            vcpkg = root / "vcpkg"
+            toolchain = vcpkg / "scripts" / "buildsystems" / "vcpkg.cmake"
+            toolchain.parent.mkdir(parents=True)
+            toolchain.write_text("", encoding="utf-8")
+            ctx = self.make_context(
+                zenoh=False,
+                platform_name="macos",
+                vcpkg_root=vcpkg,
+                child_env={"CMAKE_PREFIX_PATH": "/opt/homebrew/opt/boost"},
+            )
+            captured: dict[str, object] = {}
+
+            def run(command, **kwargs):
+                source = Path(command[command.index("-S") + 1])
+                captured["project"] = (source / "CMakeLists.txt").read_text(
+                    encoding="utf-8"
+                )
+                captured["command"] = command
+                captured["env"] = kwargs["env"]
+                return hako.subprocess.CompletedProcess(command, 0, "", "")
+
+            with patch.object(hako.subprocess, "run", side_effect=run):
+                result = hako._cmake_boost_headers_probe(
+                    ctx, "/usr/bin/cmake", "/usr/bin/clang++"
+                )
+
+        self.assertTrue(result.available)
+        self.assertIn("set(CMAKE_CXX_STANDARD 20)", captured["project"])
+        self.assertIn("set(CMAKE_CXX_STANDARD_REQUIRED ON)", captured["project"])
+        self.assertIn(
+            f"-DCMAKE_TOOLCHAIN_FILE={toolchain}", captured["command"]
+        )
+        self.assertEqual(
+            captured["env"]["CMAKE_PREFIX_PATH"], "/opt/homebrew/opt/boost"
+        )
+        self.assertEqual(captured["env"]["CXX"], "/usr/bin/clang++")
+
+    def test_probe_distinguishes_discovery_from_cxx20_compile_failure(self):
+        ctx = self.make_context(zenoh=False)
+        failed = hako.subprocess.CompletedProcess(
+            ["cmake"], 1, "", "HAKO_BOOST_HEADERS_COMPILE_FAILED"
+        )
+        with patch.object(hako.subprocess, "run", return_value=failed):
+            result = hako._cmake_boost_headers_probe(
+                ctx, "/usr/bin/cmake", "/usr/bin/c++"
+            )
+
+        self.assertFalse(result.available)
+        self.assertIn("did not compile with C++20", result.detail)
+
+    def test_windows_uses_the_common_cmake_probe_without_vcpkg(self):
+        ctx = self.make_context(zenoh=False, platform_name="windows")
+        available = hako.BoostProbeResult(True, "available")
+        with patch.object(hako.shutil, "which", return_value="C:/cmake.exe"):
+            with patch.object(
+                hako, "_cmake_boost_headers_probe", return_value=available
+            ) as probe:
+                errors, warnings = hako.doctor(ctx)
+
+        self.assertEqual(errors, [])
+        self.assertEqual(warnings, [])
+        probe.assert_called_once_with(ctx, "C:/cmake.exe", None)
+
+    def test_windows_probe_failure_adds_selected_vcpkg_package_hint(self):
+        with tempfile.TemporaryDirectory() as temp_dir:
+            ctx = self.make_context(
+                zenoh=False,
+                platform_name="windows",
+                vcpkg_root=Path(temp_dir) / "vcpkg",
+            )
+            missing = hako.BoostProbeResult(
+                False, "Boost headers were not discovered by CMake"
+            )
+            with patch.object(hako.shutil, "which", return_value="C:/cmake.exe"):
+                with patch.object(
+                    hako, "_cmake_boost_headers_probe", return_value=missing
+                ):
+                    errors, warnings = hako.doctor(ctx)
+
+        self.assertEqual(warnings, [])
+        self.assertEqual(len(errors), 1)
+        self.assertIn("boost-asio:x64-windows", errors[0])
+        self.assertIn("boost-beast:x64-windows", errors[0])
 
     def test_zenoh_requires_rust_toolchain(self):
         ctx = self.make_context(zenoh=True)
@@ -171,7 +265,9 @@ class DoctorTests(unittest.TestCase):
             return f"/usr/bin/{command}"
 
         with patch.object(hako.shutil, "which", side_effect=fake_which), patch.object(
-            hako, "_cmake_boost_headers_available", return_value=True
+            hako,
+            "_cmake_boost_headers_probe",
+            return_value=hako.BoostProbeResult(True, "available"),
         ):
             errors, _warnings = hako.doctor(ctx)
 
@@ -180,7 +276,9 @@ class DoctorTests(unittest.TestCase):
     def test_rust_toolchain_not_required_without_zenoh(self):
         ctx = self.make_context(zenoh=False)
         with patch.object(hako.shutil, "which", return_value="/usr/bin/tool"), patch.object(
-            hako, "_cmake_boost_headers_available", return_value=True
+            hako,
+            "_cmake_boost_headers_probe",
+            return_value=hako.BoostProbeResult(True, "available"),
         ):
             errors, _warnings = hako.doctor(ctx)
         self.assertEqual(errors, [])
@@ -195,7 +293,9 @@ class DoctorTests(unittest.TestCase):
         ), patch.object(
             hako, "_python_package_available", return_value=True
         ) as available, patch.object(
-            hako, "_cmake_boost_headers_available", return_value=True
+            hako,
+            "_cmake_boost_headers_probe",
+            return_value=hako.BoostProbeResult(True, "available"),
         ):
             errors, _warnings = hako.doctor(ctx, selected)
 
@@ -211,7 +311,11 @@ class DoctorTests(unittest.TestCase):
     def test_linux_missing_boost_headers_are_actionable(self):
         ctx = self.make_context(zenoh=False)
         with patch.object(hako.shutil, "which", return_value="/usr/bin/tool"), patch.object(
-            hako, "_cmake_boost_headers_available", return_value=False
+            hako,
+            "_cmake_boost_headers_probe",
+            return_value=hako.BoostProbeResult(
+                False, "Boost headers were not discovered by CMake"
+            ),
         ):
             errors, _warnings = hako.doctor(ctx)
 
@@ -225,7 +329,9 @@ class DoctorTests(unittest.TestCase):
     def test_linux_discoverable_boost_headers_pass(self):
         ctx = self.make_context(zenoh=False)
         with patch.object(hako.shutil, "which", return_value="/usr/bin/tool"), patch.object(
-            hako, "_cmake_boost_headers_available", return_value=True
+            hako,
+            "_cmake_boost_headers_probe",
+            return_value=hako.BoostProbeResult(True, "available"),
         ):
             errors, _warnings = hako.doctor(ctx)
 
@@ -238,7 +344,7 @@ class DoctorTests(unittest.TestCase):
             return "/usr/bin/cmake" if command == "cmake" else None
 
         with patch.object(hako.shutil, "which", side_effect=fake_which), patch.object(
-            hako, "_cmake_boost_headers_available"
+            hako, "_cmake_boost_headers_probe"
         ) as probe:
             errors, _warnings = hako.doctor(ctx)
 

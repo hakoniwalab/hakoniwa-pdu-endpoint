@@ -370,11 +370,17 @@ def _first_command(names: tuple[str, ...]) -> str | None:
     return None
 
 
-def _cmake_boost_headers_available(
+@dataclass(frozen=True)
+class BoostProbeResult:
+    available: bool
+    detail: str
+
+
+def _cmake_boost_headers_probe(
     ctx: BuildContext,
     cmake: str,
-    compiler: str,
-) -> bool:
+    compiler: str | None,
+) -> BoostProbeResult:
     """Probe the same Boost header contract without configuring the real build."""
     with tempfile.TemporaryDirectory(prefix="hako-boost-doctor-") as temp_dir:
         root = Path(temp_dir)
@@ -386,6 +392,8 @@ def _cmake_boost_headers_available(
                 [
                     "cmake_minimum_required(VERSION 3.16)",
                     "project(hako_boost_doctor LANGUAGES CXX)",
+                    "set(CMAKE_CXX_STANDARD 20)",
+                    "set(CMAKE_CXX_STANDARD_REQUIRED ON)",
                     "find_package(Boost 1.70 CONFIG QUIET)",
                     "if(TARGET Boost::headers)",
                     "  set(HAKO_BOOST_TARGET Boost::headers)",
@@ -394,7 +402,7 @@ def _cmake_boost_headers_available(
                     "else()",
                     "  find_path(HAKO_BOOST_INCLUDE_DIR boost/asio.hpp)",
                     "  if(NOT HAKO_BOOST_INCLUDE_DIR)",
-                    '    message(FATAL_ERROR "Boost headers were not discovered")',
+                    '    message(FATAL_ERROR "HAKO_BOOST_HEADERS_NOT_FOUND")',
                     "  endif()",
                     "  add_library(hako_boost_headers INTERFACE)",
                     "  target_include_directories(hako_boost_headers INTERFACE ${HAKO_BOOST_INCLUDE_DIR})",
@@ -404,7 +412,7 @@ def _cmake_boost_headers_available(
                     "set(CMAKE_REQUIRED_LIBRARIES ${HAKO_BOOST_TARGET})",
                     'check_cxx_source_compiles("#include <boost/asio.hpp>\\n#include <boost/beast.hpp>\\nint main() { return 0; }" HAKO_BOOST_HEADERS_COMPILE)',
                     "if(NOT HAKO_BOOST_HEADERS_COMPILE)",
-                    '  message(FATAL_ERROR "Required Boost.Asio/Boost.Beast headers were not usable")',
+                    '  message(FATAL_ERROR "HAKO_BOOST_HEADERS_COMPILE_FAILED")',
                     "endif()",
                 ]
             )
@@ -420,7 +428,8 @@ def _cmake_boost_headers_available(
             if ctx.platform_name == "windows":
                 command.append(f"-DVCPKG_TARGET_TRIPLET={ctx.vcpkg_triplet}")
         env = dict(ctx.child_env)
-        env["CXX"] = compiler
+        if compiler:
+            env["CXX"] = compiler
         result = subprocess.run(
             command,
             check=False,
@@ -428,7 +437,36 @@ def _cmake_boost_headers_available(
             text=True,
             env=env,
         )
-        return result.returncode == 0
+        if result.returncode == 0:
+            return BoostProbeResult(True, "Boost headers compile with C++20")
+        output = f"{result.stdout}\n{result.stderr}"
+        if "HAKO_BOOST_HEADERS_NOT_FOUND" in output:
+            detail = "Boost headers were not discovered by CMake"
+        elif "HAKO_BOOST_HEADERS_COMPILE_FAILED" in output:
+            detail = "Boost headers were discovered but did not compile with C++20"
+        else:
+            detail = "the CMake Boost probe could not configure or compile"
+        return BoostProbeResult(False, detail)
+
+
+def _windows_vcpkg_boost_hint(ctx: BuildContext) -> str:
+    if not ctx.vcpkg_root:
+        return ""
+    include_root = ctx.vcpkg_root / "installed" / ctx.vcpkg_triplet / "include"
+    required = {
+        "Boost.Asio": (include_root / "boost" / "asio.hpp", "boost-asio"),
+        "Boost.Beast": (include_root / "boost" / "beast.hpp", "boost-beast"),
+    }
+    missing = [name for name, (header, _package) in required.items() if not header.exists()]
+    if not missing:
+        return ""
+    packages = [f"{required[name][1]}:{ctx.vcpkg_triplet}" for name in missing]
+    return (
+        "; selected vcpkg is missing "
+        + ", ".join(missing)
+        + "; install with: vcpkg install "
+        + " ".join(packages)
+    )
 
 
 def doctor(
@@ -465,40 +503,21 @@ def doctor(
             errors.append("Python package 'setuptools' is missing (install with: python -m pip install setuptools)")
         if ctx.platform_name == "windows" and not (_find_vswhere() or shutil.which("cl.exe")):
             errors.append("Visual Studio C++ tools were not found (vswhere.exe/cl.exe unavailable)")
-    if ctx.platform_name == "windows":
-        if not ctx.vcpkg_root:
-            warnings.append(
-                "vcpkg root was not found; set paths.vcpkg_root or VCPKG_ROOT "
-                "if Boost.Asio/Boost.Beast are not otherwise discoverable"
-            )
-        else:
-            include_root = ctx.vcpkg_root / "installed" / ctx.vcpkg_triplet / "include"
-            required_boost_headers = {
-                "Boost.Asio": include_root / "boost" / "asio.hpp",
-                "Boost.Beast": include_root / "boost" / "beast.hpp",
-            }
-            missing = [name for name, header in required_boost_headers.items() if not header.exists()]
-            if missing:
-                packages: list[str] = []
-                if "Boost.Asio" in missing:
-                    packages.append(f"boost-asio:{ctx.vcpkg_triplet}")
-                if "Boost.Beast" in missing:
-                    packages.append(f"boost-beast:{ctx.vcpkg_triplet}")
-                errors.append(
-                    "missing Windows Boost dependency: "
-                    + ", ".join(missing)
-                    + "; install with: vcpkg install "
-                    + " ".join(packages)
+    if cmake and (ctx.platform_name == "windows" or compiler):
+        boost = _cmake_boost_headers_probe(ctx, cmake, compiler)
+        if not boost.available:
+            errors.append(
+                "[MISSING] hakoniwa-pdu-endpoint build prerequisite: Boost headers; "
+                "required: boost/asio.hpp, boost/beast.hpp; "
+                f"platform: {ctx.platform_name} {ctx.arch}; "
+                f"reason: {boost.detail}; "
+                "install Boost development headers for this environment or make an existing Boost installation discoverable by CMake"
+                + (
+                    _windows_vcpkg_boost_hint(ctx)
+                    if ctx.platform_name == "windows"
+                    else ""
                 )
-    elif cmake and compiler and not _cmake_boost_headers_available(
-        ctx, cmake, compiler
-    ):
-        errors.append(
-            "[MISSING] hakoniwa-pdu-endpoint build prerequisite: Boost headers; "
-            "required: boost/asio.hpp, boost/beast.hpp; "
-            f"platform: {ctx.platform_name} {ctx.arch}; "
-            "install Boost development headers for this environment or make an existing Boost installation discoverable by CMake"
-        )
+            )
     return errors, warnings
 
 
