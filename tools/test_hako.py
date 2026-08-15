@@ -67,6 +67,79 @@ class ConfigTests(unittest.TestCase):
             self.assertEqual(hako._host_platform(), ("linux", "arm64"))
 
 
+class VcpkgDiscoveryTests(unittest.TestCase):
+    def make_vcpkg(self, root: Path) -> Path:
+        toolchain = root / "scripts" / "buildsystems" / "vcpkg.cmake"
+        toolchain.parent.mkdir(parents=True)
+        toolchain.write_text("", encoding="utf-8")
+        return root.resolve()
+
+    def test_non_windows_ignores_ambient_vcpkg(self):
+        with tempfile.TemporaryDirectory() as temp_dir:
+            root = Path(temp_dir)
+            repo_root = root / "repo"
+            repo_root.mkdir()
+            ambient = self.make_vcpkg(root / "ambient-vcpkg")
+            self.make_vcpkg(root / "vcpkg")
+            cfg = hako.resolve_config({"version": 1})
+
+            with patch.dict(
+                hako.os.environ,
+                {
+                    "VCPKG_ROOT": str(ambient),
+                    "VCPKG_INSTALLATION_ROOT": str(ambient),
+                },
+                clear=False,
+            ):
+                self.assertIsNone(hako._find_vcpkg_root(cfg, repo_root, "macos"))
+                self.assertIsNone(hako._find_vcpkg_root(cfg, repo_root, "linux"))
+
+    def test_non_windows_honors_explicit_vcpkg(self):
+        with tempfile.TemporaryDirectory() as temp_dir:
+            root = Path(temp_dir)
+            repo_root = root / "repo"
+            repo_root.mkdir()
+            explicit = self.make_vcpkg(root / "explicit-vcpkg")
+            ambient = self.make_vcpkg(root / "ambient-vcpkg")
+            cfg = hako.resolve_config(
+                {
+                    "version": 1,
+                    "paths": {"vcpkg_root": str(explicit)},
+                }
+            )
+
+            with patch.dict(
+                hako.os.environ,
+                {"VCPKG_INSTALLATION_ROOT": str(ambient)},
+                clear=False,
+            ):
+                self.assertEqual(
+                    hako._find_vcpkg_root(cfg, repo_root, "macos"),
+                    explicit,
+                )
+
+    def test_windows_keeps_ambient_vcpkg_discovery(self):
+        with tempfile.TemporaryDirectory() as temp_dir:
+            root = Path(temp_dir)
+            repo_root = root / "repo"
+            repo_root.mkdir()
+            ambient = self.make_vcpkg(root / "ambient-vcpkg")
+            cfg = hako.resolve_config({"version": 1})
+
+            with patch.dict(
+                hako.os.environ,
+                {
+                    "VCPKG_ROOT": str(ambient),
+                    "VCPKG_INSTALLATION_ROOT": str(ambient),
+                },
+                clear=False,
+            ):
+                self.assertEqual(
+                    hako._find_vcpkg_root(cfg, repo_root, "windows"),
+                    ambient,
+                )
+
+
 class DoctorTests(unittest.TestCase):
     def make_context(self, *, zenoh: bool):
         cfg = hako.resolve_config(

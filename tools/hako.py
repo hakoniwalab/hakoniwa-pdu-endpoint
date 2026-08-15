@@ -221,13 +221,20 @@ def _host_platform() -> tuple[str, str]:
     return os_name, arch
 
 
-def _find_vcpkg_root(cfg: Mapping[str, Any], repo_root: Path) -> Path | None:
-    candidates = [
-        cfg["paths"]["vcpkg_root"],
-        os.environ.get("VCPKG_ROOT", ""),
-        os.environ.get("VCPKG_INSTALLATION_ROOT", ""),
-        str(repo_root.parent / "vcpkg"),
-    ]
+def _find_vcpkg_root(
+    cfg: Mapping[str, Any],
+    repo_root: Path,
+    platform_name: str,
+) -> Path | None:
+    candidates = [cfg["paths"]["vcpkg_root"]]
+    if platform_name == "windows":
+        candidates.extend(
+            [
+                os.environ.get("VCPKG_ROOT", ""),
+                os.environ.get("VCPKG_INSTALLATION_ROOT", ""),
+                str(repo_root.parent / "vcpkg"),
+            ]
+        )
     for value in candidates:
         if not value:
             continue
@@ -317,7 +324,7 @@ def create_context(manifest: Path, repo_root: Path) -> BuildContext:
             "features.hakoniwa_core=true requires paths.hakoniwa_core_root or "
             "HAKONIWA_CORE_ROOT/HAKO_PDU_ENDPOINT_HAKONIWA_CORE_ROOT"
         )
-    vcpkg_root = _find_vcpkg_root(cfg, repo_root)
+    vcpkg_root = _find_vcpkg_root(cfg, repo_root, platform_name)
     triplet = f"{arch}-windows" if platform_name == "windows" else ""
     env = dict(os.environ)
     if platform_name == "windows" and cfg["bindings"]["python"]:
