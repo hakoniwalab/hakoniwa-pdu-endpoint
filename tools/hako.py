@@ -484,7 +484,7 @@ def _cmake_boost_headers_probe(
                     "set(CMAKE_REQUIRED_LIBRARIES ${HAKO_BOOST_TARGET})",
                     'check_cxx_source_compiles("#include <boost/asio.hpp>\\n#include <boost/beast.hpp>\\nint main() { return 0; }" HAKO_BOOST_HEADERS_COMPILE)',
                     "if(NOT HAKO_BOOST_HEADERS_COMPILE)",
-                    '    message(FATAL_ERROR "HAKO_BOOST_HEADERS_COMPILE_FAILED")',
+                    '  message(FATAL_ERROR "HAKO_BOOST_HEADERS_COMPILE_FAILED")',
                     "endif()",
                 ]
             )
