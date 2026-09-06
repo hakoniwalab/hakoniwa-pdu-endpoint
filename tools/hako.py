@@ -362,6 +362,78 @@ def _python_package_available(interpreter: Path, package: str) -> bool:
     return result.returncode == 0
 
 
+def _python_build_requirements(repo_root: Path) -> list[str]:
+    try:
+        import tomllib
+    except ModuleNotFoundError as exc:
+        raise ConfigError(
+            "managed prepare requires Python 3.11+ to read pyproject.toml"
+        ) from exc
+    path = repo_root / "pyproject.toml"
+    if not path.is_file():
+        raise ConfigError(f"Python build requirements are missing: {path}")
+    with path.open("rb") as stream:
+        data = tomllib.load(stream)
+    build_system = data.get("build-system") if isinstance(data, dict) else None
+    requirements = (
+        build_system.get("requires") if isinstance(build_system, dict) else None
+    )
+    if not isinstance(requirements, list) or not requirements or not all(
+        isinstance(item, str) and item.strip() for item in requirements
+    ):
+        raise ConfigError(
+            f"pyproject.toml build-system.requires is missing or invalid: {path}"
+        )
+    return [item.strip() for item in requirements]
+
+
+def _managed_workspace_python_venv(requested: Path) -> Path:
+    if os.environ.get("HAKONIWA_WORKSPACE_ACTIVE") != "1":
+        raise ConfigError(
+            "prepare may install Python packages only inside an active Hakoniwa "
+            "Business Pack workspace; run tools/workspace.py enter first"
+        )
+    workspace_root_value = os.environ.get("HAKONIWA_WORKSPACE_ROOT", "").strip()
+    home_value = os.environ.get("HAKONIWA_HOME", "").strip()
+    virtual_env_value = os.environ.get("VIRTUAL_ENV", "").strip()
+    if not workspace_root_value or not home_value or not virtual_env_value:
+        raise ConfigError(
+            "active Hakoniwa workspace is incomplete; HAKONIWA_WORKSPACE_ROOT, "
+            "HAKONIWA_HOME, and VIRTUAL_ENV are required"
+        )
+    workspace_root = Path(workspace_root_value).expanduser().resolve()
+    home = Path(home_value).expanduser().resolve()
+    virtual_env = Path(virtual_env_value).expanduser().resolve()
+    expected_home = workspace_root / "work" / "foundation" / "install"
+    expected_venv = expected_home / "python"
+    requested = requested.expanduser().resolve()
+    if home != expected_home or virtual_env != expected_venv or requested != expected_venv:
+        raise ConfigError(
+            "prepare refuses to modify a Python environment outside the active "
+            f"Hakoniwa Foundation: requested={requested}, expected={expected_venv}"
+        )
+    return expected_venv
+
+
+def prepare(ctx: BuildContext, python_venv: Path | None) -> None:
+    if not ctx.cfg["bindings"]["python"]:
+        print("Python binding disabled; no Python build prerequisites to prepare.")
+        return
+    if python_venv is None:
+        raise ConfigError(
+            "bindings.python=true requires --python-venv during prepare"
+        )
+    managed_venv = _managed_workspace_python_venv(python_venv)
+    interpreter = _venv_python(managed_venv, ctx.platform_name)
+    if not interpreter.is_file():
+        raise ConfigError(f"Foundation Python venv was not found: {managed_venv}")
+    requirements = _python_build_requirements(ctx.repo_root)
+    _run(
+        [str(interpreter), "-m", "pip", "install", *requirements],
+        cwd=ctx.repo_root,
+    )
+
+
 def _first_command(names: tuple[str, ...]) -> str | None:
     for name in names:
         found = shutil.which(name)
@@ -412,7 +484,7 @@ def _cmake_boost_headers_probe(
                     "set(CMAKE_REQUIRED_LIBRARIES ${HAKO_BOOST_TARGET})",
                     'check_cxx_source_compiles("#include <boost/asio.hpp>\\n#include <boost/beast.hpp>\\nint main() { return 0; }" HAKO_BOOST_HEADERS_COMPILE)',
                     "if(NOT HAKO_BOOST_HEADERS_COMPILE)",
-                    '  message(FATAL_ERROR "HAKO_BOOST_HEADERS_COMPILE_FAILED")',
+                    '    message(FATAL_ERROR "HAKO_BOOST_HEADERS_COMPILE_FAILED")',
                     "endif()",
                 ]
             )
@@ -1012,7 +1084,7 @@ def install(
 
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description="OS-independent Hakoniwa PDU Endpoint build configurator")
-    parser.add_argument("command", choices=["doctor", "configure", "build", "test", "install"])
+    parser.add_argument("command", choices=["prepare", "doctor", "configure", "build", "test", "install"])
     parser.add_argument("--config", default=None, help="build manifest (default: repository root/hakoniwa-build.yaml)")
     parser.add_argument("--install-dir", default=None, help="explicit local install prefix (required by install)")
     parser.add_argument("--python-venv", default=None, help="Foundation Python venv used to install the CFFI binding")
@@ -1033,12 +1105,15 @@ def main(argv: list[str] | None = None) -> int:
         if python_venv is not None
         else Path(sys.executable)
     )
+    if args.command == "prepare" and not args.dry_run:
+        prepare(ctx, python_venv)
+
     errors, warnings = doctor(ctx, python_interpreter)
     print_summary(ctx, errors, warnings)
     resolved = write_resolved(ctx)
     print(f"\nResolved configuration: {resolved}")
 
-    if args.command == "doctor":
+    if args.command in {"prepare", "doctor"}:
         return 1 if errors else 0
     if args.command in {"build", "test", "install"} and errors:
         raise ConfigError("doctor found blocking prerequisites; fix them before building/testing")
