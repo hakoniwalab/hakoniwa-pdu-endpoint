@@ -140,6 +140,139 @@ class VcpkgDiscoveryTests(unittest.TestCase):
                 )
 
 
+class PrepareTests(unittest.TestCase):
+    def make_context(
+        self,
+        repo_root: Path,
+        *,
+        python_binding: bool = True,
+        platform_name: str = "linux",
+    ):
+        cfg = hako.resolve_config(
+            {
+                "version": 1,
+                "bindings": {"python": python_binding},
+            }
+        )
+        return hako.BuildContext(
+            repo_root=repo_root,
+            manifest_path=repo_root / "hakoniwa-build.yaml",
+            cfg=cfg,
+            platform_name=platform_name,
+            arch="arm64",
+            build_dir=repo_root / "build",
+            vcpkg_root=None,
+            core_root=None,
+            vcpkg_triplet="",
+            child_env={},
+        )
+
+    def write_pyproject(self, repo_root: Path) -> None:
+        (repo_root / "pyproject.toml").write_text(
+            '[build-system]\nrequires = ["setuptools>=68", "wheel", "cffi>=1.16"]\n'
+            'build-backend = "setuptools.build_meta"\n',
+            encoding="utf-8",
+        )
+
+    def workspace(self, root: Path, *, platform_name: str = "linux"):
+        home = root / "work" / "foundation" / "install"
+        venv = home / "python"
+        interpreter = hako._venv_python(venv, platform_name)
+        interpreter.parent.mkdir(parents=True)
+        interpreter.write_text("", encoding="utf-8")
+        env = {
+            "HAKONIWA_WORKSPACE_ACTIVE": "1",
+            "HAKONIWA_WORKSPACE_ROOT": str(root),
+            "HAKONIWA_HOME": str(home),
+            "VIRTUAL_ENV": str(venv),
+        }
+        return venv, interpreter, env
+
+    def test_prepare_refuses_outside_active_workspace(self):
+        with tempfile.TemporaryDirectory() as temp_dir:
+            root = Path(temp_dir)
+            repo = root / "endpoint"
+            repo.mkdir()
+            self.write_pyproject(repo)
+            venv = root / "python"
+            interpreter = hako._venv_python(venv, "linux")
+            interpreter.parent.mkdir(parents=True)
+            interpreter.write_text("", encoding="utf-8")
+            ctx = self.make_context(repo)
+
+            with patch.dict(hako.os.environ, {}, clear=True), patch.object(
+                hako, "_run"
+            ) as run:
+                with self.assertRaisesRegex(
+                    hako.ConfigError, "only inside an active Hakoniwa"
+                ):
+                    hako.prepare(ctx, venv)
+
+            run.assert_not_called()
+
+    def test_prepare_refuses_non_workspace_python_target(self):
+        with tempfile.TemporaryDirectory() as temp_dir:
+            root = Path(temp_dir) / "business-pack"
+            repo = Path(temp_dir) / "endpoint"
+            root.mkdir()
+            repo.mkdir()
+            self.write_pyproject(repo)
+            _venv, _interpreter, env = self.workspace(root)
+            other = Path(temp_dir) / "user-venv"
+            ctx = self.make_context(repo)
+
+            with patch.dict(hako.os.environ, env, clear=True), patch.object(
+                hako, "_run"
+            ) as run:
+                with self.assertRaisesRegex(
+                    hako.ConfigError, "refuses to modify a Python environment"
+                ):
+                    hako.prepare(ctx, other)
+
+            run.assert_not_called()
+
+    def test_prepare_installs_declared_requirements_into_foundation_python(self):
+        with tempfile.TemporaryDirectory() as temp_dir:
+            root = Path(temp_dir) / "business-pack"
+            repo = Path(temp_dir) / "endpoint"
+            root.mkdir()
+            repo.mkdir()
+            self.write_pyproject(repo)
+            venv, interpreter, env = self.workspace(root)
+            ctx = self.make_context(repo)
+
+            with patch.dict(hako.os.environ, env, clear=True), patch.object(
+                hako, "_run"
+            ) as run:
+                hako.prepare(ctx, venv)
+
+            run.assert_called_once_with(
+                [
+                    str(interpreter.resolve()),
+                    "-m",
+                    "pip",
+                    "install",
+                    "setuptools>=68",
+                    "wheel",
+                    "cffi>=1.16",
+                ],
+                cwd=repo,
+            )
+
+    def test_prepare_is_noop_for_cpp_only_profile(self):
+        with tempfile.TemporaryDirectory() as temp_dir:
+            repo = Path(temp_dir) / "endpoint"
+            repo.mkdir()
+            ctx = self.make_context(repo, python_binding=False)
+
+            with patch.dict(hako.os.environ, {}, clear=True), patch.object(
+                hako, "_run"
+            ) as run:
+                hako.prepare(ctx, None)
+
+            run.assert_not_called()
+
+
 class DoctorTests(unittest.TestCase):
     def make_context(
         self,
