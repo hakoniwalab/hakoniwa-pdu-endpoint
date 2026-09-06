@@ -248,7 +248,7 @@ class PrepareTests(unittest.TestCase):
 
             run.assert_called_once_with(
                 [
-                    str(interpreter),
+                    str(interpreter.resolve()),
                     "-m",
                     "pip",
                     "install",
