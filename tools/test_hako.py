@@ -174,8 +174,15 @@ class PrepareTests(unittest.TestCase):
             encoding="utf-8",
         )
 
-    def workspace(self, root: Path, *, platform_name: str = "linux"):
-        home = root / "work" / "foundation" / "install"
+    def workspace(
+        self,
+        root: Path,
+        *,
+        platform_name: str = "linux",
+        work_dir: Path | None = None,
+    ):
+        work_dir = work_dir or (root / "work")
+        home = work_dir / "foundation" / "install"
         venv = home / "python"
         interpreter = hako._venv_python(venv, platform_name)
         interpreter.parent.mkdir(parents=True)
@@ -186,7 +193,87 @@ class PrepareTests(unittest.TestCase):
             "HAKONIWA_HOME": str(home),
             "VIRTUAL_ENV": str(venv),
         }
+        if work_dir != root / "work":
+            env["HAKONIWA_WORK_DIR"] = str(work_dir)
         return venv, interpreter, env
+
+    def test_prepare_accepts_external_workdir_python(self):
+        with tempfile.TemporaryDirectory() as temp_dir:
+            base = Path(temp_dir)
+            root = base / "business-pack"
+            repo = base / "endpoint"
+            work_dir = base / "nova5-work"
+            root.mkdir()
+            repo.mkdir()
+            self.write_pyproject(repo)
+            venv, interpreter, env = self.workspace(root, work_dir=work_dir)
+            ctx = self.make_context(repo)
+
+            with patch.dict(hako.os.environ, env, clear=True), patch.object(
+                hako, "_run"
+            ) as run:
+                hako.prepare(ctx, venv)
+
+            run.assert_called_once_with(
+                [
+                    str(interpreter.resolve()),
+                    "-m",
+                    "pip",
+                    "install",
+                    "setuptools>=68",
+                    "wheel",
+                    "cffi>=1.16",
+                ],
+                cwd=repo,
+            )
+
+    def test_prepare_accepts_symlinked_external_workdir(self):
+        with tempfile.TemporaryDirectory() as temp_dir:
+            base = Path(temp_dir)
+            root = base / "business-pack"
+            repo = base / "endpoint"
+            real_work = base / "real-work"
+            linked_work = base / "linked-work"
+            root.mkdir()
+            repo.mkdir()
+            real_work.mkdir()
+            linked_work.symlink_to(real_work, target_is_directory=True)
+            self.write_pyproject(repo)
+            venv, interpreter, env = self.workspace(
+                root, work_dir=linked_work
+            )
+            ctx = self.make_context(repo)
+
+            with patch.dict(hako.os.environ, env, clear=True), patch.object(
+                hako, "_run"
+            ) as run:
+                hako.prepare(ctx, venv)
+
+            run.assert_called_once()
+            self.assertEqual(run.call_args.args[0][0], str(interpreter.resolve()))
+
+    def test_prepare_refuses_venv_outside_selected_external_workdir(self):
+        with tempfile.TemporaryDirectory() as temp_dir:
+            base = Path(temp_dir)
+            root = base / "business-pack"
+            repo = base / "endpoint"
+            work_dir = base / "nova5-work"
+            root.mkdir()
+            repo.mkdir()
+            self.write_pyproject(repo)
+            _venv, _interpreter, env = self.workspace(root, work_dir=work_dir)
+            outside = base / "other-venv"
+            ctx = self.make_context(repo)
+
+            with patch.dict(hako.os.environ, env, clear=True), patch.object(
+                hako, "_run"
+            ) as run:
+                with self.assertRaisesRegex(
+                    hako.ConfigError, "refuses to modify a Python environment"
+                ):
+                    hako.prepare(ctx, outside)
+
+            run.assert_not_called()
 
     def test_prepare_refuses_outside_active_workspace(self):
         with tempfile.TemporaryDirectory() as temp_dir:

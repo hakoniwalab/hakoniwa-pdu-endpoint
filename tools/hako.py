@@ -401,11 +401,20 @@ def _managed_workspace_python_venv(requested: Path) -> Path:
             "active Hakoniwa workspace is incomplete; HAKONIWA_WORKSPACE_ROOT, "
             "HAKONIWA_HOME, and VIRTUAL_ENV are required"
         )
+    # Keep the legacy default while allowing Business Pack to select an
+    # external work directory.  Canonicalize every side of the comparison so
+    # that a symlinked /tmp path cannot be mistaken for a different workspace.
     workspace_root = Path(workspace_root_value).expanduser().resolve()
+    work_dir_value = os.environ.get("HAKONIWA_WORK_DIR", "").strip()
+    work_dir = (
+        Path(work_dir_value).expanduser().resolve()
+        if work_dir_value
+        else (workspace_root / "work").resolve()
+    )
     home = Path(home_value).expanduser().resolve()
     virtual_env = Path(virtual_env_value).expanduser().resolve()
-    expected_home = workspace_root / "work" / "foundation" / "install"
-    expected_venv = expected_home / "python"
+    expected_home = (work_dir / "foundation" / "install").resolve()
+    expected_venv = (expected_home / "python").resolve()
     requested = requested.expanduser().resolve()
     if home != expected_home or virtual_env != expected_venv or requested != expected_venv:
         raise ConfigError(
