@@ -140,6 +140,60 @@ class VcpkgDiscoveryTests(unittest.TestCase):
                 )
 
 
+class StateDirTests(unittest.TestCase):
+    def make_manifest(self, repo_root: Path) -> Path:
+        manifest = repo_root / "hakoniwa-build.yaml"
+        manifest.write_text(
+            "version: 1\nbindings:\n  python: false\n",
+            encoding="utf-8",
+        )
+        return manifest
+
+    def test_default_state_dir_remains_repository_hako(self):
+        with tempfile.TemporaryDirectory() as temp_dir:
+            repo_root = Path(temp_dir) / "repo"
+            repo_root.mkdir()
+            ctx = hako.create_context(self.make_manifest(repo_root), repo_root)
+
+            resolved = hako.write_resolved(ctx)
+
+            self.assertEqual(resolved, repo_root / ".hako" / "resolved-build.yaml")
+
+    def test_external_state_dir_keeps_repository_hako_untouched(self):
+        with tempfile.TemporaryDirectory() as temp_dir:
+            root = Path(temp_dir)
+            repo_root = root / "repo"
+            state_dir = root / "workspace" / "foundation" / "state" / "endpoint"
+            repo_root.mkdir()
+            ctx = hako.create_context(
+                self.make_manifest(repo_root), repo_root, state_dir
+            )
+
+            resolved = hako.write_resolved(ctx)
+
+            self.assertEqual(
+                resolved.resolve(), (state_dir / "resolved-build.yaml").resolve()
+            )
+            self.assertTrue((state_dir / "cmake-args.txt").is_file())
+            self.assertFalse((repo_root / ".hako").exists())
+
+    def test_symlinked_state_dir_is_canonicalized(self):
+        with tempfile.TemporaryDirectory() as temp_dir:
+            root = Path(temp_dir)
+            repo_root = root / "repo"
+            real_state = root / "real-state"
+            linked_state = root / "linked-state"
+            repo_root.mkdir()
+            real_state.mkdir()
+            linked_state.symlink_to(real_state, target_is_directory=True)
+
+            ctx = hako.create_context(
+                self.make_manifest(repo_root), repo_root, linked_state
+            )
+
+            self.assertEqual(ctx.hako_state_dir, real_state.resolve())
+
+
 class PrepareTests(unittest.TestCase):
     def make_context(
         self,

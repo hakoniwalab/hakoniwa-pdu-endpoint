@@ -287,6 +287,11 @@ class BuildContext:
     core_root: Path | None
     vcpkg_triplet: str
     child_env: Dict[str, str]
+    state_dir: Path | None = None
+
+    @property
+    def hako_state_dir(self) -> Path:
+        return self.state_dir or self.repo_root / ".hako"
 
     @property
     def cmake_args(self) -> list[str]:
@@ -311,7 +316,11 @@ class BuildContext:
         return args
 
 
-def create_context(manifest: Path, repo_root: Path) -> BuildContext:
+def create_context(
+    manifest: Path,
+    repo_root: Path,
+    state_dir: Path | None = None,
+) -> BuildContext:
     raw = load_simple_yaml(manifest)
     cfg = resolve_config(raw)
     platform_name, arch = _host_platform()
@@ -342,6 +351,7 @@ def create_context(manifest: Path, repo_root: Path) -> BuildContext:
         core_root=core_root,
         vcpkg_triplet=triplet,
         child_env=env,
+        state_dir=state_dir.resolve() if state_dir is not None else None,
     )
 
 
@@ -652,7 +662,7 @@ def _resolved_record(ctx: BuildContext) -> Dict[str, Any]:
 
 
 def write_resolved(ctx: BuildContext) -> Path:
-    out_dir = ctx.repo_root / ".hako"
+    out_dir = ctx.hako_state_dir
     out_dir.mkdir(parents=True, exist_ok=True)
     out_path = out_dir / "resolved-build.yaml"
     out_path.write_text(dump_yaml(_resolved_record(ctx)), encoding="utf-8")
@@ -925,7 +935,7 @@ def write_receipt(ctx: BuildContext, install_dir: Path) -> Path:
     )
     (install_dir / resolved_relative).parent.mkdir(parents=True, exist_ok=True)
     shutil.copyfile(
-        ctx.repo_root / ".hako" / "resolved-build.yaml",
+        ctx.hako_state_dir / "resolved-build.yaml",
         install_dir / resolved_relative,
     )
 
@@ -1097,6 +1107,11 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--config", default=None, help="build manifest (default: repository root/hakoniwa-build.yaml)")
     parser.add_argument("--install-dir", default=None, help="explicit local install prefix (required by install)")
     parser.add_argument("--python-venv", default=None, help="Foundation Python venv used to install the CFFI binding")
+    parser.add_argument(
+        "--state-dir",
+        default=None,
+        help="generated hako.py state directory (default: repository root/.hako)",
+    )
     parser.add_argument("--dry-run", action="store_true", help="resolve and print without running build commands")
     args = parser.parse_args(argv)
 
@@ -1107,7 +1122,10 @@ def main(argv: list[str] | None = None) -> int:
     if not manifest.exists():
         raise ConfigError(f"build manifest not found: {manifest}")
 
-    ctx = create_context(manifest, repo_root)
+    state_dir = Path(args.state_dir).expanduser() if args.state_dir else None
+    if state_dir is not None and not state_dir.is_absolute():
+        state_dir = (Path.cwd() / state_dir).resolve()
+    ctx = create_context(manifest, repo_root, state_dir)
     python_venv = Path(args.python_venv).resolve() if args.python_venv else None
     python_interpreter = (
         _venv_python(python_venv, ctx.platform_name)
