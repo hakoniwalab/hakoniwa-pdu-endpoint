@@ -52,3 +52,8 @@ The trade-off is justified when systems must remain explainable years later:
 
 Use this component when you need explicit, auditable semantics and long-term maintainability in distributed simulation.
 Choose a simpler tool when you prioritize rapid setup, implicit defaults, or single-purpose messaging.
+
+## Related design documents
+
+- [Build architecture](build-architecture.md)
+- [SHM callback module boundaries](shm-callback-module-boundary.md) ([日本語](shm-callback-module-boundary.ja.md)) — why OS shared memory and module-local Core/Asset state are separate, how Windows differs from Linux/macOS, and when `Endpoint::open(config, asset_name)` is required.
