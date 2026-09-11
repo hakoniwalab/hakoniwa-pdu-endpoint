@@ -27,6 +27,7 @@ public:
         (void)pdu_config_path;
         return HAKO_PDU_ERR_OK;
     }
+    virtual HakoPduErrorType post_start() noexcept { return HAKO_PDU_ERR_OK; }
     virtual void process_recv_events() noexcept = 0;
 };
 
@@ -68,6 +69,7 @@ public:
     virtual HakoPduErrorType attach_asset_context(
         const std::optional<std::string>& io_asset_name,
         const std::optional<std::string>& pdu_config_path) noexcept override;
+    virtual HakoPduErrorType post_start() noexcept override;
     virtual void process_recv_events() noexcept override;
 private:
     HakoPduErrorType ensure_attached() noexcept;
