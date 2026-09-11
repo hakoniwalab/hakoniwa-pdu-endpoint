@@ -38,20 +38,6 @@ HakoPduErrorType PduCommShmCallbackImpl::ensure_attached() noexcept
     attached_ = true;
     return HAKO_PDU_ERR_OK;
 }
-HakoPduErrorType PduCommShmCallbackImpl::post_start() noexcept
-{
-    const auto attach_err = ensure_attached();
-    if (attach_err != HAKO_PDU_ERR_OK) {
-        return attach_err;
-    }
-
-    const int rc = hako_asset_load_pdu_data();
-    if (rc != 0) {
-        std::cerr << "PduCommShmCallbackImpl Error: Failed to load Hakoniwa PDU data. rc=" << rc << std::endl;
-        return HAKO_PDU_ERR_IO_ERROR;
-    }
-    return HAKO_PDU_ERR_OK;
-}
 HakoPduErrorType PduCommShmCallbackImpl::create_pdu_lchannel(const std::string& robot_name, HakoPduChannelIdType channel_id, size_t pdu_size) noexcept
 {
     const auto attach_err = ensure_attached();
@@ -94,6 +80,13 @@ HakoPduErrorType PduCommShmCallbackImpl::register_rcv_event(const PduResolvedKey
     if (attach_err != HAKO_PDU_ERR_OK) {
         return attach_err;
     }
+
+    const int load_rc = hako_asset_load_pdu_data();
+    if (load_rc != 0) {
+        std::cerr << "PduCommShmCallbackImpl Error: Failed to load Hakoniwa PDU data. rc=" << load_rc << std::endl;
+        return HAKO_PDU_ERR_IO_ERROR;
+    }
+
     if (hako_asset_register_data_recv_event(pdu_key.robot.c_str(), pdu_key.channel_id, on_recv, &out_event_id) != 0) {
         return HAKO_PDU_ERR_IO_ERROR;
     }
