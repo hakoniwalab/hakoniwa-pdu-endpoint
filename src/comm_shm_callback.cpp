@@ -38,6 +38,20 @@ HakoPduErrorType PduCommShmCallbackImpl::ensure_attached() noexcept
     attached_ = true;
     return HAKO_PDU_ERR_OK;
 }
+HakoPduErrorType PduCommShmCallbackImpl::post_start() noexcept
+{
+    const auto attach_err = ensure_attached();
+    if (attach_err != HAKO_PDU_ERR_OK) {
+        return attach_err;
+    }
+
+    const int rc = hako_asset_load_pdu_data();
+    if (rc != 0) {
+        std::cerr << "PduCommShmCallbackImpl Error: Failed to load Hakoniwa PDU data. rc=" << rc << std::endl;
+        return HAKO_PDU_ERR_IO_ERROR;
+    }
+    return HAKO_PDU_ERR_OK;
+}
 HakoPduErrorType PduCommShmCallbackImpl::create_pdu_lchannel(const std::string& robot_name, HakoPduChannelIdType channel_id, size_t pdu_size) noexcept
 {
     const auto attach_err = ensure_attached();
