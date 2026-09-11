@@ -80,6 +80,13 @@ HakoPduErrorType PduCommShmCallbackImpl::register_rcv_event(const PduResolvedKey
     if (attach_err != HAKO_PDU_ERR_OK) {
         return attach_err;
     }
+
+    const int load_rc = hako_asset_load_pdu_data();
+    if (load_rc != 0) {
+        std::cerr << "PduCommShmCallbackImpl Error: Failed to load Hakoniwa PDU data. rc=" << load_rc << std::endl;
+        return HAKO_PDU_ERR_IO_ERROR;
+    }
+
     if (hako_asset_register_data_recv_event(pdu_key.robot.c_str(), pdu_key.channel_id, on_recv, &out_event_id) != 0) {
         return HAKO_PDU_ERR_IO_ERROR;
     }
