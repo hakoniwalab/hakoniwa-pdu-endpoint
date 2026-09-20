@@ -26,7 +26,7 @@ public:
     // Non-blocking: returns newly created session comms; empty if none.
     virtual std::vector<std::shared_ptr<PduComm>> take_sessions() = 0;
 
-    // Connection counters for readiness checks.
+    // Current active connection count and configured initial readiness target.
     virtual size_t connected_count() const noexcept = 0;
     virtual size_t expected_count() const noexcept = 0;
 

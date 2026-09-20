@@ -3,6 +3,7 @@
 #include "hakoniwa/pdu/comm/comm_mux.hpp"
 #include "hakoniwa/pdu/socket_portability.hpp"
 #include <atomic>
+#include <memory>
 #include <mutex>
 #include <thread>
 
@@ -54,7 +55,8 @@ private:
     Options options_{};
     std::string comm_name_{"tcp_mux"};
     size_t expected_clients_ = 0;
-    std::atomic<size_t> connected_clients_{0};
+    std::shared_ptr<std::atomic<size_t>> connected_clients_{
+        std::make_shared<std::atomic<size_t>>(0)};
 
     mutable std::mutex sessions_mutex_;
     std::vector<std::shared_ptr<PduComm>> pending_sessions_;

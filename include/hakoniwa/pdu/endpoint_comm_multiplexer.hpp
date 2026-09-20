@@ -31,7 +31,8 @@ public:
     // Non-blocking: returns any newly accepted endpoints; empty if none.
     std::vector<std::unique_ptr<Endpoint>> take_endpoints();
 
-    // Connection counters are driven by comm multiplexer (e.g., TCP mux).
+    // connected_count() reports currently active sessions; expected_count()
+    // is the configured initial readiness target.
     size_t connected_count() const noexcept;
     size_t expected_count() const noexcept;
     bool is_ready() const noexcept;

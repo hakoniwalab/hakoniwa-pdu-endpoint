@@ -46,8 +46,14 @@ uint32_t from_le32(uint32_t value) noexcept
 class TcpSessionComm final : public PduCommRaw
 {
 public:
-    TcpSessionComm(SocketHandle fd, std::uint64_t connection_id, std::string peer)
-        : fd_(fd), connection_id_(connection_id), peer_endpoint_(std::move(peer)) {}
+    TcpSessionComm(SocketHandle fd,
+                   std::uint64_t connection_id,
+                   std::string peer,
+                   std::shared_ptr<std::atomic<size_t>> connected_clients)
+        : fd_(fd),
+          connection_id_(connection_id),
+          peer_endpoint_(std::move(peer)),
+          connected_clients_(std::move(connected_clients)) {}
     ~TcpSessionComm() override { (void)raw_close(); }
 
 protected:
@@ -118,6 +124,7 @@ protected:
         const SocketHandle current_fd = fd_.exchange(kInvalidSocket);
         if (is_valid_socket(current_fd)) {
             (void)close_socket(current_fd);
+            mark_disconnected_();
         }
         return HAKO_PDU_ERR_OK;
     }
@@ -148,6 +155,7 @@ protected:
         if (is_valid_socket(current_fd)) {
             shutdown_socket(current_fd, SocketShutdownMode::ReadWrite);
             (void)close_socket(current_fd);
+            mark_disconnected_();
         }
         if (recv_thread_.joinable()) {
             recv_thread_.join();
@@ -430,6 +438,15 @@ private:
         if (fd_.compare_exchange_strong(current_fd, kInvalidSocket)) {
             shutdown_socket(expected_fd, SocketShutdownMode::ReadWrite);
             (void)close_socket(expected_fd);
+            mark_disconnected_();
+        }
+    }
+
+    void mark_disconnected_() noexcept
+    {
+        bool expected = true;
+        if (counted_connected_.compare_exchange_strong(expected, false)) {
+            connected_clients_->fetch_sub(1);
         }
     }
 
@@ -443,6 +460,8 @@ private:
     std::string comm_name_{"tcp_mux_session"};
     std::uint64_t connection_id_ = 0;
     std::string peer_endpoint_;
+    std::shared_ptr<std::atomic<size_t>> connected_clients_;
+    std::atomic<bool> counted_connected_{true};
 };
 
 } // namespace
@@ -629,7 +648,7 @@ std::vector<std::shared_ptr<PduComm>> TcpCommMultiplexer::take_sessions()
 
 size_t TcpCommMultiplexer::connected_count() const noexcept
 {
-    return connected_clients_.load();
+    return connected_clients_->load();
 }
 
 size_t TcpCommMultiplexer::expected_count() const noexcept
@@ -660,12 +679,13 @@ void TcpCommMultiplexer::accept_loop_()
         const auto connection_id = next_tcp_connection_id();
         const auto peer = format_socket_address(
             reinterpret_cast<SocketAddress*>(&client_addr), client_len);
-        auto session = std::make_shared<TcpSessionComm>(accepted_fd, connection_id, peer);
+        connected_clients_->fetch_add(1);
+        auto session = std::make_shared<TcpSessionComm>(
+            accepted_fd, connection_id, peer, connected_clients_);
         {
             std::lock_guard<std::mutex> lock(sessions_mutex_);
             pending_sessions_.push_back(std::move(session));
         }
-        connected_clients_.fetch_add(1);
     }
 }
 
