@@ -90,7 +90,7 @@ jobs:
       - name: Install Dependencies
         run: |
           sudo apt-get update
-          echo "deb [trusted=yes] https://hakoniwalab.github.io/apt stable main" \
+          echo "deb [arch=$(dpkg --print-architecture) trusted=yes] https://hakoniwalab.github.io/apt stable main" \
             | sudo tee /etc/apt/sources.list.d/hakoniwa.list
           sudo apt update
           sudo apt-get install -y g++-12 libgtest-dev cmake libboost-dev
