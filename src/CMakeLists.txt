@@ -65,7 +65,21 @@ if(HAKO_PDU_ENDPOINT_ENABLE_MQTT)
 endif()
 
 find_package(nlohmann_json 3.11.3 CONFIG QUIET)
-if(NOT TARGET nlohmann_json::nlohmann_json)
+if(TARGET nlohmann_json::nlohmann_json)
+  # Bundle the headers of a system nlohmann_json too, so installed consumers
+  # keep building when that package is later removed or changed.
+  get_target_property(_hako_nlohmann_includes nlohmann_json::nlohmann_json INTERFACE_INCLUDE_DIRECTORIES)
+  foreach(_hako_nlohmann_include IN LISTS _hako_nlohmann_includes)
+    if(EXISTS "${_hako_nlohmann_include}/nlohmann/json.hpp")
+      # Package managers often link include/nlohmann to their store; install
+      # the real files, not the link.
+      get_filename_component(_hako_nlohmann_real "${_hako_nlohmann_include}/nlohmann" REALPATH)
+      get_filename_component(_hako_nlohmann_real "${_hako_nlohmann_real}" DIRECTORY)
+      set(HAKO_NLOHMANN_JSON_INCLUDE_DIR "${_hako_nlohmann_real}" PARENT_SCOPE)
+      break()
+    endif()
+  endforeach()
+else()
   if(DEFINED HAKO_LOCAL_NLOHMANN_JSON_ROOT AND EXISTS "${HAKO_LOCAL_NLOHMANN_JSON_ROOT}/single_include/nlohmann/json.hpp")
     add_library(nlohmann_json::nlohmann_json INTERFACE IMPORTED)
     set_target_properties(nlohmann_json::nlohmann_json PROPERTIES
